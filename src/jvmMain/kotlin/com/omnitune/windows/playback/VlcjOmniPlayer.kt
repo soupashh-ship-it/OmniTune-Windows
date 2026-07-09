@@ -1,5 +1,6 @@
 package com.omnitune.windows.playback
 
+import com.omnitune.windows.app.DependencyContainer
 import com.omnitune.windows.models.Track
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,9 +34,6 @@ class VlcjOmniPlayer : OmniPlayer {
     private val _durationMs = MutableStateFlow(0L)
     override val durationMs: StateFlow<Long> = _durationMs.asStateFlow()
 
-    private val _queue = MutableStateFlow<List<Track>>(emptyList())
-    override val queue: StateFlow<List<Track>> = _queue.asStateFlow()
-
     private var progressJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO)
 
@@ -67,7 +65,8 @@ class VlcjOmniPlayer : OmniPlayer {
                     _playbackState.value = PlaybackState.IDLE
                     _positionMs.value = 0L
                     stopProgressUpdates()
-                    playNext()
+                    // Auto advance
+                    DependencyContainer.playbackCoordinator.next()
                 }
 
                 override fun error(mediaPlayer: MediaPlayer) {
@@ -115,34 +114,6 @@ class VlcjOmniPlayer : OmniPlayer {
     override fun seekTo(positionMs: Long) {
         mediaPlayer?.controls()?.setTime(positionMs)
         _positionMs.value = positionMs
-    }
-
-    override fun playNext() {
-        val current = _queue.value
-        val track = _currentTrack.value
-        if (current.isNotEmpty() && track != null) {
-            val currentIndex = current.indexOf(track)
-            if (currentIndex in 0 until current.lastIndex) {
-                val nextTrack = current[currentIndex + 1]
-                _currentTrack.value = nextTrack
-            }
-        }
-    }
-
-    override fun playPrevious() {
-        val current = _queue.value
-        val track = _currentTrack.value
-        if (current.isNotEmpty() && track != null) {
-            val currentIndex = current.indexOf(track)
-            if (currentIndex > 0) {
-                val prevTrack = current[currentIndex - 1]
-                _currentTrack.value = prevTrack
-            }
-        }
-    }
-
-    override fun setQueue(tracks: List<Track>, startIndex: Int) {
-        _queue.value = tracks
     }
 
     override fun setShuffle(enabled: Boolean) {}

@@ -84,7 +84,7 @@ fun OmniShell(player: OmniPlayer) {
                     }
                     Column(modifier = Modifier.align(Alignment.Center).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                         Row {
-                            Button(onClick = { player.playPrevious() }, modifier = Modifier.padding(end = 8.dp)) {
+                            Button(onClick = { com.omnitune.windows.app.DependencyContainer.playbackCoordinator.previous() }, modifier = Modifier.padding(end = 8.dp)) {
                                 Text("Prev")
                             }
                             Button(onClick = { 
@@ -93,7 +93,7 @@ fun OmniShell(player: OmniPlayer) {
                             }) {
                                 Text(if (playbackState == PlaybackState.PLAYING) "Pause" else "Play")
                             }
-                            Button(onClick = { player.playNext() }, modifier = Modifier.padding(start = 8.dp)) {
+                            Button(onClick = { com.omnitune.windows.app.DependencyContainer.playbackCoordinator.next() }, modifier = Modifier.padding(start = 8.dp)) {
                                 Text("Next")
                             }
                         }

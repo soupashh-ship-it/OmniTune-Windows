@@ -14,8 +14,11 @@ object DependencyContainer {
     val database: OmniDatabase by lazy {
         DatabaseFactory.createDatabase()
     }
-
     val player: OmniPlayer by lazy {
         VlcjOmniPlayer()
+    }
+
+    val playbackCoordinator: com.omnitune.windows.domain.playback.PlaybackCoordinator by lazy {
+        com.omnitune.windows.domain.playback.PlaybackCoordinator(applicationScope, player)
     }
 }

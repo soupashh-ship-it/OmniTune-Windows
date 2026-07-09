@@ -136,10 +136,7 @@ fun SearchScreen(player: OmniPlayer) {
                         .fillMaxWidth()
                         .clickable {
                             scope.launch {
-                                val streamUrl = controller.resolveStreamUrl(song.id)
-                                if (streamUrl != null) {
-                                    player.play(controller.mapToTrack(song), streamUrl)
-                                }
+                                com.omnitune.windows.app.DependencyContainer.playbackCoordinator.play(controller.mapToTrack(song))
                             }
                         }
                         .padding(16.dp)

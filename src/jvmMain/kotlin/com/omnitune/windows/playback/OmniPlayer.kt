@@ -21,15 +21,11 @@ interface OmniPlayer {
     val currentTrack: StateFlow<Track?>
     val positionMs: StateFlow<Long>
     val durationMs: StateFlow<Long>
-    val queue: StateFlow<List<Track>>
 
     suspend fun play(track: Track, streamUrl: String)
     fun pause()
     fun resume()
     fun seekTo(positionMs: Long)
-    fun playNext()
-    fun playPrevious()
-    fun setQueue(tracks: List<Track>, startIndex: Int)
     fun setShuffle(enabled: Boolean)
     fun setRepeatMode(mode: RepeatMode)
     fun setVolume(volume: Float)
