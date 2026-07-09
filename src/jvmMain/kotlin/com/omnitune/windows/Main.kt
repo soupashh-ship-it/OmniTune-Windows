@@ -35,12 +35,6 @@ fun main() = application {
         OmniTuneTheme {
             val player = remember { VlcjOmniPlayer() }
             
-            LaunchedEffect(Unit) {
-                val song = YouTube.search("Never gonna give you up", YouTube.SearchFilter.FILTER_SONG).getOrNull()?.items?.firstOrNull() as? com.omnitune.innertube.models.SongItem
-                if (song != null) {
-                    println("Stream resolution check: Found song ${song.title}")
-                }
-            }
             
             OmniShell(player)
         }
