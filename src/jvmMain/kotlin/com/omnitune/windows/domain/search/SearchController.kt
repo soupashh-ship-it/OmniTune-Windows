@@ -43,12 +43,8 @@ class SearchController(
             }
         }
     }
-
     suspend fun resolveStreamUrl(songId: String): String? {
-        val response = YouTube.player(songId, client = YouTubeClient.WEB).getOrNull()
-        return response?.streamingData?.adaptiveFormats
-            ?.firstOrNull { it.mimeType.contains("audio/mp4") || it.mimeType.contains("audio/webm") }
-            ?.url
+        return com.omnitune.windows.domain.playback.StreamResolver().resolveStreamUrl(songId)
     }
 
     fun mapToTrack(song: SongItem): Track {
