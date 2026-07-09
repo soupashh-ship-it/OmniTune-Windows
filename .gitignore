@@ -1,0 +1,11 @@
+*.iml
+.gradle/
+.idea/
+.kotlin/
+build/
+out/
+local.properties
+*.log
+run_log.txt
+*.exe
+*.msi

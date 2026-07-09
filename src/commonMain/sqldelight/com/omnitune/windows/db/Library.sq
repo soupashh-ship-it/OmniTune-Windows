@@ -1,0 +1,26 @@
+CREATE TABLE SongEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    title TEXT NOT NULL,
+    artists TEXT NOT NULL, -- JSON or comma separated
+    duration INTEGER NOT NULL,
+    thumbnailUrl TEXT,
+    albumId TEXT,
+    albumTitle TEXT,
+    explicit INTEGER NOT NULL DEFAULT 0,
+    liked INTEGER NOT NULL DEFAULT 0,
+    likedDate INTEGER,
+    inLibrary INTEGER
+);
+
+insertSong:
+INSERT OR REPLACE INTO SongEntity(id, title, artists, duration, thumbnailUrl, albumId, albumTitle, explicit, liked, likedDate, inLibrary)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+getAllLikedSongs:
+SELECT * FROM SongEntity WHERE liked = 1 ORDER BY likedDate DESC;
+
+getAllLibrarySongs:
+SELECT * FROM SongEntity WHERE inLibrary IS NOT NULL ORDER BY inLibrary DESC;
+
+setLiked:
+UPDATE SongEntity SET liked = ?, likedDate = ? WHERE id = ?;
