@@ -3,11 +3,12 @@ package com.omnitune.windows.ui.shell
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Button
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Settings
@@ -84,17 +85,22 @@ fun OmniShell(player: OmniPlayer) {
                     }
                     Column(modifier = Modifier.align(Alignment.Center).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                         Row {
-                            Button(onClick = { com.omnitune.windows.app.DependencyContainer.playbackCoordinator.previous() }, modifier = Modifier.padding(end = 8.dp)) {
-                                Text("Prev")
+                            IconButton(onClick = { com.omnitune.windows.app.DependencyContainer.playbackCoordinator.previous() }, modifier = Modifier.padding(end = 8.dp)) {
+                                Icon(Icons.Default.SkipPrevious, contentDescription = "Previous", tint = OmniColors.TextPrimary)
                             }
-                            Button(onClick = { 
+                            IconButton(onClick = { 
                                 if (playbackState == PlaybackState.PLAYING) player.pause() 
                                 else player.resume() 
                             }) {
-                                Text(if (playbackState == PlaybackState.PLAYING) "Pause" else "Play")
+                                Icon(
+                                    imageVector = if (playbackState == PlaybackState.PLAYING) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = "Play/Pause",
+                                    tint = OmniColors.TextPrimary,
+                                    modifier = Modifier.size(32.dp)
+                                )
                             }
-                            Button(onClick = { com.omnitune.windows.app.DependencyContainer.playbackCoordinator.next() }, modifier = Modifier.padding(start = 8.dp)) {
-                                Text("Next")
+                            IconButton(onClick = { com.omnitune.windows.app.DependencyContainer.playbackCoordinator.next() }, modifier = Modifier.padding(start = 8.dp)) {
+                                Icon(Icons.Default.SkipNext, contentDescription = "Next", tint = OmniColors.TextPrimary)
                             }
                         }
                         Spacer(modifier = Modifier.height(4.dp))
