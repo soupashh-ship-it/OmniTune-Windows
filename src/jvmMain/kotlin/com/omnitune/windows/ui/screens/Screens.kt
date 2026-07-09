@@ -1,7 +1,7 @@
 package com.omnitune.windows.ui.screens
-import com.omnitune.innertube.models.YouTubeClient
-import androidx.compose.foundation.clickable
+
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -13,29 +13,37 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import com.omnitune.innertube.YouTube
 import com.omnitune.innertube.models.SongItem
-import com.omnitune.windows.data.DatabaseFactory
-import com.omnitune.windows.models.Artist
-import com.omnitune.windows.models.Track
+import com.omnitune.windows.app.DependencyContainer
+import com.omnitune.windows.domain.library.LibraryController
+import com.omnitune.windows.domain.search.HomeController
+import com.omnitune.windows.domain.search.SearchController
 import com.omnitune.windows.playback.OmniPlayer
 import com.omnitune.windows.ui.theme.OmniColors
 import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreen() {
-    var homePage by remember { mutableStateOf<com.omnitune.innertube.pages.HomePage?>(null) }
     val scope = rememberCoroutineScope()
+    val controller = remember { HomeController(scope) }
     
+    val homePage by controller.homePage.collectAsState()
+    val isLoading by controller.isLoading.collectAsState()
+    val error by controller.error.collectAsState()
+
     LaunchedEffect(Unit) {
-        homePage = YouTube.home().getOrNull()
+        controller.loadHome()
     }
 
-    if (homePage == null) {
+    if (isLoading && homePage == null) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = OmniColors.OmniAccentPrimary)
         }
-    } else {
+    } else if (error != null && homePage == null) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text(error ?: "Error", color = OmniColors.OmniAccentPrimary)
+        }
+    } else if (homePage != null) {
         LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             items(homePage!!.sections) { section ->
                 Text(
@@ -44,8 +52,7 @@ fun HomeScreen() {
                     color = OmniColors.TextPrimary,
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
-                // Simple horizontal list of items
-                androidx.compose.foundation.lazy.LazyRow(modifier = Modifier.fillMaxWidth()) {
+                LazyRow(modifier = Modifier.fillMaxWidth()) {
                     items(section.items) { item ->
                         Column(modifier = Modifier.width(150.dp).padding(end = 16.dp)) {
                             val thumbnailUrl = when (item) {
@@ -69,6 +76,7 @@ fun HomeScreen() {
                                         .background(OmniColors.SurfaceElevated)
                                 )
                             }
+                            Spacer(modifier = Modifier.height(8.dp))
                             val title = when (item) {
                                 is com.omnitune.innertube.models.SongItem -> item.title
                                 is com.omnitune.innertube.models.AlbumItem -> item.title
@@ -88,15 +96,17 @@ fun HomeScreen() {
 
 @Composable
 fun SearchScreen(player: OmniPlayer) {
-    var query by remember { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<SongItem>>(emptyList()) }
-    var isSearching by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val controller = remember { SearchController(scope) }
+
+    val query by controller.query.collectAsState()
+    val results by controller.results.collectAsState()
+    val isSearching by controller.isSearching.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
         OutlinedTextField(
             value = query,
-            onValueChange = { query = it },
+            onValueChange = { controller.updateQuery(it) },
             label = { Text("Search Songs") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
@@ -111,14 +121,7 @@ fun SearchScreen(player: OmniPlayer) {
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
-            onClick = {
-                scope.launch {
-                    isSearching = true
-                    val result = YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrNull()
-                    results = result?.items?.filterIsInstance<SongItem>() ?: emptyList()
-                    isSearching = false
-                }
-            },
+            onClick = { controller.executeSearch() },
             enabled = !isSearching && query.isNotBlank()
         ) {
             Text(if (isSearching) "Searching..." else "Search")
@@ -133,19 +136,9 @@ fun SearchScreen(player: OmniPlayer) {
                         .fillMaxWidth()
                         .clickable {
                             scope.launch {
-                                val playerResponse = YouTube.player(song.id, client = YouTubeClient.WEB).getOrNull()
-                                val streamUrl = playerResponse?.streamingData?.adaptiveFormats
-                                    ?.firstOrNull { it.mimeType.contains("audio/mp4") || it.mimeType.contains("audio/webm") }
-                                    ?.url
-                                
+                                val streamUrl = controller.resolveStreamUrl(song.id)
                                 if (streamUrl != null) {
-                                    val track = Track(
-                                        id = song.id,
-                                        title = song.title,
-                                        artists = song.artists.map { Artist(it.id, it.name) },
-                                        durationSeconds = song.duration ?: 0
-                                    )
-                                    player.play(track, streamUrl)
+                                    player.play(controller.mapToTrack(song), streamUrl)
                                 }
                             }
                         }
@@ -159,15 +152,17 @@ fun SearchScreen(player: OmniPlayer) {
             }
         }
     }
+
 }
 
 @Composable
 fun LibraryScreen() {
-    val database = remember { DatabaseFactory.createDatabase() }
-    var likedSongs by remember { mutableStateOf<List<com.omnitune.windows.db.SongEntity>>(emptyList()) }
-    
+    val scope = rememberCoroutineScope()
+    val controller = remember { LibraryController(scope, DependencyContainer.database) }
+    val likedSongs by controller.likedSongs.collectAsState()
+
     LaunchedEffect(Unit) {
-        likedSongs = database.libraryQueries.getAllLikedSongs().executeAsList()
+        controller.loadLikedSongs()
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
