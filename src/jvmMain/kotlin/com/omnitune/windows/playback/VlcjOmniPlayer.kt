@@ -15,8 +15,11 @@ import uk.co.caprica.vlcj.player.component.AudioPlayerComponent
 
 class VlcjOmniPlayer : OmniPlayer {
 
-    private val audioPlayerComponent = AudioPlayerComponent()
-    private val mediaPlayer = audioPlayerComponent.mediaPlayer()
+    private var audioPlayerComponent: AudioPlayerComponent? = null
+    private var mediaPlayer: MediaPlayer? = null
+
+    private val _initializationState = MutableStateFlow(PlayerInitializationState.UNINITIALIZED)
+    override val initializationState: StateFlow<PlayerInitializationState> = _initializationState.asStateFlow()
 
     private val _playbackState = MutableStateFlow(PlaybackState.IDLE)
     override val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
@@ -37,43 +40,54 @@ class VlcjOmniPlayer : OmniPlayer {
     private val scope = CoroutineScope(Dispatchers.IO)
 
     init {
-        mediaPlayer.events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
-            override fun playing(mediaPlayer: MediaPlayer) {
-                _playbackState.value = PlaybackState.PLAYING
-                _durationMs.value = mediaPlayer.status().length()
-                startProgressUpdates()
-            }
+        _initializationState.value = PlayerInitializationState.INITIALIZING
+        try {
+            audioPlayerComponent = AudioPlayerComponent()
+            mediaPlayer = audioPlayerComponent?.mediaPlayer()
 
-            override fun paused(mediaPlayer: MediaPlayer) {
-                _playbackState.value = PlaybackState.PAUSED
-                stopProgressUpdates()
-            }
+            mediaPlayer?.events()?.addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
+                override fun playing(mediaPlayer: MediaPlayer) {
+                    _playbackState.value = PlaybackState.PLAYING
+                    _durationMs.value = mediaPlayer.status().length()
+                    startProgressUpdates()
+                }
 
-            override fun stopped(mediaPlayer: MediaPlayer) {
-                _playbackState.value = PlaybackState.IDLE
-                _positionMs.value = 0L
-                stopProgressUpdates()
-            }
+                override fun paused(mediaPlayer: MediaPlayer) {
+                    _playbackState.value = PlaybackState.PAUSED
+                    stopProgressUpdates()
+                }
 
-            override fun finished(mediaPlayer: MediaPlayer) {
-                _playbackState.value = PlaybackState.IDLE
-                _positionMs.value = 0L
-                stopProgressUpdates()
-                playNext()
-            }
+                override fun stopped(mediaPlayer: MediaPlayer) {
+                    _playbackState.value = PlaybackState.IDLE
+                    _positionMs.value = 0L
+                    stopProgressUpdates()
+                }
 
-            override fun error(mediaPlayer: MediaPlayer) {
-                _playbackState.value = PlaybackState.ERROR
-                stopProgressUpdates()
-            }
-        })
+                override fun finished(mediaPlayer: MediaPlayer) {
+                    _playbackState.value = PlaybackState.IDLE
+                    _positionMs.value = 0L
+                    stopProgressUpdates()
+                    playNext()
+                }
+
+                override fun error(mediaPlayer: MediaPlayer) {
+                    _playbackState.value = PlaybackState.ERROR
+                    stopProgressUpdates()
+                }
+            })
+            _initializationState.value = PlayerInitializationState.READY
+        } catch (e: Throwable) {
+            e.printStackTrace()
+            _initializationState.value = PlayerInitializationState.UNAVAILABLE
+            _playbackState.value = PlaybackState.ERROR
+        }
     }
 
     private fun startProgressUpdates() {
         progressJob?.cancel()
         progressJob = scope.launch {
             while (true) {
-                _positionMs.value = mediaPlayer.status().time()
+                _positionMs.value = mediaPlayer?.status()?.time() ?: 0L
                 delay(200)
             }
         }
@@ -84,21 +98,22 @@ class VlcjOmniPlayer : OmniPlayer {
     }
 
     override suspend fun play(track: Track, streamUrl: String) {
+        if (initializationState.value != PlayerInitializationState.READY) return
         _currentTrack.value = track
         _playbackState.value = PlaybackState.BUFFERING
-        mediaPlayer.media().play(streamUrl)
+        mediaPlayer?.media()?.play(streamUrl)
     }
 
     override fun pause() {
-        mediaPlayer.controls().pause()
+        mediaPlayer?.controls()?.pause()
     }
 
     override fun resume() {
-        mediaPlayer.controls().play()
+        mediaPlayer?.controls()?.play()
     }
 
     override fun seekTo(positionMs: Long) {
-        mediaPlayer.controls().setTime(positionMs)
+        mediaPlayer?.controls()?.setTime(positionMs)
         _positionMs.value = positionMs
     }
 
@@ -109,7 +124,6 @@ class VlcjOmniPlayer : OmniPlayer {
             val currentIndex = current.indexOf(track)
             if (currentIndex in 0 until current.lastIndex) {
                 val nextTrack = current[currentIndex + 1]
-                // We don't have streamURL here since we skip resolving it for this stub
                 _currentTrack.value = nextTrack
             }
         }
@@ -135,12 +149,13 @@ class VlcjOmniPlayer : OmniPlayer {
     override fun setRepeatMode(mode: RepeatMode) {}
 
     override fun setVolume(volume: Float) {
-        mediaPlayer.audio().setVolume((volume * 100).toInt())
+        mediaPlayer?.audio()?.setVolume((volume * 100).toInt())
     }
 
     override fun dispose() {
         stopProgressUpdates()
-        mediaPlayer.release()
-        audioPlayerComponent.release()
+        _initializationState.value = PlayerInitializationState.DISPOSED
+        mediaPlayer?.release()
+        audioPlayerComponent?.release()
     }
 }

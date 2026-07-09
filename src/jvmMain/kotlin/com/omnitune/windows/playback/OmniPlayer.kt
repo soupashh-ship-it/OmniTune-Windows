@@ -3,15 +3,20 @@ package com.omnitune.windows.playback
 import com.omnitune.windows.models.Track
 import kotlinx.coroutines.flow.StateFlow
 
-enum class PlaybackState {
-    IDLE, PLAYING, PAUSED, BUFFERING, ERROR
-}
-
 enum class RepeatMode {
     OFF, ALL, ONE
 }
 
+enum class PlayerInitializationState {
+    UNINITIALIZED, INITIALIZING, READY, UNAVAILABLE, ERROR, DISPOSED
+}
+
+enum class PlaybackState {
+    IDLE, PLAYING, PAUSED, BUFFERING, ERROR
+}
+
 interface OmniPlayer {
+    val initializationState: StateFlow<PlayerInitializationState>
     val playbackState: StateFlow<PlaybackState>
     val currentTrack: StateFlow<Track?>
     val positionMs: StateFlow<Long>
