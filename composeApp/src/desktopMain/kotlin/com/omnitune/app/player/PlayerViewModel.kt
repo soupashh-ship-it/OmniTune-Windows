@@ -63,6 +63,18 @@ class PlayerViewModel(
 
     private val _streamUrl = MutableStateFlow<String?>(null)
     val streamUrl: StateFlow<String?> = _streamUrl.asStateFlow()
+    private val _discoveryGenres = MutableStateFlow<List<com.omnitune.innertube.pages.MoodAndGenres.Item>>(emptyList())
+    val discoveryGenres: StateFlow<List<com.omnitune.innertube.pages.MoodAndGenres.Item>> = _discoveryGenres.asStateFlow()
+    
+    private val _discoveryTrending = MutableStateFlow<List<SongItem>>(emptyList())
+    val discoveryTrending: StateFlow<List<SongItem>> = _discoveryTrending.asStateFlow()
+    
+    private val _discoveryNew = MutableStateFlow<List<YTItem>>(emptyList())
+    val discoveryNew: StateFlow<List<YTItem>> = _discoveryNew.asStateFlow()
+
+    private val _discoveryLoading = MutableStateFlow(false)
+    val discoveryLoading: StateFlow<Boolean> = _discoveryLoading.asStateFlow()
+
 
     private val _volume = MutableStateFlow(settings.volume)
     val volume: StateFlow<Int> = _volume.asStateFlow()
@@ -93,9 +105,28 @@ class PlayerViewModel(
     val likedSongs: StateFlow<Set<String>> = _liked.asStateFlow()
 
     val recentSearches: List<String> get() = settings.recentSearches
+    fun clearRecentSearches() {
+        settings.clearRecentSearches()
+        settings.flush()
+    }
 
     init {
         audioEngine.onTrackFinished = { onTrackFinished() }
+        loadDiscoveryData()
+    }
+
+    private fun loadDiscoveryData() {
+        launch {
+            _discoveryLoading.value = true
+            val trendingSongs = runCatching { youTubeService.search("trending hits").items.filterIsInstance<SongItem>().take(10) }.getOrDefault(emptyList())
+            val genres = runCatching { youTubeService.moodAndGenres().flatMap { it.items }.shuffled().take(12) }.getOrDefault(emptyList())
+            val newContent = runCatching { youTubeService.home().sections.flatMap { it.items }.shuffled().take(10) }.getOrDefault(emptyList())
+            
+            _discoveryTrending.value = trendingSongs
+            _discoveryGenres.value = genres
+            _discoveryNew.value = newContent
+            _discoveryLoading.value = false
+        }
     }
 
     fun onTrackFinished() {

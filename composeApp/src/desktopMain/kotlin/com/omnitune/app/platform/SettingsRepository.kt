@@ -52,6 +52,10 @@ class SettingsRepository {
         recentSearches = updated
     }
 
+    fun clearRecentSearches() {
+        recentSearches = emptyList()
+    }
+
     fun flush() {
         prefs.flush()
     }
