@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
@@ -68,8 +69,8 @@ fun OmniSidebar(
     )
 
     Surface(
-        modifier = Modifier.fillMaxHeight().width(264.dp),
-        color = BgInk,
+        modifier = Modifier.fillMaxHeight().width(com.omnitune.app.window.OmniLayout.sidebarWidth),
+        color = SidebarBackground,
     ) {
         Column(modifier = Modifier.fillMaxSize().padding(vertical = 16.dp, horizontal = 12.dp)) {
             // Brand
@@ -103,7 +104,14 @@ fun OmniSidebar(
             }
 
             Spacer(Modifier.height(18.dp))
-            SectionLabel("Your Collection")
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 2.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Your Playlists", style = MaterialTheme.typography.labelMedium, color = TextMuted)
+                Icon(Icons.Default.Add, contentDescription = "Add Playlist", tint = TextMuted, modifier = Modifier.size(16.dp))
+            }
             Spacer(Modifier.height(6.dp))
             SidebarItem(
                 NavEntry(NavScreen.Search, "Liked Songs", Icons.Default.Favorite, enabled = true),
@@ -148,49 +156,41 @@ private fun SidebarItem(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
-    val height = if (compact) 38.dp else 42.dp
 
-    val bg by animateColorAsState(
-        when {
-            isActive -> Iris.copy(alpha = 0.16f)
-            isHovered && enabled -> Surface1
-            else -> Color.Transparent
-        },
-        tween(180),
+    val bgColor by animateColorAsState(
+        if (isActive) Elevated2
+        else if (isHovered && enabled) com.omnitune.app.window.BgElevated
+        else Color.Transparent,
+        tween(OmniMotion.fastMs),
     )
-    val textColor by animateColorAsState(
-        when {
-            isActive -> IrisSoft
-            !enabled -> TextMuted.copy(alpha = 0.4f)
-            else -> TextPrimary
-        },
-        tween(180),
-    )
+    val contentColor = if (isActive || isHovered) com.omnitune.app.window.TextPrimary else com.omnitune.app.window.TextSecondary
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(height)
+            .height(if (compact) 36.dp else 40.dp)
             .clip(Shapes.small)
-            .background(bg)
-            .hoverable(interactionSource)
+            .background(bgColor)
             .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, onClick = onClick)
-            .pressBounce(interactionSource),
+            .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (isActive) {
-            Box(Modifier.height(20.dp).width(3.dp).clip(Shapes.pill).background(IrisSoft))
-            Spacer(Modifier.width(10.dp))
-        } else {
-            Spacer(Modifier.width(13.dp))
-        }
-        Icon(entry.icon, entry.label, tint = textColor, modifier = Modifier.size(if (compact) 18.dp else 20.dp))
-        Spacer(Modifier.width(if (compact) 11.dp else 12.dp))
-        Text(entry.label, style = if (compact) MaterialTheme.typography.bodyMedium else MaterialTheme.typography.titleSmall, color = textColor, maxLines = 1)
+        Icon(
+            imageVector = entry.icon,
+            contentDescription = entry.label,
+            tint = contentColor,
+            modifier = Modifier.size(if (compact) 18.dp else 20.dp)
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(
+            entry.label,
+            style = if (isActive && !compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+            color = contentColor,
+            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
+        )
         if (trailing != null) {
             Spacer(Modifier.weight(1f))
             Text(trailing, style = MaterialTheme.typography.labelMedium, color = TextMuted)
-            Spacer(Modifier.width(12.dp))
         }
     }
 }

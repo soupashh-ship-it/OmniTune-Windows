@@ -41,7 +41,7 @@ fun OmniTopBar(
         modifier = modifier
             .fillMaxWidth()
             .height(60.dp)
-            .background(BgDark),
+            .background(BgDeep),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Spacer(Modifier.width(16.dp))
@@ -50,11 +50,11 @@ fun OmniTopBar(
         NavArrow(Icons.AutoMirrored.Filled.ArrowForward, canGoForward, onForward)
         Spacer(Modifier.width(16.dp))
 
-        Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
+        Box(Modifier.weight(1f).fillMaxHeight().padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
             OmniSearchField(
                 value = query,
                 onValueChange = onQueryChange,
-                modifier = Modifier.fillMaxWidth(0.62f),
+                modifier = Modifier.fillMaxWidth(0.6f),
                 focusRequester = focusRequester,
                 onEnter = {
                     onNavigateToSearch()

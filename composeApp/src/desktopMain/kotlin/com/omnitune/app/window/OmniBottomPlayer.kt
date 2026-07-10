@@ -60,23 +60,100 @@ fun OmniBottomPlayer(
     var isDragging by remember { mutableStateOf(false) }
     val fraction = if (position.lengthMs > 0) (position.position.toFloat() / position.lengthMs).coerceIn(0f, 1f) else 0f
     val displayFraction = if (isDragging) sliderPos else fraction
-    val springProgress by animateFloatAsState(displayFraction, spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessLow), label = "bar")
 
     OmniGlassSurface(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(max = 88.dp)
-            .padding(horizontal = Spacing.small, vertical = Spacing.compact),
-        shape = Shapes.dock,
-        style = GlassDefaults.miniPlayer,
+            .height(80.dp),
+        shape = androidx.compose.ui.graphics.RectangleShape,
+        style = GlassDefaults.playerDock,
     ) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
-            if (currentSong != null && position.lengthMs > 0) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // LEFT: track info
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (currentSong != null) {
+                    AsyncImage(
+                        model = currentSong.thumbnail.toHighResThumbnail(),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable { player.navigateTo(com.omnitune.app.player.NavScreen.NowPlaying) },
+                        contentScale = ContentScale.Crop,
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.widthIn(max = 240.dp).clickable { player.navigateTo(com.omnitune.app.player.NavScreen.NowPlaying) }) {
+                        Text(currentSong.title, style = MaterialTheme.typography.titleMedium, color = TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(currentSong.artists.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    val favOn = liked.contains(currentSong.id)
+                    TransportIcon(
+                        if (favOn) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                        tint = if (favOn) IrisSoft else TextSecondary,
+                        onClick = { player.toggleLike(currentSong.id) },
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    TransportIcon(Icons.Default.MoreHoriz, tint = TextSecondary, onClick = {})
+                }
+            }
+
+            // CENTER: transport
+            Column(
+                modifier = Modifier.weight(1.5f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                val transportColor = if (currentSong != null) TextPrimary else TextMuted.copy(alpha = 0.4f)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    TransportIcon(Icons.Filled.Shuffle, tint = if (shuffle) IrisSoft else transportColor, enabled = currentSong != null, onClick = { player.toggleShuffle() })
+                    TransportIcon(Icons.Filled.SkipPrevious, tint = transportColor, enabled = currentSong != null, onClick = { player.previousTrack() }, size = 26.dp)
+                    
+                    val playInteraction = remember { MutableInteractionSource() }
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(if (currentSong != null) Color.White else TextMuted.copy(alpha = 0.25f))
+                            .clickable(interactionSource = playInteraction, indication = null, enabled = currentSong != null, onClick = { player.togglePlayPause() })
+                            .pressBounce(playInteraction),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = if (playbackState == PlaybackState.PLAYING) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                            contentDescription = "Play/Pause",
+                            tint = Color(0xFF05060A),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    
+                    TransportIcon(Icons.Filled.SkipNext, tint = transportColor, enabled = currentSong != null, onClick = { player.nextTrack() }, size = 26.dp)
+                    val repeatTint = if (repeatMode != RepeatMode.OFF) IrisSoft else transportColor
+                    TransportIcon(
+                        if (repeatMode == RepeatMode.ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
+                        tint = repeatTint,
+                        enabled = currentSong != null,
+                        onClick = { player.cycleRepeat() },
+                    )
+                }
+                
+                Spacer(Modifier.height(8.dp))
+                
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    TimeText(position.timeMs)
+                    TimeText(if (isDragging) (sliderPos * position.lengthMs).toLong() else position.timeMs)
+                    Spacer(Modifier.width(8.dp))
                     com.omnitune.app.window.components.OmniProgressSlider(
                         fraction = displayFraction,
-                        modifier = Modifier.weight(1f).padding(horizontal = 10.dp),
+                        modifier = Modifier.weight(1f),
                         onSeek = { f ->
                             isDragging = true
                             sliderPos = f
@@ -85,77 +162,23 @@ fun OmniBottomPlayer(
                             isDragging = false
                             if (position.lengthMs > 0) player.seek((sliderPos * position.lengthMs).toLong())
                         },
-                        enabled = true,
+                        enabled = currentSong != null,
                     )
-                    TimeText(position.lengthMs, remaining = true)
+                    Spacer(Modifier.width(8.dp))
+                    TimeText(position.lengthMs)
                 }
             }
-            Spacer(Modifier.height(8.dp))
+
+            // RIGHT: lyrics / queue / volume
             Row(
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // LEFT: track info
-                if (currentSong != null) {
-                    AsyncImage(
-                        model = currentSong.thumbnail.toHighResThumbnail(),
-                        contentDescription = null,
-                        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(8.dp)).clickable { player.navigateTo(com.omnitune.app.player.NavScreen.NowPlaying) },
-                        contentScale = ContentScale.Crop,
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.widthIn(max = 200.dp).clickable { player.navigateTo(com.omnitune.app.player.NavScreen.NowPlaying) }) {
-                        Text(currentSong.title, style = MaterialTheme.typography.titleSmall, color = TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(currentSong.artists.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    val favOn = liked.contains(currentSong.id)
-                    TransportIcon(
-                        if (favOn) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        tint = if (favOn) IrisSoft else TextSecondary,
-                        onClick = { player.toggleLike(currentSong.id) },
-                    )
-                    TransportIcon(Icons.Default.MoreHoriz, tint = TextSecondary, onClick = {})
-                } else {
-                    Text("OmniTune", style = MaterialTheme.typography.titleMedium, color = TextMuted, modifier = Modifier.padding(start = 4.dp))
-                }
-
-                Spacer(Modifier.weight(1f))
-
-                // CENTER: transport
-                val transportColor = if (currentSong != null) TextPrimary else TextMuted.copy(alpha = 0.4f)
-                TransportIcon(Icons.Filled.Shuffle, tint = if (shuffle) IrisSoft else transportColor, enabled = currentSong != null, onClick = { player.toggleShuffle() })
-                Spacer(Modifier.width(14.dp))
-                TransportIcon(Icons.Filled.SkipPrevious, tint = transportColor, enabled = currentSong != null, onClick = { player.previousTrack() }, size = 26.dp)
-                Spacer(Modifier.width(12.dp))
-                val playInteraction = remember { MutableInteractionSource() }
-                Box(
-                    modifier = Modifier.size(44.dp).clip(CircleShape)
-                        .background(if (currentSong != null) OmniGradients.irisToLavender else Brush.linearGradient(listOf(TextMuted.copy(alpha = 0.25f), TextMuted.copy(alpha = 0.25f))))
-                        .clickable(interactionSource = playInteraction, indication = null, enabled = currentSong != null, onClick = { player.togglePlayPause() })
-                        .pressBounce(playInteraction),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(if (playbackState == PlaybackState.PLAYING) Icons.Filled.Pause else Icons.Filled.PlayArrow, "Play/Pause", tint = Color(0xFF05060A), modifier = Modifier.size(24.dp))
-                }
-                Spacer(Modifier.width(12.dp))
-                TransportIcon(Icons.Filled.SkipNext, tint = transportColor, enabled = currentSong != null, onClick = { player.nextTrack() }, size = 26.dp)
-                Spacer(Modifier.width(14.dp))
-                val repeatTint = if (repeatMode != RepeatMode.OFF) IrisSoft else transportColor
-                TransportIcon(
-                    if (repeatMode == RepeatMode.ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
-                    tint = repeatTint,
-                    enabled = currentSong != null,
-                    onClick = { player.cycleRepeat() },
-                )
-
-                Spacer(Modifier.weight(1f))
-
-                // RIGHT: lyrics / queue / volume
                 TransportIcon(Icons.Filled.Lyrics, tint = TextSecondary, onClick = { player.navigateTo(com.omnitune.app.player.NavScreen.NowPlaying) })
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(16.dp))
                 TransportIcon(Icons.AutoMirrored.Filled.QueueMusic, tint = TextSecondary, onClick = { player.navigateTo(com.omnitune.app.player.NavScreen.Queue) })
-                Spacer(Modifier.width(14.dp))
+                Spacer(Modifier.width(16.dp))
                 OmniVolumeControl(volume = volume, onVolumeChange = { player.setVolume(it) })
             }
         }
