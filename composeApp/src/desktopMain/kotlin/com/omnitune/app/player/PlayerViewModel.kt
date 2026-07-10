@@ -297,6 +297,31 @@ class PlayerViewModel(
         _currentSong.value = item
         launch { doPlay(item) }
     }
+    fun playAlbum(browseId: String) {
+        launch {
+            val album = runCatching { youTubeService.album(browseId) }.getOrNull()
+            val songs = album?.songs
+            if (!songs.isNullOrEmpty()) {
+                _queue.value = songs
+                _queueIndex.value = 0
+                _currentSong.value = songs[0]
+                doPlay(songs[0])
+            }
+        }
+    }
+    
+    fun playPlaylist(playlistId: String) {
+        launch {
+            val playlist = runCatching { youTubeService.playlist(playlistId) }.getOrNull()
+            val songs = playlist?.songs
+            if (!songs.isNullOrEmpty()) {
+                _queue.value = songs
+                _queueIndex.value = 0
+                _currentSong.value = songs[0]
+                doPlay(songs[0])
+            }
+        }
+    }
 
     private suspend fun doPlay(item: SongItem) {
         _streamUrl.value = null
