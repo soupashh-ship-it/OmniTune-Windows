@@ -9,6 +9,7 @@ import com.omnitune.innertube.models.SongItem
 import com.omnitune.innertube.models.YouTubeClient
 import com.omnitune.innertube.models.YTItem
 import com.omnitune.innertube.models.response.PlayerResponse
+import com.omnitune.lrclib.LrcLib
 import io.ktor.http.URLBuilder
 import io.ktor.http.parseQueryString
 import kotlinx.coroutines.CoroutineScope
@@ -149,6 +150,23 @@ class PlayerViewModel(
     fun openAlbum(id: String) {
         _currentAlbumId.value = id
         navigateTo(NavScreen.Album)
+    }
+
+    private val _lyricsText = MutableStateFlow<String?>(null)
+    val lyricsText: StateFlow<String?> = _lyricsText.asStateFlow()
+    private val _lyricsLoading = MutableStateFlow(false)
+    val lyricsLoading: StateFlow<Boolean> = _lyricsLoading.asStateFlow()
+
+    fun loadLyrics() {
+        val song = _currentSong.value ?: return
+        if (_lyricsText.value != null && _currentSong.value?.id == song.id) return
+        launch {
+            _lyricsLoading.value = true
+            runCatching { LrcLib.getLyrics(song.title, song.artists.firstOrNull()?.name ?: "", song.duration ?: -1) }
+                .onSuccess { _lyricsText.value = it.getOrNull() }
+                .onFailure { _lyricsText.value = null }
+            _lyricsLoading.value = false
+        }
     }
 
     private val history = mutableListOf<NavScreen>()
