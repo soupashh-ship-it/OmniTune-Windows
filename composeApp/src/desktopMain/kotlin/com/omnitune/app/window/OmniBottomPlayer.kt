@@ -67,7 +67,7 @@ fun OmniBottomPlayer(
     
     
     val playerHeight = 92.dp // Typical derived height
-    val artworkSize = 56.dp
+    val artworkSize = 50.dp
     val centralButtonSize = 46.dp
 
     
