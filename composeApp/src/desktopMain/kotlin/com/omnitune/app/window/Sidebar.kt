@@ -102,7 +102,7 @@ fun OmniSidebar(
         ) {
             // ── Brand ──────────────────────────────────────────────────────────
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp).fillMaxWidth(),
+                modifier = Modifier.padding(start = 22.dp, end = 12.dp, top = 20.dp, bottom = 12.dp).fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
@@ -112,7 +112,7 @@ fun OmniSidebar(
                     Icon(Icons.Default.MusicNote, null, tint = Color.White, modifier = Modifier.size(20.dp))
                 }
                 Spacer(Modifier.width(12.dp))
-                Text("OmniTune", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("OmniTune", style = MaterialTheme.typography.titleLarge, color = Color(0xFFF4F3FA), fontWeight = FontWeight.SemiBold, fontSize = 19.sp)
             }
 
             Spacer(Modifier.height(16.dp))
@@ -150,19 +150,29 @@ fun OmniSidebar(
                 }
             )
 
+            
             AnimatedVisibility(
                 visible = libraryExpanded,
                 enter = expandVertically(animationSpec = tween(200)),
                 exit = shrinkVertically(animationSpec = tween(200)),
             ) {
-                Column(modifier = Modifier.padding(top = 2.dp)) {
-                    LibrarySubItem(label = "Playlists", isActive = activeScreen == NavScreen.Playlists) { onNavigate(NavScreen.Playlists) }
-                    LibrarySubItem(label = "Albums", isActive = activeScreen == NavScreen.Album) { onNavigate(NavScreen.Album) }
-                    LibrarySubItem(label = "Artists", isActive = activeScreen == NavScreen.Artist) { onNavigate(NavScreen.Artist) }
-                    LibrarySubItem(label = "Songs", isActive = activeScreen == NavScreen.Search) { onNavigate(NavScreen.Search) }
-                    LibrarySubItem(label = "Downloads", isActive = activeScreen == NavScreen.Downloads) { onNavigate(NavScreen.Downloads) }
+                Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    Spacer(Modifier.width(28.dp))
+                    Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.06f)))
+                    Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                        LibrarySubItem(label = "Playlists", isActive = activeScreen == NavScreen.Playlists) { onNavigate(NavScreen.Playlists) }
+                        Spacer(Modifier.height(2.dp))
+                        LibrarySubItem(label = "Albums", isActive = activeScreen == NavScreen.Album) { onNavigate(NavScreen.Album) }
+                        Spacer(Modifier.height(2.dp))
+                        LibrarySubItem(label = "Artists", isActive = activeScreen == NavScreen.Artist) { onNavigate(NavScreen.Artist) }
+                        Spacer(Modifier.height(2.dp))
+                        LibrarySubItem(label = "Songs", isActive = activeScreen == NavScreen.Search) { onNavigate(NavScreen.Search) }
+                        Spacer(Modifier.height(2.dp))
+                        LibrarySubItem(label = "Downloads", isActive = activeScreen == NavScreen.Downloads) { onNavigate(NavScreen.Downloads) }
+                    }
                 }
             }
+
 
             Spacer(Modifier.height(20.dp))
 
@@ -347,6 +357,7 @@ private fun LibraryHeader(
 }
 
 // ── Library sub-item (indented, text only, no icon) ───────────────────────────
+
 @Composable
 private fun LibrarySubItem(
     label: String,
@@ -365,32 +376,24 @@ private fun LibrarySubItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(32.dp)
+            .height(34.dp)
             .clip(RoundedCornerShape(6.dp))
-            .then(if (isActive) Modifier.background(Surface2) else if (isHovered) Modifier.background(Surface3) else Modifier)
+            .then(if (isActive) Modifier.background(Color.White.copy(alpha=0.05f)) else if (isHovered) Modifier.background(Surface3) else Modifier)
             .hoverable(interactionSource)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-            .padding(start = 42.dp, end = 12.dp),
+            .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (isActive) {
-            Box(
-                modifier = Modifier
-                    .size(4.dp)
-                    .clip(CircleShape)
-                    .background(IrisSoft)
-            )
-            Spacer(Modifier.width(8.dp))
-        }
         Text(
             label,
             style = MaterialTheme.typography.bodySmall,
             color = contentColor,
-            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
             fontSize = 13.sp,
         )
     }
 }
+
 
 
 // ── Playlist item (thumbnail + label) ─────────────────────────────────────────

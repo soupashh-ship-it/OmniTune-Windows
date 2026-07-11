@@ -214,6 +214,7 @@ private fun HomeContent(player: PlayerViewModel, home: HomePage, currentSong: So
     }
 }
 
+
 @Composable
 private fun ContinueListeningRow(item: YTItem, isActive: Boolean, isPlaying: Boolean, onClick: () -> Unit) {
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -253,8 +254,8 @@ private fun ContinueListeningRow(item: YTItem, isActive: Boolean, isPlaying: Boo
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
-                            Color(0xFF7C6DFF),
-                            Color(0xFF527AFF),
+                            Color(0xFF8B7CFF),
+                            Color(0xFF5D7FFF),
                         )
                     )
                 )
@@ -349,27 +350,22 @@ private fun ContinueListeningRow(item: YTItem, isActive: Boolean, isPlaying: Boo
 
             Spacer(Modifier.width(8.dp))
 
-            if (isHovered || isActive) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(androidx.compose.foundation.shape.CircleShape)
-                        .background(Color.White.copy(alpha=0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isActive && isPlaying) {
-                        Icon(Icons.Default.Pause, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                    } else {
-                        Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                    }
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(Color.White.copy(alpha=0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isActive && isPlaying) {
+                    Icon(Icons.Default.Pause, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                } else {
+                    Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(20.dp))
                 }
-            } else {
-                Spacer(Modifier.width(32.dp))
             }
         }
     }
 }
-
 @Composable
 private fun QuickPicksCard(item: YTItem, player: PlayerViewModel) {
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -428,6 +424,7 @@ private fun QuickPicksCard(item: YTItem, player: PlayerViewModel) {
     }
 }
 
+
 @Composable
 private fun MadeForYouCard(item: YTItem, player: PlayerViewModel) {
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -446,7 +443,7 @@ private fun MadeForYouCard(item: YTItem, player: PlayerViewModel) {
     Box(
         modifier = Modifier
             .width(160.dp)
-            .height(140.dp)
+            .height(130.dp)
             .clip(Shapes.medium)
             .background(Brush.linearGradient(
                 colors = listOf(
@@ -469,7 +466,7 @@ private fun MadeForYouCard(item: YTItem, player: PlayerViewModel) {
         )
         
         Column(modifier = Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.SpaceBetween) {
-            Text(item.title, style = MaterialTheme.typography.titleMedium, color = TextWhite, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(item.title, style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp), color = TextWhite, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 val sub = when (item) {
@@ -477,7 +474,7 @@ private fun MadeForYouCard(item: YTItem, player: PlayerViewModel) {
                     is AlbumItem -> item.artists?.joinToString(", ") { it.name ?: "" } ?: ""
                     else -> ""
                 }
-                Text(sub, style = MaterialTheme.typography.labelMedium, color = TextSecondary, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(end = 8.dp))
+                Text(sub, style = MaterialTheme.typography.labelSmall, color = TextSecondary, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(end = 8.dp))
                 
                 Box(modifier = Modifier.size(32.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
                     Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(20.dp))
@@ -486,107 +483,6 @@ private fun MadeForYouCard(item: YTItem, player: PlayerViewModel) {
         }
     }
 }
-@Composable
-private fun CarouselCard(item: YTItem, player: PlayerViewModel, currentSong: SongItem?, playbackState: PlaybackState, liked: Set<String>) {
-    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    val isHovered by interactionSource.collectIsHoveredAsState()
-
-    Column(
-        modifier = Modifier
-            .width(160.dp)
-            .clip(Shapes.medium)
-            .background(if (isHovered) BgCardHover else Color.Transparent)
-            .clickable(interactionSource = interactionSource, indication = null) {
-                when (item) {
-                    is AlbumItem -> player.openAlbum(item.browseId)
-                    is PlaylistItem -> player.playPlaylist(item.id)
-                    is ArtistItem -> player.openArtist(item.id)
-                    is SongItem -> player.playSong(item, 0)
-                }
-            }
-            .padding(8.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(144.dp)
-                .clip(if (item is ArtistItem) androidx.compose.foundation.shape.CircleShape else Shapes.artworkMedium)
-                .background(Surface2)
-        ) {
-            AsyncImage(
-                model = item.thumbnail?.toHighResThumbnail(),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-            if (item is SongItem && item.id == currentSong?.id) {
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
-                    PlayingIndicatorBox(isActive = true, playWhenReady = playbackState == PlaybackState.PLAYING, color = Iris)
-                }
-            } else if (isHovered && item is SongItem) {
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(48.dp))
-                }
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-        Text(
-            item.title,
-            style = MaterialTheme.typography.titleSmall,
-            color = TextPrimary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        val sub = when (item) {
-            is SongItem -> item.artists?.joinToString(", ") { it.name }
-            is AlbumItem -> "Album • " + item.artists?.joinToString(", ") { it.name ?: "" } ?: ""
-            is PlaylistItem -> "Playlist"
-            is ArtistItem -> "Artist"
-            else -> ""
-        }
-        if (!sub.isNullOrEmpty()) {
-            Spacer(Modifier.height(2.dp))
-            Text(
-                sub,
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
-
-@Composable
-private fun HomeShimmer() {
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(40.dp)) {
-        Box(modifier = Modifier.fillMaxWidth().height(220.dp).clip(Shapes.large).background(Surface2))
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            repeat(5) {
-                Column {
-                    Box(modifier = Modifier.size(160.dp).clip(Shapes.artworkMedium).background(Surface2))
-                    Spacer(Modifier.height(12.dp))
-                    Box(modifier = Modifier.width(120.dp).height(16.dp).clip(Shapes.small).background(Surface2))
-                    Spacer(Modifier.height(4.dp))
-                    Box(modifier = Modifier.width(80.dp).height(12.dp).clip(Shapes.small).background(Surface2))
-                }
-            }
-        }
-    }
-}
-
-
-
-@Composable
-private fun SectionHeader(title: String, showSeeAll: Boolean = false) {
-    Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-        Text(title, style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-        if (showSeeAll) {
-            Text("See all", style = MaterialTheme.typography.labelMedium, color = IrisSoft, modifier = Modifier.clickable { })
-        }
-    }
-}
-
-
 @Composable
 private fun TrendingRow(item: YTItem, rank: Int, player: PlayerViewModel) {
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -787,6 +683,36 @@ private fun HomeHeroRow(album: YTItem?, continueListening: List<YTItem>, player:
                 })
                 if (i < 3) {
                     Box(modifier = Modifier.fillMaxWidth().padding(start = 68.dp, top = 4.dp, bottom = 4.dp).height(1.dp).background(Color.White.copy(alpha = 0.045f)))
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun SectionHeader(title: String, showSeeAll: Boolean = false) {
+    Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+        Text(title, style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+        if (showSeeAll) {
+            Text("See all", style = MaterialTheme.typography.labelMedium, color = IrisSoft, modifier = Modifier.clickable { })
+        }
+    }
+}
+
+
+@Composable
+private fun HomeShimmer() {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp), verticalArrangement = Arrangement.spacedBy(40.dp)) {
+        Box(modifier = Modifier.fillMaxWidth().height(220.dp).clip(Shapes.large).background(Surface2))
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            repeat(5) {
+                Column {
+                    Box(modifier = Modifier.size(160.dp).clip(Shapes.artworkMedium).background(Surface2))
+                    Spacer(Modifier.height(12.dp))
+                    Box(modifier = Modifier.width(120.dp).height(16.dp).clip(Shapes.small).background(Surface2))
+                    Spacer(Modifier.height(4.dp))
+                    Box(modifier = Modifier.width(80.dp).height(12.dp).clip(Shapes.small).background(Surface2))
                 }
             }
         }
