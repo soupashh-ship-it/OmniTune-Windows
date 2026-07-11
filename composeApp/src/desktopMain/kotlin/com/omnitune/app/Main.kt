@@ -47,9 +47,13 @@ fun main() {
                     state = windowState,
                     title = "OmniTune",
                     icon = AppWindowIcon,
+                    undecorated = true,
+                    transparent = true,
                 ) {
                     window.minimumSize = java.awt.Dimension(1024, 640)
                     OmniWindow(
+                        windowState = windowState,
+                        onClose = { isWindowVisible = false },
                         onMinimizeToTray = { isWindowVisible = false }
                     )
                 }

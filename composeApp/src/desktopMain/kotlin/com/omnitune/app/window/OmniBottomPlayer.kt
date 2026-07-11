@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -61,12 +62,26 @@ fun OmniBottomPlayer(
     val fraction = if (position.lengthMs > 0) (position.position.toFloat() / position.lengthMs).coerceIn(0f, 1f) else 0f
     val displayFraction = if (isDragging) sliderPos else fraction
 
-    OmniGlassSurface(
+    val playerBrush = Brush.horizontalGradient(
+        colorStops = arrayOf(
+            0.0f to Color(0xF20A0F1F),
+            0.34f to Color(0xF20E1025),
+            0.52f to Color(0xF2140E2D),
+            0.72f to Color(0xF20D1024),
+            1.0f to Color(0xF2090E1C),
+        )
+    )
+    val shape = RoundedCornerShape(18.dp)
+
+    Box(
         modifier = modifier
-            .fillMaxWidth()
-            .height(68.dp),
-        shape = androidx.compose.ui.graphics.RectangleShape,
-        style = GlassDefaults.playerDock,
+            .clip(shape)
+            .background(playerBrush)
+            .border(
+                width = 1.dp,
+                color = Color.White.copy(alpha = 0.07f),
+                shape = shape,
+            )
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // ── PROGRESS ROW: full-width spanning entire bar ─────────────────

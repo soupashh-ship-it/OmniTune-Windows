@@ -34,6 +34,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -69,9 +71,27 @@ fun OmniSidebar(
         if (activeScreen in librarySubScreens) libraryExpanded = true
     }
 
-    Surface(
-        modifier = Modifier.fillMaxHeight().width(OmniLayout.sidebarWidth),
-        color = SidebarBackground,
+    val sidebarBrush = androidx.compose.ui.graphics.Brush.verticalGradient(
+        colors = listOf(
+            Color(0xFF090B18),
+            Color(0xFF070A16),
+            Color(0xFF060914),
+        )
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(OmniLayout.sidebarWidth)
+            .background(sidebarBrush)
+            .drawBehind {
+                drawLine(
+                    color = Color.White.copy(alpha = 0.055f),
+                    start = Offset(size.width - 1f, 0f),
+                    end = androidx.compose.ui.geometry.Offset(size.width - 1f, size.height),
+                    strokeWidth = 1f,
+                )
+            }
     ) {
         Column(
             modifier = Modifier

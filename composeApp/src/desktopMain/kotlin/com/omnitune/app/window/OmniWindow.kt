@@ -26,9 +26,23 @@ import com.omnitune.app.player.PlayerViewModel
 import com.omnitune.app.platform.PlaybackState
 import com.omnitune.app.window.screens.*
 import org.koin.compose.koinInject
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.window.WindowScope
+import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.WindowState
+import androidx.compose.foundation.window.WindowDraggableArea
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Color
+import org.koin.compose.koinInject
 
 @Composable
-fun OmniWindow(onMinimizeToTray: () -> Unit) {
+fun WindowScope.OmniWindow(
+    windowState: WindowState,
+    onClose: () -> Unit,
+    onMinimizeToTray: () -> Unit
+) {
     val player: PlayerViewModel = koinInject()
     val navScreen by player.navScreen.collectAsState()
     val currentSong by player.currentSong.collectAsState()
@@ -42,10 +56,18 @@ fun OmniWindow(onMinimizeToTray: () -> Unit) {
     val searchFocus = remember { FocusRequester() }
 
     OmniTuneTheme {
-        Surface(
-            color = MaterialTheme.colorScheme.background,
+        val isMaximized = windowState.placement == WindowPlacement.Maximized
+        val windowShape = if (isMaximized) RectangleShape else RoundedCornerShape(16.dp)
+
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
+                .clip(windowShape)
+                .border(
+                    width = if (isMaximized) 0.dp else 1.dp,
+                    color = Color(0xFF7768FF).copy(alpha = 0.32f),
+                    shape = windowShape,
+                )
                 .onKeyEvent { event ->
                     if (event.type == KeyEventType.KeyUp) {
                         when (event.key) {
@@ -66,8 +88,16 @@ fun OmniWindow(onMinimizeToTray: () -> Unit) {
                     } else false
                 }
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Row(modifier = Modifier.weight(1f)) {
+            val sidebarWidth = (maxWidth * 0.157f).coerceIn(184.dp, 262.dp)
+            val topBarHeight = (maxHeight * 0.074f).coerceIn(52.dp, 72.dp)
+            val playerHeight = (maxHeight * 0.117f).coerceIn(92.dp, 112.dp)
+
+            NocturneBackdrop {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = playerHeight)
+                ) {
                     OmniSidebar(
                         activeScreen = navScreen,
                         hasCurrentSong = currentSong != null,
@@ -76,8 +106,9 @@ fun OmniWindow(onMinimizeToTray: () -> Unit) {
                         onNavigate = { player.navigateTo(it) },
                     )
                     Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-                        OmniTopBar(
-                            query = query,
+                        WindowDraggableArea {
+                            OmniTopBar(
+                                query = query,
                             onQueryChange = { query = it },
                             onSearch = { player.search(it) },
                             onNavigateToSearch = { player.navigateTo(NavScreen.Search) },
@@ -85,13 +116,20 @@ fun OmniWindow(onMinimizeToTray: () -> Unit) {
                             canGoForward = canGoForward,
                             onBack = { player.back() },
                             onForward = { player.forward() },
-                            focusRequester = searchFocus,
-                        )
+                                focusRequester = searchFocus,
+                                modifier = Modifier.fillMaxWidth().height(topBarHeight),
+                                onClose = onClose,
+                                onMinimize = onMinimizeToTray,
+                                onMaximize = {
+                                    if (isMaximized) windowState.placement = WindowPlacement.Floating
+                                    else windowState.placement = WindowPlacement.Maximized
+                                }
+                            )
+                        }
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .weight(1f)
-                                .background(BgDeep)
                         ) {
                             AnimatedContent(
                                 targetState = navScreen,
@@ -119,6 +157,7 @@ fun OmniWindow(onMinimizeToTray: () -> Unit) {
                         }
                     }
                 }
+                }
 
                 OmniBottomPlayer(
                     player = player,
@@ -126,8 +165,12 @@ fun OmniWindow(onMinimizeToTray: () -> Unit) {
                     playbackState = playbackState,
                     position = pos,
                     volume = volume,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
+                        .fillMaxWidth()
+                        .height(playerHeight - 12.dp)
                 )
             }
         }
-    }
 }

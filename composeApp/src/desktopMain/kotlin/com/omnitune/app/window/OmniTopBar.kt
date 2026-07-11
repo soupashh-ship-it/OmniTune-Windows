@@ -41,12 +41,14 @@ fun OmniTopBar(
     onForward: () -> Unit,
     focusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
+    onClose: () -> Unit = {},
+    onMinimize: () -> Unit = {},
+    onMaximize: () -> Unit = {},
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(52.dp)
-            .background(BgDeep),
+            .background(Color(0xCC020614)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Spacer(Modifier.width(16.dp))
@@ -101,8 +103,32 @@ fun OmniTopBar(
             }
         }
         Spacer(Modifier.width(16.dp))
+        
+        // Window controls
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            WindowControlButton("—", onMinimize)
+            WindowControlButton("□", onMaximize)
+            WindowControlButton("✕", onClose)
+        }
+        Spacer(Modifier.width(8.dp))
     }
 }
+
+@Composable
+private fun WindowControlButton(text: String, onClick: () -> Unit) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .background(if (isHovered) Surface3 else Color.Transparent)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(text, color = TextSecondary, style = MaterialTheme.typography.labelMedium)
+    }
+    }
 
 @Composable
 private fun NavArrow(icon: ImageVector, enabled: Boolean, onClick: () -> Unit) {

@@ -29,46 +29,65 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-val BgDeep = Color(0xFF0D0B1A)
-val BgInk = Color(0xFF0D1226)
-val BgDark = Color(0xFF100E1F)
-val BgCard = Color(0xFF151328)
-val BgCardHover = Color(0xFF1A1730)
-val BgElevated = Color(0xFF1F1C3A)
-val SurfaceSelected = Color(0xFF1E1A3A)
+object NocturneColors {
+    val DeepestBase = Color(0xFF020511)
+    val Canvas = Color(0xFF040819)
+    val CanvasTop = Color(0xFF061025)
+    val SidebarBase = Color(0xFF080A16)
+    val TopChrome = Color(0xFF020614)
+    val Surface = Color(0xB80D1222)
+    val SurfaceStrong = Color(0xE60F1426)
+    val SurfaceHover = Color(0xFF181D35)
+    val Iris = Color(0xFF7D6EFF)
+    val Violet = Color(0xFF9A6BFF)
+    val CoolBlue = Color(0xFF4C6FFF)
+    val PrimaryText = Color(0xFFF4F3FA)
+    val SecondaryText = Color(0xFFA9AEC2)
+    val MutedText = Color(0xFF737B93)
+    val BorderSubtle = Color(0x14FFFFFF)
+    val BorderHover = Color(0x24FFFFFF)
+}
 
-val BgSurface = Color(0xFF151328)
-val SidebarBg = Color(0xFF141A33)
-val SidebarBackground = Color(0xFF0F0D1F)
-val PlayerDock = Color(0xFF12102A)
-val Surface1 = Color(0xFF151328)
-val Surface2 = Color(0xFF1A1730)
-val Surface3 = Color(0xFF1F1C3A)
-val Elevated1 = Color(0xFF1B213B)
-val Elevated2 = Color(0xFF202644)
+val BgDeep = NocturneColors.DeepestBase
+val BgInk = NocturneColors.Canvas
+val BgDark = NocturneColors.DeepestBase
+val BgCard = NocturneColors.Surface
+val BgCardHover = NocturneColors.SurfaceHover
+val BgElevated = NocturneColors.SurfaceStrong
+val SurfaceSelected = NocturneColors.SurfaceStrong
 
-val Iris = Color(0xFF7C5CFC)
-val IrisSoft = Color(0xFF8B6FE8)
-val Violet = Color(0xFF9B6DFF)
+val BgSurface = NocturneColors.Surface
+val SidebarBg = NocturneColors.SidebarBase
+val SidebarBackground = NocturneColors.SidebarBase
+val PlayerDock = Color(0xFF0A0F1F)
+val Surface1 = NocturneColors.Surface
+val Surface2 = NocturneColors.SurfaceStrong
+val Surface3 = NocturneColors.SurfaceHover
+val Elevated1 = NocturneColors.SurfaceStrong
+val Elevated2 = NocturneColors.SurfaceHover
+
+val Iris = NocturneColors.Iris
+val IrisSoft = NocturneColors.Violet
+val Violet = NocturneColors.Violet
 val VioletSoft = Color(0xFFA855F7)
-val CoolBlue = Color(0xFF5D7FFF)
+val CoolBlue = NocturneColors.CoolBlue
 
 val AccentLavender = Iris
 val AccentLavenderLight = VioletSoft
 val AccentSecondary = IrisSoft
 
-val TextWhite = Color(0xFFEEEDF5)
-val TextPrimary = Color(0xFFEEEDF5)
-val TextSecondary = Color(0xFF8B8A9E)
-val TextMuted = Color(0xFF6B6980)
+val TextWhite = NocturneColors.PrimaryText
+val TextPrimary = NocturneColors.PrimaryText
+val TextSecondary = NocturneColors.SecondaryText
+val TextMuted = NocturneColors.MutedText
 val TextDim = Color(0xFF4A485B)
-val TextGray = Color(0xFF8B8A9E)
+val TextGray = NocturneColors.SecondaryText
 
-val BorderColor = Color(0xFF1F1B35)
-val SurfaceHairline = Color.White.copy(alpha = 0.04f)
-val BorderLow = Color(0xFF1F1B35)
-val BorderWhite = Color.White.copy(alpha = 0.06f)
-val BorderHover = Color.White.copy(alpha = 0.12f)
+val BorderColor = NocturneColors.BorderSubtle
+val SurfaceHairline = NocturneColors.BorderSubtle
+val BorderLow = NocturneColors.BorderSubtle
+val BorderWhite = NocturneColors.BorderSubtle
+val BorderHover = NocturneColors.BorderHover
 
 val SuccessGreen = Color(0xFF5BD6A0)
 val ErrorRed = Color(0xFFFF6363)
