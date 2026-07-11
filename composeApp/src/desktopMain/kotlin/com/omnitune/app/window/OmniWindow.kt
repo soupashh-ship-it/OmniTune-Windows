@@ -112,6 +112,7 @@ fun OmniWindow(onMinimizeToTray: () -> Unit) {
                                     NavScreen.Settings -> SettingsView()
                                     NavScreen.Artist -> ArtistView(player)
                                     NavScreen.Album -> AlbumView(player)
+                                    NavScreen.PlaylistDetail -> PlaylistDetailView(player)
                                     NavScreen.Downloads -> DownloadsView(player)
                                 }
                             }

@@ -158,33 +158,6 @@ private fun LazyVerticalGridCells(items: List<AlbumItem>, player: PlayerViewMode
 // LIBRARY
 // ---------------------------------------------------------------------------
 
-@Composable
-fun LibraryView(player: PlayerViewModel) {
-    var tab by remember { mutableStateOf(0) }
-    val tabs = listOf("Songs", "Albums", "Artists", "Playlists", "Downloads")
-    val liked by player.likedSongs.collectAsState()
-    val queue by player.queue.collectAsState()
-    val likedSongs = remember(liked, queue) { queue.filter { liked.contains(it.id) } }
-
-    Column(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp)) {
-        OmniSectionHeader("Your Library", modifier = Modifier.padding(bottom = 16.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            tabs.forEachIndexed { i, t ->
-                val active = i == tab
-                Box(modifier = Modifier.clip(Shapes.pill).background(if (active) Iris.copy(alpha = 0.18f) else Surface2).border(1.dp, if (active) Iris.copy(alpha = 0.4f) else BorderLow, Shapes.pill).clickable { tab = i }.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text(t, color = if (active) IrisSoft else TextSecondary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
-                }
-            }
-        }
-        Spacer(Modifier.height(20.dp))
-        when (tab) {
-            0 -> if (likedSongs.isEmpty()) OmniEmptyState("No liked songs yet", "Tap the heart on a track to save it here.") else LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                itemsIndexed(likedSongs) { i, s -> OmniSongRow(s, isActive = false, isPlaying = false, onClick = { player.playSong(s, -1) }, onLike = { player.toggleLike(s.id) }) }
-            }
-            else -> OmniEmptyState("Nothing here yet", "This collection will populate as you listen.")
-        }
-    }
-}
 
 // ---------------------------------------------------------------------------
 // ARTIST

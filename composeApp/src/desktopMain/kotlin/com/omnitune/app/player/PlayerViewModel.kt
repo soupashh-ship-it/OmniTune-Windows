@@ -24,7 +24,7 @@ import kotlin.coroutines.CoroutineContext
 
 enum class NavScreen {
     Home, Browse, Radio, Library, Search, NowPlaying, Queue, Playlists, Settings,
-    Artist, Album, Downloads
+    Artist, Album, Downloads, PlaylistDetail
 }
 
 enum class RepeatMode { OFF, ALL, ONE }
@@ -51,6 +51,9 @@ class PlayerViewModel(
 
     private val _playlistResults = MutableStateFlow<List<YTItem>>(emptyList())
     val playlistResults: StateFlow<List<YTItem>> = _playlistResults.asStateFlow()
+
+    private val _currentPlaylistId = MutableStateFlow<String?>(null)
+    val currentPlaylistId: StateFlow<String?> = _currentPlaylistId.asStateFlow()
 
     private val _playlistLoading = MutableStateFlow(false)
     val playlistLoading: StateFlow<Boolean> = _playlistLoading.asStateFlow()
@@ -176,6 +179,11 @@ class PlayerViewModel(
     fun openArtist(id: String) {
         _currentArtistId.value = id
         navigateTo(NavScreen.Artist)
+    }
+
+    fun openPlaylist(id: String) {
+        _currentPlaylistId.value = id
+        navigateTo(NavScreen.PlaylistDetail)
     }
 
     fun openAlbum(id: String) {
