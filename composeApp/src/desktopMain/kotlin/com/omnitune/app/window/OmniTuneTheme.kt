@@ -30,24 +30,24 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 object NocturneColors {
-    val DeepestBase = Color(0xFF020511)
-    val CanvasBase = Color(0xFF050819)
+    val DeepestBase = Color(0xFF040716)
+    val CanvasBase = Color(0xFF040716)
     val CanvasUpper = Color(0xFF050A1D)
 
-    val SidebarTop = Color(0xFF0C0A1A)
-    val SidebarMiddle = Color(0xFF080A17)
-    val SidebarBottom = Color(0xFF060914)
+    val SidebarTop = Color(0xFF080F22)
+    val SidebarMiddle = Color(0xFF080F22)
+    val SidebarBottom = Color(0xFF080F22)
 
-    val TopChrome = Color(0xF0030716)
+    val TopChrome = Color(0xFF040716)
 
-    val SurfaceLow = Color(0x990B1020)
-    val SurfaceStandard = Color(0xB80D1222)
-    val SurfaceStrong = Color(0xE60F1426)
+    val SurfaceLow = Color(0xFF0B1121)
+    val SurfaceStandard = Color(0xFF0E133B)
+    val SurfaceStrong = Color(0xFF0E133B)
     val SurfaceHover = Color(0xFF181D35)
 
     val Iris = Color(0xFF7C6DFF)
     val Violet = Color(0xFF9468FF)
-    val CoolBlue = Color(0xFF4C6FFF)
+    val CoolBlue = Color(0xFF7084FF)
 
     val PrimaryText = Color(0xFFF4F3FA)
     val SecondaryText = Color(0xFFA9AEC2)

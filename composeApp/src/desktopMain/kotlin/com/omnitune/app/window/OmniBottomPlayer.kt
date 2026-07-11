@@ -70,6 +70,7 @@ fun OmniBottomPlayer(
     val artworkSize = 56.dp
     val centralButtonSize = 46.dp
 
+    
     val playerBrush = Brush.horizontalGradient(
         colorStops = arrayOf(
             0.00f to Color(0xFF0A0D1A),
@@ -81,6 +82,7 @@ fun OmniBottomPlayer(
             1.00f to Color(0xFF090C18),
         )
     )
+
     val shape = RoundedCornerShape(12.dp)
 
     Box(
