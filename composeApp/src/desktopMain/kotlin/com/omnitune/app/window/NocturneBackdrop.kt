@@ -29,7 +29,7 @@ fun NocturneBackdrop(
         modifier = modifier
             .fillMaxSize()
             .drawBehind {
-                val referenceSize = size.minDimension
+                val minDimension = size.minDimension
 
                 // 1. Deep blue-black base.
                 drawRect(
@@ -48,7 +48,6 @@ fun NocturneBackdrop(
                     )
                 )
 
-                // Layer 3: Restrained cool-blue upper atmosphere
                 // 3. Soft cool-blue upper atmosphere.
                 drawRect(
                     brush = Brush.radialGradient(
@@ -60,11 +59,10 @@ fun NocturneBackdrop(
                             x = size.width * 0.47f,
                             y = size.height * 0.12f,
                         ),
-                        radius = referenceSize * 0.82f,
+                        radius = minDimension * 0.82f,
                     )
                 )
 
-                // Layer 4: Restrained iris/violet ambient light
                 // 4. Restrained iris atmosphere.
                 drawRect(
                     brush = Brush.radialGradient(
@@ -76,11 +74,10 @@ fun NocturneBackdrop(
                             x = size.width * 0.73f,
                             y = size.height * 0.20f,
                         ),
-                        radius = referenceSize * 0.65f,
+                        radius = minDimension * 0.65f,
                     )
                 )
 
-                // Layer 5: Extremely subtle lower violet ambience near persistent player
                 // 5. Very faint lower-player ambience.
                 drawRect(
                     brush = Brush.radialGradient(
@@ -92,7 +89,7 @@ fun NocturneBackdrop(
                             x = size.width * 0.46f,
                             y = size.height * 0.94f,
                         ),
-                        radius = referenceSize * 0.55f,
+                        radius = minDimension * 0.55f,
                     )
                 )
             },

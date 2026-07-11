@@ -105,12 +105,12 @@ fun OmniSidebar(
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp).fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                AsyncImage(
-                    model = "file:///D:/Omnitune%20Windoww/composeApp/src/desktopMain/resources/logo.png",
-                    contentDescription = "OmniTune Logo",
-                    modifier = Modifier.size(36.dp).clip(CircleShape),
-                    fallback = null
-                )
+                Box(
+                    modifier = Modifier.size(32.dp).clip(CircleShape).background(OmniGradients.primaryAction),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.MusicNote, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                }
                 Spacer(Modifier.width(12.dp))
                 Text("OmniTune", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
@@ -392,6 +392,7 @@ private fun LibrarySubItem(
     }
 }
 
+
 // ── Playlist item (thumbnail + label) ─────────────────────────────────────────
 @Composable
 private fun PlaylistItem(
@@ -404,12 +405,14 @@ private fun PlaylistItem(
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
+    val bgHover = Color.White.copy(alpha = 0.04f)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(40.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .then(if (isActive || isHovered) Modifier.background(Surface3) else Modifier)
+            .height(42.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isActive || isHovered) bgHover else Color.Transparent)
             .hoverable(interactionSource)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
             .padding(horizontal = 8.dp),
@@ -418,23 +421,24 @@ private fun PlaylistItem(
         // Thumbnail placeholder (gradient box)
         Box(
             modifier = Modifier
-                .size(28.dp)
-                .clip(RoundedCornerShape(5.dp))
+                .size(32.dp)
+                .clip(RoundedCornerShape(6.dp))
                 .background(androidx.compose.ui.graphics.Brush.linearGradient(gradientColors)),
             contentAlignment = Alignment.Center,
         ) {
             if (icon != null) {
-                Icon(icon, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(14.dp))
+                Icon(icon, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(16.dp))
             }
         }
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(12.dp))
         Text(
             label,
-            style = MaterialTheme.typography.bodySmall,
-            color = if (isActive) TextPrimary else TextSecondary,
-            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (isActive) Color(0xFFF4F3FA) else Color(0xFFA9AEC2),
+            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
         )
     }
 }
+
