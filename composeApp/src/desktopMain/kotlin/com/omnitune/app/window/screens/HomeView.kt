@@ -156,7 +156,7 @@ private fun HomeContent(player: PlayerViewModel, home: HomePage, currentSong: So
             
             // ─── HERO & CONTINUE LISTENING ROW ─────────────────────────────
             item {
-                Row(modifier = Modifier.fillMaxWidth().height(260.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().height(290.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                     // Left side: Featured playlist/album card
                     OmniGlassSurface(
                         shape = Shapes.large,
