@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -39,102 +41,167 @@ fun LibraryView(player: PlayerViewModel) {
     val playbackState by player.playbackState.collectAsState()
     
     val likedSongs = remember(liked, queue) { queue.filter { liked.contains(it.id) }.distinctBy { it.id } }
-    val recentAdditions = remember(likedSongs) { likedSongs.reversed().take(10) }
-    val pinned = remember(likedSongs) { likedSongs.take(4) } // Honest fallback for pinned collections
 
-    LazyColumn(
+    Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 44.dp, vertical = 32.dp),
-        verticalArrangement = Arrangement.spacedBy(32.dp),
     ) {
         // TOP HEADER
-        item {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.SpaceBetween) {
+            Column {
                 Text("Library", style = MaterialTheme.typography.displaySmall, color = TextPrimary, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    // Sort Control
-                    Surface(shape = Shapes.small, color = Surface2, border = BorderStroke(1.dp, BorderLow)) {
-                        Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Recently Added", color = TextPrimary, style = MaterialTheme.typography.bodyMedium)
-                            Spacer(Modifier.width(8.dp))
-                            Icon(Icons.Default.ArrowDropDown, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
-                        }
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    // View Toggle
-                    OmniIconButton(icon = Icons.Default.GridView, contentDescription = "Grid View", onClick = {}, size = 36.dp, background = SurfaceSelected)
-                    OmniIconButton(icon = Icons.Default.ViewList, contentDescription = "List View", onClick = {}, size = 36.dp)
-                }
+                Spacer(Modifier.height(4.dp))
+                Text("${likedSongs.size} liked songs", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
             }
-            Spacer(Modifier.height(24.dp))
-            // TABS
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                tabs.forEachIndexed { i, t ->
-                    val active = i == tab
-                    Box(modifier = Modifier.clip(Shapes.pill).background(if (active) Iris else Surface2).border(1.dp, if (active) Color.Transparent else BorderLow, Shapes.pill).clickable { tab = i }.padding(horizontal = 20.dp, vertical = 8.dp)) {
-                        Text(t, color = if (active) Color.White else TextSecondary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                // Sort Control
+                Surface(shape = Shapes.small, color = Surface2, border = BorderStroke(1.dp, BorderLow)) {
+                    Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Recently Added", color = TextPrimary, style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.width(8.dp))
+                        Icon(Icons.Default.ArrowDropDown, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
                     }
+                }
+                Spacer(Modifier.width(8.dp))
+                // View Toggle
+                OmniIconButton(icon = Icons.Default.GridView, contentDescription = "Grid View", onClick = {}, size = 36.dp, background = SurfaceSelected)
+                OmniIconButton(icon = Icons.Default.ViewList, contentDescription = "List View", onClick = {}, size = 36.dp)
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+        
+        // TABS
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            tabs.forEachIndexed { i, t ->
+                val active = i == tab
+                Box(
+                    modifier = Modifier
+                        .clip(Shapes.pill)
+                        .background(if (active) Iris else Surface2)
+                        .border(1.dp, if (active) Color.Transparent else BorderLow, Shapes.pill)
+                        .clickable { tab = i }
+                        .padding(horizontal = 20.dp, vertical = 8.dp)
+                ) {
+                    Text(t, color = if (active) Color.White else TextSecondary, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
                 }
             }
         }
+        Spacer(Modifier.height(32.dp))
 
         if (tab == 0) { // SONGS TAB
             if (likedSongs.isEmpty()) {
-                item { OmniEmptyState("Library is empty", "Tap the heart on any track to add it to your library.") }
+                Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    OmniEmptyState("Library is empty", "Tap the heart on any track to add it to your library.")
+                }
             } else {
-                // PINNED COLLECTIONS
-                if (pinned.isNotEmpty()) {
-                    item {
-                        OmniSectionHeader("Pinned Collections", actionLabel = "Edit Pins", onAction = {})
-                        Spacer(Modifier.height(16.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            items(pinned) { song ->
-                                PinnedCollectionCard(song, player)
-                            }
-                        }
+                LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    itemsIndexed(likedSongs) { index, song ->
+                        val isCurrent = song.id == currentSong?.id
+                        val isPlaying = isCurrent && playbackState == PlaybackState.PLAYING
+                        LibrarySongRow(
+                            item = song,
+                            index = index,
+                            isCurrent = isCurrent,
+                            isPlaying = isPlaying,
+                            onPlay = { player.playSong(song, index) },
+                            onUnlike = { player.toggleLike(song.id) }
+                        )
                     }
-                }
-
-                // RECENT ADDITIONS
-                if (recentAdditions.isNotEmpty()) {
-                    item {
-                        OmniSectionHeader("Recent Additions", actionLabel = "See all", onAction = {})
-                        Spacer(Modifier.height(16.dp))
-                        LazyRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                            items(recentAdditions) { song ->
-                                RecentAdditionCard(song, player)
-                            }
-                        }
-                    }
-                }
-
-                // ALL SONGS TABLE
-                item {
-                    OmniSectionHeader("All Songs")
-                    Spacer(Modifier.height(16.dp))
-                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
-                        Text("#", color = TextMuted, style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(32.dp))
-                        Text("TITLE", color = TextMuted, style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(2f))
-                        Text("ARTIST", color = TextMuted, style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1.5f))
-                        Text("ALBUM", color = TextMuted, style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1.5f))
-                        Text("⏱", color = TextMuted, style = MaterialTheme.typography.labelMedium, modifier = Modifier.width(48.dp))
-                    }
-                    Spacer(Modifier.height(8.dp))
-                }
-                
-                itemsIndexed(likedSongs) { index, song ->
-                    OmniSongRow(
-                        item = song,
-                        isActive = song.id == currentSong?.id,
-                        isPlaying = song.id == currentSong?.id && playbackState == PlaybackState.PLAYING,
-                        onClick = { player.playSong(song, index) },
-                        onPlayNext = { player.playNext(song) },
-                        onAddToQueue = { player.addToQueue(song) },
-                        onLike = { player.toggleLike(song.id) }
-                    )
                 }
             }
         } else {
-            item { OmniEmptyState("Nothing here yet", "This collection will populate as you use the app.") }
+            // Other empty tabs
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                when (tab) {
+                    1 -> OmniEmptyState("No albums yet", "Save albums to your library for easy access.")
+                    2 -> OmniEmptyState("No artists yet", "Follow artists to see their latest releases here.")
+                    3 -> OmniEmptyState("No playlists", "Create a playlist or save ones you discover.")
+                    4 -> OmniEmptyState("No downloads", "Download music to listen offline.")
+                    else -> OmniEmptyState("Nothing here", "Check back later.")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibrarySongRow(
+    item: SongItem,
+    index: Int,
+    isCurrent: Boolean,
+    isPlaying: Boolean,
+    onPlay: () -> Unit,
+    onUnlike: () -> Unit
+) {
+    val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    val bg = when {
+        isHovered -> BgCardHover
+        else -> Surface1
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth()
+            .then(if (isCurrent) Modifier.border(1.dp, Iris.copy(alpha = 0.3f), Shapes.small) else Modifier)
+            .clip(Shapes.small)
+            .background(bg)
+            .hoverable(interactionSource)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onPlay),
+        shape = Shapes.small,
+        color = Color.Transparent
+    ) {
+        Row(
+            modifier = Modifier.padding(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Left Iris bar indicator for current song
+            Box(modifier = Modifier.width(4.dp).height(32.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(2.dp)).background(if (isCurrent) Iris else Color.Transparent))
+            Spacer(Modifier.width(12.dp))
+            
+            Box(
+                modifier = Modifier.size(48.dp).clip(Shapes.artworkSmall).background(BgCard),
+                contentAlignment = Alignment.Center
+            ) {
+                AsyncImage(
+                    model = item.thumbnail.toHighResThumbnail(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+                if (isCurrent) {
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
+                        PlayingIndicatorBox(isActive = true, playWhenReady = isPlaying, color = Iris)
+                    }
+                }
+            }
+            Spacer(Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    item.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = if (isCurrent) IrisSoft else TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                val artists = item.artists.joinToString(", ") { it.name }
+                if (artists.isNotEmpty()) {
+                    Text(artists, style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            
+            // Album name
+            Text(item.title, style = MaterialTheme.typography.bodyMedium, color = TextSecondary, modifier = Modifier.weight(0.8f).padding(horizontal = 16.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            
+            item.duration?.let { dur ->
+                Text("${dur / 60}:${(dur % 60).toString().padStart(2, '0')}", style = MaterialTheme.typography.bodySmall, color = TextDim)
+            }
+            Spacer(Modifier.width(16.dp))
+            IconButton(onClick = onUnlike, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.Favorite, null, tint = IrisSoft, modifier = Modifier.size(16.dp))
+            }
+            IconButton(onClick = {}, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.MoreHoriz, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+            }
         }
     }
 }

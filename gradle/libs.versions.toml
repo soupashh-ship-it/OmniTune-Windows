@@ -1,0 +1,97 @@
+[versions]
+kotlin = "2.1.20"
+compose-plugin = "1.8.0"
+agp = "8.7.3"
+ktor = "3.1.0"
+coil = "3.1.0"
+koin = "4.1.0"
+coroutines = "1.10.1"
+lifecycle = "2.8.4"
+json = "20250517"
+timber = "5.0.1"
+jsoup = "1.22.1"
+re2j = "1.8"
+brotli = "0.1.2"
+rhino = "1.8.1"
+vlcj = "4.11.0"
+jmtc = "0.0.3"
+apache-lang3 = "3.20.0"
+kuromoji-ipadic = "0.9.0"
+room = "2.7.0"
+hilt = "2.59.2"
+
+[libraries]
+# Compose Multiplatform
+compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-plugin" }
+compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-plugin" }
+compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-plugin" }
+compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-plugin" }
+compose-ui-util = { module = "org.jetbrains.compose.ui:ui-util", version.ref = "compose-plugin" }
+compose-animation = { module = "org.jetbrains.compose.animation:animation", version.ref = "compose-plugin" }
+compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose-plugin" }
+compose-desktop-os = { module = "org.jetbrains.compose.desktop:desktop", version.ref = "compose-plugin" }
+compose-desktop-current-os = { module = "org.jetbrains.compose.desktop:desktop-current-os", version.ref = "compose-plugin" }
+
+# Navigation
+navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version = "2.8.0-alpha10" }
+
+# Lifecycle
+lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+
+# Coil 3
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
+
+# Koin
+koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+koin-compose = { module = "io.insert-koin:koin-compose", version.ref = "koin" }
+koin-compose-viewmodel = { module = "io.insert-koin:koin-compose-viewmodel", version.ref = "koin" }
+
+# Ktor
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-client-encoding = { module = "io.ktor:ktor-client-encoding", version.ref = "ktor" }
+ktor-serialization-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
+ktor-server-cio = { module = "io.ktor:ktor-server-cio", version.ref = "ktor" }
+ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.ref = "ktor" }
+ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
+
+# KSP
+# VLCj
+vlcj = { module = "uk.co.caprica:vlcj", version.ref = "vlcj" }
+
+# JMTC (System Media Transport Controls)
+jmtc = { module = "io.github.selemba1000:JavaMediaTransportControls", version.ref = "jmtc" }
+
+# JSON
+json = { module = "org.json:json", version.ref = "json" }
+
+# Utilities
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+re2j = { module = "com.google.re2j:re2j", version.ref = "re2j" }
+brotli = { module = "org.brotli:dec", version.ref = "brotli" }
+rhino = { module = "org.mozilla:rhino", version.ref = "rhino" }
+timber = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
+apache-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "apache-lang3" }
+kuromoji-ipadic = { module = "com.atilika.kuromoji:kuromoji-ipadic", version.ref = "kuromoji-ipadic" }
+coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
+coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+
+# Test
+junit = { module = "junit:junit", version = "4.13.2" }
+
+# NewPipe Extractor
+newpipe-extractor = { module = "com.github.teamnewpipe:newpipeextractor", version = "v0.26.3" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+compose-multiplatform = { id = "org.jetbrains.compose", version.ref = "compose-plugin" }
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+

@@ -475,3 +475,16 @@ fun OmniShimmerBlock(
             .background(Surface3.copy(alpha = 0.5f)),
     )
 }
+
+@Composable
+fun OmniBadge(text: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clip(Shapes.small)
+            .background(com.omnitune.app.window.BgElevated)
+            .border(1.dp, com.omnitune.app.window.BorderLow, Shapes.small)
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+    ) {
+        Text(text, style = MaterialTheme.typography.labelSmall, color = com.omnitune.app.window.TextSecondary)
+    }
+}

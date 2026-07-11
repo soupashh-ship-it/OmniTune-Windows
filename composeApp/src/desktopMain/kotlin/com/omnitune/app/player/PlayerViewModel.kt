@@ -19,6 +19,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
 
@@ -28,6 +30,36 @@ enum class NavScreen {
 }
 
 enum class RepeatMode { OFF, ALL, ONE }
+
+data class LyricLine(val timeMs: Long, val text: String)
+
+sealed class LyricsResult {
+    object Loading : LyricsResult()
+    data class Synced(val lines: List<LyricLine>) : LyricsResult()
+    data class Unsynced(val text: String) : LyricsResult()
+    object NotFound : LyricsResult()
+    data class Error(val message: String) : LyricsResult()
+}
+
+fun parseLrc(text: String?): List<LyricLine> {
+    if (text.isNullOrBlank()) return emptyList()
+    val out = mutableListOf<LyricLine>()
+    val regex = Regex("\\[(\\d{2}):(\\d{2})[.:](\\d{2,3})?]")
+    text.lines().forEach { line ->
+        val matches = regex.findAll(line)
+        val content = line.replace(regex, "").trim()
+        if (content.isEmpty() && matches.none()) return@forEach
+        matches.forEach { m ->
+            val mm = m.groupValues[1].toLongOrNull() ?: 0
+            val ss = m.groupValues[2].toLongOrNull() ?: 0
+            var xxStr = m.groupValues[3]
+            if (xxStr.length == 2) xxStr += "0"
+            val xx = xxStr.toLongOrNull() ?: 0
+            out.add(LyricLine((mm * 60 + ss) * 1000 + xx, content))
+        }
+    }
+    return out.sortedBy { it.timeMs }
+}
 
 class PlayerViewModel(
     private val youTubeService: YouTubeService,
@@ -191,20 +223,42 @@ class PlayerViewModel(
         navigateTo(NavScreen.Album)
     }
 
-    private val _lyricsText = MutableStateFlow<String?>(null)
-    val lyricsText: StateFlow<String?> = _lyricsText.asStateFlow()
-    private val _lyricsLoading = MutableStateFlow(false)
-    val lyricsLoading: StateFlow<Boolean> = _lyricsLoading.asStateFlow()
+
+    private val _lyricsResult = MutableStateFlow<LyricsResult>(LyricsResult.NotFound)
+    val lyricsResult: StateFlow<LyricsResult> = _lyricsResult.asStateFlow()
+    
+    private var lyricsJob: Job? = null
 
     fun loadLyrics() {
         val song = _currentSong.value ?: return
-        if (_lyricsText.value != null && _currentSong.value?.id == song.id) return
-        launch {
-            _lyricsLoading.value = true
-            runCatching { LrcLib.getLyrics(song.title, song.artists.firstOrNull()?.name ?: "", song.duration ?: -1) }
-                .onSuccess { _lyricsText.value = it.getOrNull() }
-                .onFailure { _lyricsText.value = null }
-            _lyricsLoading.value = false
+        lyricsJob?.cancel()
+        lyricsJob = launch {
+            val capturedId = song.id
+            _lyricsResult.value = LyricsResult.Loading
+            runCatching {
+                com.omnitune.lrclib.LrcLib.getLyrics(
+                    song.title,
+                    song.artists.firstOrNull()?.name ?: "",
+                    song.duration ?: -1
+                )
+            }
+                .onSuccess { track ->
+                    if (!isActive || _currentSong.value?.id != capturedId) return@onSuccess
+                    val synced = track.syncedLyrics
+                    val plain = track.plainLyrics
+                    if (synced != null) {
+                        _lyricsResult.value = LyricsResult.Synced(parseLrc(synced))
+                    } else if (plain != null) {
+                        _lyricsResult.value = LyricsResult.Unsynced(plain)
+                    } else {
+                        _lyricsResult.value = LyricsResult.NotFound
+                    }
+                }
+                .onFailure {
+                    if (isActive && _currentSong.value?.id == capturedId) {
+                        _lyricsResult.value = LyricsResult.NotFound
+                    }
+                }
         }
     }
 
@@ -376,6 +430,8 @@ class PlayerViewModel(
     }
 
     private suspend fun doPlay(item: SongItem) {
+        _lyricsResult.value = LyricsResult.Loading
+        lyricsJob?.cancel()
         _streamUrl.value = null
         val clients = listOf(
             YouTubeClient.WEB_REMIX,
@@ -401,7 +457,9 @@ class PlayerViewModel(
             println("[PlayerVM] playing URL: ${url!!.take(100)}...")
             _streamUrl.value = url
             audioEngine.play(url!!)
+            loadLyrics()
         } else {
+            _lyricsResult.value = LyricsResult.NotFound
             println("[PlayerVM] all clients failed to resolve URL")
         }
     }

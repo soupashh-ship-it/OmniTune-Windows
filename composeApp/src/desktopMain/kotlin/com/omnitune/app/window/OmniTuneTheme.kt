@@ -35,6 +35,7 @@ val BgDark = Color(0xFF100E1F)
 val BgCard = Color(0xFF151328)
 val BgCardHover = Color(0xFF1A1730)
 val BgElevated = Color(0xFF1F1C3A)
+val SurfaceSelected = Color(0xFF1E1A3A)
 
 val BgSurface = Color(0xFF151328)
 val SidebarBg = Color(0xFF141A33)

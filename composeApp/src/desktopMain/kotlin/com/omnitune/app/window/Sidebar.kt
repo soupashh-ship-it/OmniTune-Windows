@@ -65,7 +65,7 @@ fun OmniSidebar(
         NavEntry(NavScreen.Album, "Albums", Icons.Default.Album),
         NavEntry(NavScreen.Artist, "Artists", Icons.Default.People),
         NavEntry(NavScreen.Search, "Songs", Icons.Default.MusicNote),
-        NavEntry(NavScreen.Downloads, "Downloads", Icons.Default.Download),
+        NavEntry(NavScreen.Downloads, "Downloads & Offline", Icons.Default.Download),
     )
 
     Surface(
@@ -157,24 +157,27 @@ private fun SidebarItem(
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
-    val bgColor by animateColorAsState(
-        if (isActive) Elevated2
-        else if (isHovered && enabled) com.omnitune.app.window.BgElevated
-        else Color.Transparent,
-        tween(OmniMotion.fastMs),
-    )
-    val contentColor = if (isActive || isHovered) com.omnitune.app.window.TextPrimary else com.omnitune.app.window.TextSecondary
+    val contentColor = if (isActive) Color.White else if (isHovered) com.omnitune.app.window.TextPrimary else com.omnitune.app.window.TextSecondary
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(if (compact) 36.dp else 40.dp)
             .clip(Shapes.small)
-            .background(bgColor)
+            .then(
+                if (isActive) Modifier.background(OmniGradients.primaryAction)
+                else if (isHovered && enabled) Modifier.background(com.omnitune.app.window.Surface3)
+                else Modifier
+            )
             .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (isActive) {
+            // Add subtle left accent
+            Box(modifier = Modifier.width(3.dp).height(16.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(1.5.dp)).background(Color.White))
+            Spacer(Modifier.width(9.dp))
+        }
         Icon(
             imageVector = entry.icon,
             contentDescription = entry.label,
@@ -190,7 +193,7 @@ private fun SidebarItem(
         )
         if (trailing != null) {
             Spacer(Modifier.weight(1f))
-            Text(trailing, style = MaterialTheme.typography.labelMedium, color = TextMuted)
+            Text(trailing, style = MaterialTheme.typography.labelMedium, color = if (isActive) Color.White.copy(alpha = 0.7f) else TextMuted)
         }
     }
 }

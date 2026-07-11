@@ -164,18 +164,3 @@ private fun LazyVerticalGridCells(items: List<AlbumItem>, player: PlayerViewMode
 // DOWNLOADS
 // ---------------------------------------------------------------------------
 
-@Composable
-fun DownloadsView(player: PlayerViewModel) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp)) {
-        OmniSectionHeader("Downloads & Offline", modifier = Modifier.padding(bottom = 16.dp))
-        OmniSurface(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp), color = Surface1) {
-            Column(Modifier.padding(20.dp)) {
-                Text("Offline storage", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
-                Spacer(Modifier.height(8.dp))
-                Text("Downloaded songs: 0 · No active downloads", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-        OmniEmptyState("Nothing downloaded yet", "Downloaded tracks and playlists will appear here. Audio downloads require local storage and are not yet enabled.")
-    }
-}
