@@ -31,65 +31,68 @@ fun NocturneBackdrop(
             .drawBehind {
                 val referenceSize = size.minDimension
 
-                // Layer 1: Deepest blue-black foundation
+                // 1. Deep blue-black base.
                 drawRect(
-                    color = NocturneColors.DeepestBase,
+                    color = Color(0xFF020511)
                 )
 
-                // Layer 2: Vertical navy/obsidian tonal transition
+                // 2. Very subtle vertical tonal depth.
                 drawRect(
                     brush = Brush.verticalGradient(
                         colorStops = arrayOf(
-                            0.0f to Color(0xFF061025),
-                            0.38f to Color(0xFF04091C),
-                            0.72f to Color(0xFF040819),
-                            1.0f to Color(0xFF020511),
+                            0.00f to Color(0xFF050A1D),
+                            0.25f to Color(0xFF05091B),
+                            0.60f to Color(0xFF050819),
+                            1.00f to Color(0xFF020511),
                         )
                     )
                 )
 
                 // Layer 3: Restrained cool-blue upper atmosphere
+                // 3. Soft cool-blue upper atmosphere.
                 drawRect(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            Color(0xFF284CFF).copy(alpha = 0.115f),
+                            Color(0xFF2446D8).copy(alpha = 0.075f),
                             Color.Transparent,
                         ),
                         center = Offset(
-                            x = size.width * 0.42f,
-                            y = size.height * 0.14f,
+                            x = size.width * 0.47f,
+                            y = size.height * 0.12f,
                         ),
-                        radius = referenceSize * 0.78f,
+                        radius = referenceSize * 0.82f,
                     )
                 )
 
                 // Layer 4: Restrained iris/violet ambient light
+                // 4. Restrained iris atmosphere.
                 drawRect(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            animatedAccent.copy(alpha = 0.09f),
+                            animatedAccent.copy(alpha = 0.045f),
                             Color.Transparent,
                         ),
                         center = Offset(
-                            x = size.width * 0.66f,
-                            y = size.height * 0.18f,
+                            x = size.width * 0.73f,
+                            y = size.height * 0.20f,
                         ),
-                        radius = referenceSize * 0.64f,
+                        radius = referenceSize * 0.65f,
                     )
                 )
 
                 // Layer 5: Extremely subtle lower violet ambience near persistent player
+                // 5. Very faint lower-player ambience.
                 drawRect(
                     brush = Brush.radialGradient(
                         colors = listOf(
-                            Color(0xFF8D5CFF).copy(alpha = 0.055f),
+                            Color(0xFF805EFF).copy(alpha = 0.035f),
                             Color.Transparent,
                         ),
                         center = Offset(
                             x = size.width * 0.46f,
                             y = size.height * 0.94f,
                         ),
-                        radius = referenceSize * 0.58f,
+                        radius = referenceSize * 0.55f,
                     )
                 )
             },

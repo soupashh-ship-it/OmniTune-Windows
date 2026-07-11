@@ -72,10 +72,11 @@ fun OmniSidebar(
     }
 
     val sidebarBrush = androidx.compose.ui.graphics.Brush.verticalGradient(
-        colors = listOf(
-            Color(0xFF090B18),
-            Color(0xFF070A16),
-            Color(0xFF060914),
+        colorStops = arrayOf(
+            0.0f to Color(0xFF0C0A1A),
+            0.35f to Color(0xFF090A18),
+            0.72f to Color(0xFF070A16),
+            1.0f to Color(0xFF060914),
         )
     )
 
@@ -101,20 +102,17 @@ fun OmniSidebar(
         ) {
             // ── Brand ──────────────────────────────────────────────────────────
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp).fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(OmniGradients.irisToLavender),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Default.MusicNote, null, tint = Color(0xFF05060A), modifier = Modifier.size(16.dp))
-                }
-                Spacer(Modifier.width(10.dp))
-                Text("OmniTune", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.Bold)
+                AsyncImage(
+                    model = "file:///D:/Omnitune%20Windoww/composeApp/src/desktopMain/resources/logo.png",
+                    contentDescription = "OmniTune Logo",
+                    modifier = Modifier.size(36.dp).clip(CircleShape),
+                    fallback = null
+                )
+                Spacer(Modifier.width(12.dp))
+                Text("OmniTune", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
 
             Spacer(Modifier.height(16.dp))
@@ -262,14 +260,23 @@ private fun NavItem(
         else -> TextSecondary
     }
 
+    val activeBrush = androidx.compose.ui.graphics.Brush.horizontalGradient(
+        colors = listOf(
+            Color(0xFF31226D),
+            Color(0xFF281C64),
+            Color(0xFF211952),
+        )
+    )
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(38.dp)
+            .height(44.dp)
+            .padding(horizontal = 18.dp)
             .clip(RoundedCornerShape(8.dp))
             .then(
                 when {
-                    isActive -> Modifier.background(OmniGradients.primaryAction)
+                    isActive -> Modifier.background(activeBrush)
                     isHovered && enabled -> Modifier.background(Surface3)
                     else -> Modifier
                 }
@@ -279,6 +286,10 @@ private fun NavItem(
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (isActive) {
+            Box(modifier = Modifier.width(3.dp).height(24.dp).clip(RoundedCornerShape(1.5.dp)).background(Color(0xFF8B7CFF)))
+            Spacer(Modifier.width(12.dp))
+        }
         Icon(
             imageVector = icon,
             contentDescription = label,

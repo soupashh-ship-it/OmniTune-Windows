@@ -88,9 +88,9 @@ fun WindowScope.OmniWindow(
                     } else false
                 }
         ) {
-            val sidebarWidth = (maxWidth * 0.157f).coerceIn(184.dp, 262.dp)
-            val topBarHeight = (maxHeight * 0.074f).coerceIn(52.dp, 72.dp)
-            val playerHeight = (maxHeight * 0.117f).coerceIn(92.dp, 112.dp)
+            val sidebarWidth = (maxWidth * 0.157f).coerceIn(240.dp, 272.dp)
+            val topBarHeight = (maxHeight * 0.074f).coerceIn(64.dp, 74.dp)
+            val playerHeight = (maxHeight * 0.119f).coerceIn(104.dp, 116.dp)
 
             NocturneBackdrop {
                 Row(

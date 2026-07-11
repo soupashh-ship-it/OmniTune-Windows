@@ -31,41 +31,48 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 object NocturneColors {
     val DeepestBase = Color(0xFF020511)
-    val Canvas = Color(0xFF040819)
-    val CanvasTop = Color(0xFF061025)
-    val SidebarBase = Color(0xFF080A16)
-    val TopChrome = Color(0xFF020614)
-    val Surface = Color(0xB80D1222)
+    val CanvasBase = Color(0xFF050819)
+    val CanvasUpper = Color(0xFF050A1D)
+
+    val SidebarTop = Color(0xFF0C0A1A)
+    val SidebarMiddle = Color(0xFF080A17)
+    val SidebarBottom = Color(0xFF060914)
+
+    val TopChrome = Color(0xF0030716)
+
+    val SurfaceLow = Color(0x990B1020)
+    val SurfaceStandard = Color(0xB80D1222)
     val SurfaceStrong = Color(0xE60F1426)
     val SurfaceHover = Color(0xFF181D35)
-    val Iris = Color(0xFF7D6EFF)
-    val Violet = Color(0xFF9A6BFF)
+
+    val Iris = Color(0xFF7C6DFF)
+    val Violet = Color(0xFF9468FF)
     val CoolBlue = Color(0xFF4C6FFF)
+
     val PrimaryText = Color(0xFFF4F3FA)
     val SecondaryText = Color(0xFFA9AEC2)
     val MutedText = Color(0xFF737B93)
+
     val BorderSubtle = Color(0x14FFFFFF)
-    val BorderHover = Color(0x24FFFFFF)
 }
 
 val BgDeep = NocturneColors.DeepestBase
-val BgInk = NocturneColors.Canvas
+val BgInk = NocturneColors.CanvasBase
 val BgDark = NocturneColors.DeepestBase
-val BgCard = NocturneColors.Surface
+val BgCard = NocturneColors.SurfaceStandard
 val BgCardHover = NocturneColors.SurfaceHover
 val BgElevated = NocturneColors.SurfaceStrong
 val SurfaceSelected = NocturneColors.SurfaceStrong
 
-val BgSurface = NocturneColors.Surface
-val SidebarBg = NocturneColors.SidebarBase
-val SidebarBackground = NocturneColors.SidebarBase
+val BgSurface = NocturneColors.SurfaceStandard
+val SidebarBg = NocturneColors.SidebarTop
+val SidebarBackground = NocturneColors.SidebarMiddle
 val PlayerDock = Color(0xFF0A0F1F)
-val Surface1 = NocturneColors.Surface
+val Surface1 = NocturneColors.SurfaceStandard
 val Surface2 = NocturneColors.SurfaceStrong
 val Surface3 = NocturneColors.SurfaceHover
 val Elevated1 = NocturneColors.SurfaceStrong
 val Elevated2 = NocturneColors.SurfaceHover
-
 val Iris = NocturneColors.Iris
 val IrisSoft = NocturneColors.Violet
 val Violet = NocturneColors.Violet
@@ -87,7 +94,7 @@ val BorderColor = NocturneColors.BorderSubtle
 val SurfaceHairline = NocturneColors.BorderSubtle
 val BorderLow = NocturneColors.BorderSubtle
 val BorderWhite = NocturneColors.BorderSubtle
-val BorderHover = NocturneColors.BorderHover
+val BorderHover = Color(0x24FFFFFF)
 
 val SuccessGreen = Color(0xFF5BD6A0)
 val ErrorRed = Color(0xFFFF6363)
