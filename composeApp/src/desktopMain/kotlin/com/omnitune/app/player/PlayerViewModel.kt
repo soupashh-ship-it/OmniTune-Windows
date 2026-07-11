@@ -314,9 +314,22 @@ class PlayerViewModel(
                 }
             } catch (_: Exception) {}
         }
-
         println("[PlayerVM] could not resolve URL for format: mimeType=${format.mimeType}, itag=${format.itag}")
         return null
+    }
+
+    fun playArtist(browseId: String) {
+        launch {
+            val artist = runCatching { youTubeService.artist(browseId) }.getOrNull()
+            val songsSection = artist?.sections?.firstOrNull { it.title.contains("Songs", ignoreCase = true) }
+            val songs = songsSection?.items?.filterIsInstance<com.omnitune.innertube.models.SongItem>()
+            if (!songs.isNullOrEmpty()) {
+                _queue.value = songs
+                _queueIndex.value = 0
+                _currentSong.value = songs[0]
+                doPlay(songs[0])
+            }
+        }
     }
 
     fun playSong(item: SongItem, index: Int = -1) {
