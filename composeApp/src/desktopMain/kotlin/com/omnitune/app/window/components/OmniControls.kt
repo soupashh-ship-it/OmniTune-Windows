@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import com.omnitune.app.window.*
 
@@ -19,8 +20,12 @@ fun OmniProgressSlider(
     fraction: Float,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    onSeek: (Float) -> Unit,
-    onSeekFinished: (() -> Unit)? = null,
+    onSeek: (Float) -> Unit = {},
+    onSeekFinished: () -> Unit = {},
+    trackHeight: androidx.compose.ui.unit.Dp = 3.dp,
+    thumbSize: androidx.compose.ui.unit.Dp = 10.dp,
+    activeBrush: androidx.compose.ui.graphics.Brush = Brush.horizontalGradient(listOf(com.omnitune.app.window.Iris, com.omnitune.app.window.Violet)),
+    inactiveColor: androidx.compose.ui.graphics.Color = Color.White.copy(alpha = 0.15f)
 ) {
     Slider(
         value = if (enabled) fraction.coerceIn(0f, 1f) else 0f,

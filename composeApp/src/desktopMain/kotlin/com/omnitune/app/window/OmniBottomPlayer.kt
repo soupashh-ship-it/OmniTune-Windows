@@ -65,17 +65,23 @@ fun OmniBottomPlayer(
     val displayFraction = if (isDragging) sliderPos else fraction
 
     
+    
+    val playerHeight = 92.dp // Typical derived height
+    val artworkSize = 56.dp
+    val centralButtonSize = 46.dp
+
     val playerBrush = Brush.horizontalGradient(
         colorStops = arrayOf(
-            0.00f to Color(0xF2090E1C),
-            0.28f to Color(0xF20D1024),
-            0.50f to Color(0xF2140E2D),
-            0.72f to Color(0xF20D1024),
-            1.00f to Color(0xF2090E1C),
+            0.00f to Color(0xFF0A0D1A),
+            0.22f to Color(0xFF0B0E1D),
+            0.42f to Color(0xFF110E24),
+            0.53f to Color(0xFF17102D),
+            0.66f to Color(0xFF110F26),
+            0.82f to Color(0xFF0B0E1D),
+            1.00f to Color(0xFF090C18),
         )
     )
-
-    val shape = RoundedCornerShape(18.dp)
+    val shape = RoundedCornerShape(12.dp)
 
     Box(
         modifier = modifier
@@ -83,78 +89,77 @@ fun OmniBottomPlayer(
             .background(playerBrush)
             .border(
                 width = 1.dp,
-                color = Color.White.copy(alpha = 0.07f),
+                color = Color.White.copy(alpha = 0.045f),
                 shape = shape,
             )
     ) {
-        
-        
         Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // LEFT: track info
+            // LEFT: track info (24%)
             Row(
-                modifier = Modifier.weight(0.30f).padding(end = 16.dp),
+                modifier = Modifier.weight(0.24f).padding(end = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (currentSong != null) {
                     AsyncImage(
-                        model = currentSong.thumbnail.toHighResThumbnail(),
+                        model = currentSong.thumbnail?.toHighResThumbnail(),
                         contentDescription = null,
                         modifier = Modifier
-                            .size(60.dp)
-                            .clip(RoundedCornerShape(8.dp))
+                            .size(artworkSize)
+                            .clip(RoundedCornerShape(6.dp))
                             .clickable { player.navigateTo(com.omnitune.app.player.NavScreen.NowPlaying) },
                         contentScale = ContentScale.Crop,
                     )
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f).clickable { player.navigateTo(com.omnitune.app.player.NavScreen.NowPlaying) }) {
-                        Text(currentSong.title, style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp), color = Color(0xFFF4F3FA), maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
-                        Text(currentSong.artists.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodyMedium, color = Color(0xFFA9AEC2), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
                     Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f).clickable { player.navigateTo(com.omnitune.app.player.NavScreen.NowPlaying) }) {
+                        Text(currentSong.title, style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp), color = Color(0xFFF4F3FA), maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(2.dp))
+                        Text(currentSong.artists?.joinToString(", ") { it.name ?: "" } ?: "", style = MaterialTheme.typography.labelMedium, color = Color(0xFFA9AEC2), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    Spacer(Modifier.width(10.dp))
                     val favOn = liked.contains(currentSong.id)
                     TransportIcon(
                         if (favOn) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        tint = if (favOn) IrisSoft else Color(0xFFA9AEC2),
+                        tint = if (favOn) Color(0xFF7C6DFF) else Color(0xFFA9AEC2),
                         onClick = { player.toggleLike(currentSong.id) },
-                        size = 20.dp
+                        size = 18.dp
                     )
                     Spacer(Modifier.width(4.dp))
-                    TransportIcon(Icons.Default.MoreHoriz, tint = Color(0xFFA9AEC2), onClick = {}, size = 20.dp)
+                    TransportIcon(Icons.Default.MoreHoriz, tint = Color(0xFFA9AEC2), onClick = {}, size = 18.dp)
                 } else {
-                    Box(modifier = Modifier.size(60.dp).clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.05f)))
-                    Spacer(Modifier.width(14.dp))
+                    Box(modifier = Modifier.size(artworkSize).clip(RoundedCornerShape(6.dp)).background(Color.White.copy(alpha = 0.05f)))
+                    Spacer(Modifier.width(12.dp))
                     Column {
-                        Box(modifier = Modifier.width(120.dp).height(14.dp).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.05f)))
+                        Box(modifier = Modifier.width(100.dp).height(12.dp).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.05f)))
                         Spacer(Modifier.height(8.dp))
-                        Box(modifier = Modifier.width(80.dp).height(10.dp).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.05f)))
+                        Box(modifier = Modifier.width(60.dp).height(8.dp).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.05f)))
                     }
                 }
             }
 
-            // CENTER: transport controls + progress bar
+            // CENTER: transport controls + timeline (52%)
             Column(
-                modifier = Modifier.weight(0.43f),
+                modifier = Modifier.weight(0.52f),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
                 val transportColor = if (currentSong != null) Color(0xFFF4F3FA) else Color(0xFF737B93).copy(alpha = 0.4f)
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(22.dp)
+                    horizontalArrangement = Arrangement.spacedBy(20.dp)
                 ) {
-                    TransportIcon(Icons.Filled.Shuffle, tint = if (shuffle) Color(0xFF7C6DFF) else Color(0xFFA9AEC2), enabled = currentSong != null, onClick = { player.toggleShuffle() }, size = 20.dp)
-                    TransportIcon(Icons.Filled.SkipPrevious, tint = transportColor, enabled = currentSong != null, onClick = { player.previousTrack() }, size = 26.dp)
+                    TransportIcon(Icons.Filled.Shuffle, tint = if (shuffle) Color(0xFF7C6DFF) else Color(0xFFA9AEC2), enabled = currentSong != null, onClick = { player.toggleShuffle() }, size = 18.dp)
+                    TransportIcon(Icons.Filled.SkipPrevious, tint = transportColor, enabled = currentSong != null, onClick = { player.previousTrack() }, size = 24.dp)
                     
                     val playInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
                     val isHovered by playInteraction.collectIsHoveredAsState()
                     Box(
                         modifier = Modifier
-                            .size(46.dp)
+                            .size(centralButtonSize)
                             .clip(CircleShape)
-                            .background(if (currentSong != null) (if (isHovered) Color(0xFFFFFFFF) else Color(0xFFF4F3FA)) else Color(0xFF737B93).copy(alpha = 0.25f))
+                            .background(if (currentSong != null) (if (isHovered) Color(0xFFFFFFFF) else Color(0xFFECECF4)) else Color(0xFF737B93).copy(alpha = 0.25f))
                             .clickable(interactionSource = playInteraction, indication = null, enabled = currentSong != null, onClick = { player.togglePlayPause() })
                             .pressBounce(playInteraction),
                         contentAlignment = Alignment.Center,
@@ -162,58 +167,68 @@ fun OmniBottomPlayer(
                         Icon(
                             imageVector = if (playbackState == PlaybackState.PLAYING) Icons.Filled.Pause else Icons.Filled.PlayArrow,
                             contentDescription = "Play/Pause",
-                            tint = Color(0xFF0C0F1E),
-                            modifier = Modifier.size(24.dp)
+                            tint = Color(0xFF151726),
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                     
-                    TransportIcon(Icons.Filled.SkipNext, tint = transportColor, enabled = currentSong != null, onClick = { player.nextTrack() }, size = 26.dp)
+                    TransportIcon(Icons.Filled.SkipNext, tint = transportColor, enabled = currentSong != null, onClick = { player.nextTrack() }, size = 24.dp)
                     val repeatTint = if (repeatMode != com.omnitune.app.player.RepeatMode.OFF) Color(0xFF7C6DFF) else Color(0xFFA9AEC2)
                     TransportIcon(
                         if (repeatMode == com.omnitune.app.player.RepeatMode.ONE) Icons.Filled.RepeatOne else Icons.Filled.Repeat,
                         tint = repeatTint,
                         enabled = currentSong != null,
                         onClick = { player.cycleRepeat() },
-                        size = 20.dp
+                        size = 18.dp
                     )
                 }
                 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(8.dp))
                 
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier = Modifier.fillMaxWidth(0.95f), verticalAlignment = Alignment.CenterVertically) {
                     TimeText(if (isDragging) (sliderPos * position.lengthMs).toLong() else position.timeMs)
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(10.dp))
                     
                     // Thin refined timeline
-                    Box(modifier = Modifier.weight(1f).height(12.dp), contentAlignment = Alignment.Center) {
-                        Box(modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(99.dp)).background(Color.White.copy(alpha = 0.10f)))
-                        Box(modifier = Modifier.fillMaxWidth(displayFraction).height(3.dp).align(Alignment.CenterStart).clip(RoundedCornerShape(99.dp)).background(Brush.horizontalGradient(listOf(Color(0xFF6F7FFF), Color(0xFF7E72FF)))))
-                        // Thumb
-                        Box(modifier = Modifier.fillMaxWidth().align(Alignment.CenterStart)) {
-                            Box(modifier = Modifier.offset(x = (-4).dp).fillMaxWidth(displayFraction).align(Alignment.CenterStart)) {
-                                Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(Color.White).align(Alignment.CenterEnd))
-                            }
-                        }
+                    Box(modifier = Modifier.weight(1f).height(16.dp), contentAlignment = Alignment.Center) {
+                        com.omnitune.app.window.components.OmniProgressSlider(
+                            fraction = displayFraction,
+                            modifier = Modifier.fillMaxWidth(),
+                            onSeek = { f ->
+                                isDragging = true
+                                sliderPos = f
+                            },
+                            onSeekFinished = {
+                                isDragging = false
+                                if (position.lengthMs > 0) player.seek((sliderPos * position.lengthMs).toLong())
+                            },
+                            enabled = currentSong != null,
+                            trackHeight = 2.dp,
+                            thumbSize = 8.dp,
+                            activeBrush = Brush.horizontalGradient(listOf(Color(0xFF6F7FFF), Color(0xFF7E72FF))),
+                            inactiveColor = Color.White.copy(alpha = 0.11f)
+                        )
                     }
                     
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(10.dp))
                     TimeText(position.lengthMs)
                 }
             }
 
-            // RIGHT: lyrics / queue / volume
+            // RIGHT: lyrics / queue / volume (24%)
             Row(
-                modifier = Modifier.weight(0.27f).padding(start = 16.dp),
+                modifier = Modifier.weight(0.24f).padding(start = 12.dp),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                TransportIcon(Icons.Filled.Lyrics, tint = Color(0xFFA9AEC2), onClick = { player.navigateTo(com.omnitune.app.player.NavScreen.NowPlaying) }, size = 20.dp)
-                Spacer(Modifier.width(16.dp))
-                TransportIcon(Icons.AutoMirrored.Filled.QueueMusic, tint = Color(0xFFA9AEC2), onClick = { player.navigateTo(com.omnitune.app.player.NavScreen.Queue) }, size = 20.dp)
-                Spacer(Modifier.width(20.dp))
+                TransportIcon(Icons.Filled.Lyrics, tint = Color(0xFFA9AEC2), onClick = { player.navigateTo(com.omnitune.app.player.NavScreen.NowPlaying) }, size = 18.dp)
+                Spacer(Modifier.width(14.dp))
+                TransportIcon(Icons.AutoMirrored.Filled.QueueMusic, tint = Color(0xFFA9AEC2), onClick = { player.navigateTo(com.omnitune.app.player.NavScreen.Queue) }, size = 18.dp)
+                Spacer(Modifier.width(18.dp))
                 OmniVolumeControl(volume = volume, onVolumeChange = { player.setVolume(it) })
             }
         }
+
     }
 }
 
