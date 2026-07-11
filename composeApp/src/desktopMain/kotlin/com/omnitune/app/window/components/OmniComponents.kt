@@ -201,7 +201,7 @@ fun OmniSearchField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    placeholder: String = "Search OmniTune",
+    placeholder: String = "Search for songs, artists, albums, playlists...",
     hint: String? = "Ctrl K",
     onEnter: (() -> Unit)? = null,
     onEscape: (() -> Unit)? = null,
@@ -219,10 +219,10 @@ fun OmniSearchField(
         onValueChange = onValueChange,
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 44.dp)
-            .clip(Shapes.small)
-            .background(Surface2)
-            .border(1.dp, borderColor, Shapes.small)
+            .height(36.dp)
+            .clip(CircleShape)
+            .background(Surface1)
+            .border(1.dp, borderColor, CircleShape)
             .onFocusChanged { isFocused = it.isFocused }
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onKeyEvent { ev ->
@@ -256,11 +256,11 @@ fun OmniSearchField(
                     Spacer(Modifier.width(8.dp))
                     Box(
                         modifier = Modifier
-                            .clip(Shapes.small)
-                            .background(Surface3.copy(alpha = 0.7f))
+                            .clip(CircleShape)
+                            .background(Iris.copy(alpha = 0.15f))
                             .padding(horizontal = 8.dp, vertical = 3.dp),
                     ) {
-                        Text(hint, color = TextMuted, style = MaterialTheme.typography.labelMedium)
+                        Text(hint, color = IrisSoft, style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }

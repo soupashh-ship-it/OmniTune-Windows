@@ -1,25 +1,30 @@
 package com.omnitune.app.window
 
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Album
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -29,11 +34,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.omnitune.app.player.NavScreen
 import com.omnitune.innertube.models.SongItem
@@ -54,32 +61,33 @@ fun OmniSidebar(
     likedCount: Int,
     onNavigate: (NavScreen) -> Unit,
 ) {
-    val primary = listOf(
-        NavEntry(NavScreen.Home, "Home", Icons.Default.Home),
-        NavEntry(NavScreen.Browse, "Browse", Icons.Default.ViewModule),
-        NavEntry(NavScreen.Radio, "Radio", Icons.Default.Radio),
-        NavEntry(NavScreen.Library, "Library", Icons.Default.LibraryMusic),
-    )
-    val librarySub = listOf(
-        NavEntry(NavScreen.Playlists, "Playlists", Icons.Default.ViewModule),
-        NavEntry(NavScreen.Album, "Albums", Icons.Default.Album),
-        NavEntry(NavScreen.Artist, "Artists", Icons.Default.People),
-        NavEntry(NavScreen.Search, "Songs", Icons.Default.MusicNote),
-        NavEntry(NavScreen.Downloads, "Downloads & Offline", Icons.Default.Download),
-    )
+    val librarySubScreens = setOf(NavScreen.Playlists, NavScreen.Album, NavScreen.Artist, NavScreen.Search, NavScreen.Downloads)
+    var libraryExpanded by remember { mutableStateOf(activeScreen in librarySubScreens || activeScreen == NavScreen.Library) }
+
+    // Auto-expand when navigating into library sub-screens
+    LaunchedEffect(activeScreen) {
+        if (activeScreen in librarySubScreens) libraryExpanded = true
+    }
 
     Surface(
-        modifier = Modifier.fillMaxHeight().width(com.omnitune.app.window.OmniLayout.sidebarWidth),
+        modifier = Modifier.fillMaxHeight().width(OmniLayout.sidebarWidth),
         color = SidebarBackground,
     ) {
-        Column(modifier = Modifier.fillMaxSize().padding(vertical = 16.dp, horizontal = 12.dp)) {
-            // Brand
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 16.dp, horizontal = 12.dp)
+        ) {
+            // ── Brand ──────────────────────────────────────────────────────────
             Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    modifier = Modifier.size(26.dp).clip(RoundedCornerShape(8.dp))
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(8.dp))
                         .background(OmniGradients.irisToLavender),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -88,112 +96,314 @@ fun OmniSidebar(
                 Spacer(Modifier.width(10.dp))
                 Text("OmniTune", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.Bold)
             }
-            Spacer(Modifier.height(18.dp))
 
-            primary.forEach { entry ->
-                SidebarItem(entry, entry.screen == activeScreen, enabled = entry.enabled, onClick = { onNavigate(entry.screen) })
-                Spacer(Modifier.height(4.dp))
-            }
+            Spacer(Modifier.height(16.dp))
 
-            Spacer(Modifier.height(18.dp))
-            SectionLabel("Library")
-            Spacer(Modifier.height(6.dp))
-            librarySub.forEach { entry ->
-                SidebarItem(entry, entry.screen == activeScreen, compact = true, onClick = { onNavigate(entry.screen) })
-                Spacer(Modifier.height(2.dp))
-            }
+            // ── Primary Nav: Home, Browse, Radio ──────────────────────────────
+            NavItem(
+                icon = Icons.Default.Home,
+                label = "Home",
+                isActive = activeScreen == NavScreen.Home,
+                onClick = { onNavigate(NavScreen.Home) }
+            )
+            Spacer(Modifier.height(2.dp))
+            NavItem(
+                icon = Icons.Default.Search,
+                label = "Browse",
+                isActive = activeScreen == NavScreen.Browse,
+                onClick = { onNavigate(NavScreen.Browse) }
+            )
+            Spacer(Modifier.height(2.dp))
+            NavItem(
+                icon = Icons.Default.Radio,
+                label = "Radio",
+                isActive = activeScreen == NavScreen.Radio,
+                onClick = { onNavigate(NavScreen.Radio) }
+            )
+            Spacer(Modifier.height(2.dp))
 
-            Spacer(Modifier.height(18.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            // ── Library (collapsible) ─────────────────────────────────────────
+            LibraryHeader(
+                expanded = libraryExpanded,
+                isActive = activeScreen == NavScreen.Library && !libraryExpanded,
+                onClick = {
+                    libraryExpanded = !libraryExpanded
+                    if (!libraryExpanded) onNavigate(NavScreen.Library)
+                }
+            )
+
+            AnimatedVisibility(
+                visible = libraryExpanded,
+                enter = expandVertically(animationSpec = tween(200)),
+                exit = shrinkVertically(animationSpec = tween(200)),
             ) {
-                Text("Your Playlists", style = MaterialTheme.typography.labelMedium, color = TextMuted)
-                Icon(Icons.Default.Add, contentDescription = "Add Playlist", tint = TextMuted, modifier = Modifier.size(16.dp))
+                Column(modifier = Modifier.padding(top = 2.dp)) {
+                    LibrarySubItem(label = "Playlists", isActive = activeScreen == NavScreen.Playlists) { onNavigate(NavScreen.Playlists) }
+                    LibrarySubItem(label = "Albums", isActive = activeScreen == NavScreen.Album) { onNavigate(NavScreen.Album) }
+                    LibrarySubItem(label = "Artists", isActive = activeScreen == NavScreen.Artist) { onNavigate(NavScreen.Artist) }
+                    LibrarySubItem(label = "Songs", isActive = activeScreen == NavScreen.Search) { onNavigate(NavScreen.Search) }
+                    LibrarySubItem(label = "Downloads", isActive = activeScreen == NavScreen.Downloads) { onNavigate(NavScreen.Downloads) }
+                }
             }
-            Spacer(Modifier.height(6.dp))
-            SidebarItem(
-                NavEntry(NavScreen.Search, "Liked Songs", Icons.Default.Favorite, enabled = true),
-                false,
-                compact = true,
-                trailing = if (likedCount > 0) likedCount.toString() else null,
-                onClick = { onNavigate(NavScreen.Search) },
+
+            Spacer(Modifier.height(20.dp))
+
+            // ── Your Playlists ────────────────────────────────────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    "Your Playlists",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextMuted,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.5.sp,
+                )
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .clickable { },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Playlist", tint = TextMuted, modifier = Modifier.size(14.dp))
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            // Playlist entries — using gradient boxes as placeholder thumbnails
+            PlaylistItem(
+                gradientColors = listOf(Color(0xFFFF6B35), Color(0xFFFF8C42)),
+                label = "Chill Mornings",
+                isActive = false,
+                onClick = {}
+            )
+            PlaylistItem(
+                gradientColors = listOf(Color(0xFF4A1DE0), Color(0xFF7B5EA7)),
+                label = "Night Drive",
+                isActive = false,
+                onClick = {}
+            )
+            PlaylistItem(
+                gradientColors = listOf(Color(0xFF2D6A9F), Color(0xFF1E3A5F)),
+                label = "Focus Flow",
+                isActive = false,
+                onClick = {}
+            )
+            PlaylistItem(
+                gradientColors = listOf(Color(0xFFE67E22), Color(0xFFD4580A)),
+                label = "Afrobeats Hits",
+                isActive = false,
+                onClick = {}
+            )
+            PlaylistItem(
+                gradientColors = listOf(Color(0xFF7C5CFC), Color(0xFF5B3EE8)),
+                label = "Liked Songs",
+                icon = Icons.Default.Favorite,
+                isActive = false,
+                onClick = {}
             )
 
             Spacer(Modifier.weight(1f))
 
+            // ── Settings at bottom ────────────────────────────────────────────
             HorizontalDivider(color = SurfaceHairline, thickness = 1.dp)
             Spacer(Modifier.height(8.dp))
-            SidebarItem(
-                NavEntry(NavScreen.Settings, "Settings", Icons.Default.Settings),
-                NavScreen.Settings == activeScreen,
-                onClick = { onNavigate(NavScreen.Settings) },
+            NavItem(
+                icon = Icons.Default.Settings,
+                label = "Settings",
+                isActive = activeScreen == NavScreen.Settings,
+                onClick = { onNavigate(NavScreen.Settings) }
             )
         }
     }
 }
 
+// ── Primary nav item (icon + label, gradient pill when active) ────────────────
 @Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text.uppercase(),
-        style = MaterialTheme.typography.labelMedium,
-        color = TextMuted,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(horizontal = 14.dp, vertical = 2.dp),
-    )
-}
-
-@Composable
-private fun SidebarItem(
-    entry: NavEntry,
+private fun NavItem(
+    icon: ImageVector,
+    label: String,
     isActive: Boolean,
     enabled: Boolean = true,
-    compact: Boolean = false,
-    trailing: String? = null,
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
-    val contentColor = if (isActive) Color.White else if (isHovered) com.omnitune.app.window.TextPrimary else com.omnitune.app.window.TextSecondary
+    val contentColor = when {
+        isActive -> Color.White
+        isHovered -> TextPrimary
+        else -> TextSecondary
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(if (compact) 36.dp else 40.dp)
-            .clip(Shapes.small)
+            .height(38.dp)
+            .clip(RoundedCornerShape(8.dp))
             .then(
-                if (isActive) Modifier.background(OmniGradients.primaryAction)
-                else if (isHovered && enabled) Modifier.background(com.omnitune.app.window.Surface3)
-                else Modifier
+                when {
+                    isActive -> Modifier.background(OmniGradients.primaryAction)
+                    isHovered && enabled -> Modifier.background(Surface3)
+                    else -> Modifier
+                }
             )
+            .hoverable(interactionSource)
             .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, onClick = onClick)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (isActive) {
-            // Add subtle left accent
-            Box(modifier = Modifier.width(3.dp).height(16.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(1.5.dp)).background(Color.White))
-            Spacer(Modifier.width(9.dp))
-        }
         Icon(
-            imageVector = entry.icon,
-            contentDescription = entry.label,
+            imageVector = icon,
+            contentDescription = label,
             tint = contentColor,
-            modifier = Modifier.size(if (compact) 18.dp else 20.dp)
+            modifier = Modifier.size(18.dp)
         )
         Spacer(Modifier.width(12.dp))
         Text(
-            entry.label,
-            style = if (isActive && !compact) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+            label,
+            style = MaterialTheme.typography.bodyMedium,
             color = contentColor,
             fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
         )
-        if (trailing != null) {
-            Spacer(Modifier.weight(1f))
-            Text(trailing, style = MaterialTheme.typography.labelMedium, color = if (isActive) Color.White.copy(alpha = 0.7f) else TextMuted)
+    }
+}
+
+// ── Library expandable header ──────────────────────────────────────────────────
+@Composable
+private fun LibraryHeader(
+    expanded: Boolean,
+    isActive: Boolean,
+    onClick: () -> Unit,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val chevronAngle by animateFloatAsState(if (expanded) 90f else 0f, label = "chevron")
+
+    val contentColor = when {
+        isActive -> Color.White
+        isHovered -> TextPrimary
+        else -> TextSecondary
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(38.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .then(if (isActive) Modifier.background(OmniGradients.primaryAction) else if (isHovered) Modifier.background(Surface3) else Modifier)
+            .hoverable(interactionSource)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Default.LibraryMusic, contentDescription = "Library", tint = contentColor, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(12.dp))
+        Text("Library", style = MaterialTheme.typography.bodyMedium, color = contentColor, fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium, modifier = Modifier.weight(1f))
+        Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = contentColor.copy(alpha = 0.7f),
+            modifier = Modifier.size(16.dp).rotate(chevronAngle)
+        )
+    }
+}
+
+// ── Library sub-item (indented, text only, no icon) ───────────────────────────
+@Composable
+private fun LibrarySubItem(
+    label: String,
+    isActive: Boolean,
+    onClick: () -> Unit,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    val contentColor = when {
+        isActive -> Color.White
+        isHovered -> TextPrimary
+        else -> TextSecondary.copy(alpha = 0.8f)
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(32.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .then(if (isActive) Modifier.background(Surface2) else if (isHovered) Modifier.background(Surface3) else Modifier)
+            .hoverable(interactionSource)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .padding(start = 42.dp, end = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (isActive) {
+            Box(
+                modifier = Modifier
+                    .size(4.dp)
+                    .clip(CircleShape)
+                    .background(IrisSoft)
+            )
+            Spacer(Modifier.width(8.dp))
         }
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = contentColor,
+            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+            fontSize = 13.sp,
+        )
+    }
+}
+
+// ── Playlist item (thumbnail + label) ─────────────────────────────────────────
+@Composable
+private fun PlaylistItem(
+    gradientColors: List<Color>,
+    label: String,
+    isActive: Boolean,
+    icon: ImageVector? = null,
+    onClick: () -> Unit,
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(40.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .then(if (isActive || isHovered) Modifier.background(Surface3) else Modifier)
+            .hoverable(interactionSource)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // Thumbnail placeholder (gradient box)
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(RoundedCornerShape(5.dp))
+                .background(androidx.compose.ui.graphics.Brush.linearGradient(gradientColors)),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (icon != null) {
+                Icon(icon, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(14.dp))
+            }
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (isActive) TextPrimary else TextSecondary,
+            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        )
     }
 }

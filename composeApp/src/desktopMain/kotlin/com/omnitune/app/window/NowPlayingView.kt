@@ -109,7 +109,7 @@ fun NowPlayingView(
         ) {
             // ─── LEFT: Player ────────────────────────────────────────────────────
             PlayerRegion(
-                modifier = Modifier.weight(1f).fillMaxHeight(),
+                modifier = Modifier.weight(0.55f).fillMaxHeight(),
                 player = player,
                 currentSong = currentSong,
                 playbackState = playbackState,
@@ -129,7 +129,7 @@ fun NowPlayingView(
 
             // ─── RIGHT: Lyrics panel ─────────────────────────────────────────────
             LyricsRegion(
-                modifier = Modifier.width(360.dp).fillMaxHeight(),
+                modifier = Modifier.weight(0.45f).fillMaxHeight(),
                 lyricsResult = lyricsResult,
                 displayTimeMs = displayTimeMs,
                 player = player,
@@ -416,8 +416,8 @@ private fun LyricsRegion(
     Column(modifier = modifier) {
         // Tab header
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PanelTab("Lyrics", tab == 0) { tab = 0 }
-            PanelTab("Queue", tab == 1) { tab = 1 }
+            PanelTab("LYRICS", tab == 0) { tab = 0 }
+            PanelTab("RELATED", tab == 1) { tab = 1 }
         }
 
         Spacer(Modifier.height(12.dp))
@@ -582,21 +582,21 @@ private fun SyncedLyricsDisplay(
                 val alpha by animateFloatAsState(
                     targetValue = when {
                         isActive -> 1f
-                        isPast -> 0.45f
-                        else -> 0.65f
+                        isPast -> 0.35f
+                        else -> 0.50f
                     },
-                    animationSpec = tween(200),
+                    animationSpec = tween(300),
                     label = "lyricAlpha$i",
                 )
 
-                val targetFontSize = if (isActive) 19.sp else 16.sp
+                val targetFontSize = if (isActive) 22.sp else 15.sp
 
                 Text(
                     line.text,
                     style = MaterialTheme.typography.bodyLarge.copy(fontSize = targetFontSize),
-                    color = if (isActive) IrisSoft else TextPrimary.copy(alpha = alpha),
-                    fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-                    lineHeight = 26.sp,
+                    color = if (isActive) TextPrimary else TextPrimary.copy(alpha = alpha),
+                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                    lineHeight = 28.sp,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(
