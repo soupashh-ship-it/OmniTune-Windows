@@ -142,6 +142,11 @@ compose.desktop {
             vendor = "OmniTune"
 
             windows {
+                console = false
+                menu = true
+                shortcut = true
+                perUserInstall = true
+                dirChooser = true
                 menuGroup = "OmniTune"
                 upgradeUuid = "7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d"
                 iconFile.set(project.file("src/desktopMain/resources/icon.ico"))

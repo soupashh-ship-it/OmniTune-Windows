@@ -19,6 +19,13 @@ Release wrapper:
 
 The wrapper runs desktop compile/assemble/tests, builds EXE and MSI installers, copies them into `build/release/windows`, generates SHA-256 checksum files, and writes `release-manifest.json`.
 
+Current public artifact naming:
+
+```text
+OmniTune-Setup-<version>-windows-x64.exe
+OmniTune-<version>-windows-x64.msi
+```
+
 ## Version source
 
 The canonical app/package version is:
@@ -75,6 +82,15 @@ No signing certificate is configured in the repository. Produced installers are 
 ## Known packaging limitation
 
 `:composeApp:packageReleaseExe` currently fails at ProGuard because several desktop transitive dependencies contain optional Android/JSSE/JNA references. The production installer path is `packageExe/packageMsi`, which creates jpackage installers without ProGuard minification.
+
+The Windows installer is configured as a GUI application with:
+
+- no console window,
+- per-user install preference,
+- Start menu shortcut,
+- desktop shortcut,
+- directory chooser,
+- OmniTune icon.
 
 ## Clean-install QA
 
