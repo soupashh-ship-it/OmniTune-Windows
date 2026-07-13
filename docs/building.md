@@ -71,13 +71,24 @@ Playback requires VLC/libVLC discovery. The current native runtime helper checks
 ## Package for Windows
 
 ```powershell
-.\gradlew.bat :composeApp:packageDistributionForCurrentOS
+.\scripts\release\build-windows-release.ps1
 ```
 
-The Compose Desktop configuration declares MSI and EXE package formats. Outputs are generated under `composeApp/build/compose/binaries/`.
+The release wrapper runs desktop compile/assemble/tests, builds release EXE/MSI installers, generates checksums, and writes a release manifest. Final public artifacts are copied to:
+
+```text
+build/release/windows/
+```
 
 Do not commit generated installers. Attach release artifacts to GitHub Releases.
 
 Release packaging copies `THIRD_PARTY_NOTICES.txt` and VLC runtime files into the app image when VLC is available. Set `VLC_HOME` if VLC is not installed at the default Windows path.
 
-The non-minified `:composeApp:packageDistributionForCurrentOS` path is the currently validated installer build. The `packageRelease*` tasks run ProGuard and currently require additional dependency-specific rules before they can be used as the release gate.
+The validated release tasks are:
+
+```powershell
+.\gradlew.bat :composeApp:packageReleaseExe
+.\gradlew.bat :composeApp:packageReleaseMsi
+```
+
+Release ProGuard minification is intentionally disabled for the desktop package because optional transitive dependencies expose unresolved non-runtime references.

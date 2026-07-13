@@ -34,16 +34,16 @@ Run the provider-backed test manually when appropriate:
 ## 3. Build Windows Packages
 
 ```powershell
-.\gradlew.bat :composeApp:packageDistributionForCurrentOS
+.\scripts\release\build-windows-release.ps1
 ```
 
 Expected output location:
 
 ```text
-composeApp/build/compose/binaries/
+build/release/windows/
 ```
 
-The Gradle configuration currently declares MSI and EXE targets.
+The release wrapper runs compile, assemble, root tests, desktop tests, release EXE/MSI packaging, checksum generation, and release manifest generation. The Gradle configuration declares MSI and EXE targets.
 
 Packaging requires a VLC/libVLC runtime. If VLC is not installed at `C:\Program Files\VideoLAN\VLC`, set `VLC_HOME` before packaging:
 
@@ -51,7 +51,7 @@ Packaging requires a VLC/libVLC runtime. If VLC is not installed at `C:\Program 
 $env:VLC_HOME = "C:\Path\To\VLC"
 ```
 
-The currently validated packaging command is the non-minified `:composeApp:packageDistributionForCurrentOS` task. The `packageRelease*` tasks run ProGuard and currently fail until dependency-specific rules are added for unresolved optional references.
+The validated release package tasks are `:composeApp:packageReleaseExe` and `:composeApp:packageReleaseMsi`. Release ProGuard minification is intentionally disabled for the desktop package because optional transitive dependencies expose unresolved non-runtime references.
 
 ## 4. Validate Artifacts
 
@@ -67,13 +67,10 @@ Before uploading:
 ## 5. Generate Checksums
 
 ```powershell
-Get-ChildItem composeApp\build\compose\binaries -Recurse -File |
-  Where-Object { $_.Extension -in ".exe", ".msi", ".zip" } |
-  ForEach-Object {
-    $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName
-    "$($hash.Hash)  $($_.Name)"
-  } | Set-Content SHA256SUMS.txt
+.\scripts\release\build-windows-release.ps1
 ```
+
+The release wrapper writes `.sha256` files plus `SHA256SUMS.txt` under `build/release/windows/`.
 
 ## 6. Tag
 

@@ -64,15 +64,19 @@ The current desktop package version in Gradle is `0.1.0`.
 
 ## Installation
 
-No stable public installer has been published from this repository yet.
+A Windows installer release candidate is available on GitHub Releases:
 
-For development builds, use the Gradle wrapper on Windows to create a local package:
+- [OmniTune Windows 0.1.0 RC 2](https://github.com/soupashh-ship-it/OmniTune-Windows/releases/tag/v0.1.0-rc.2)
+
+Download `OmniTune-Setup-0.1.0-windows-x64.exe` from that release for installer testing. The installer is unsigned, so Windows SmartScreen may warn until a signing certificate and reputation are established.
+
+For local release builds, use the validated release wrapper on Windows:
 
 ```powershell
-.\gradlew.bat :composeApp:packageDistributionForCurrentOS
+.\scripts\release\build-windows-release.ps1
 ```
 
-Generated installers and app images are written under `composeApp/build/compose/binaries/` and should be distributed through GitHub Releases, not committed to Git.
+Generated release artifacts are written under `build/release/windows/` and should be distributed through GitHub Releases, not committed to Git.
 
 ## Build From Source
 
@@ -91,7 +95,7 @@ Useful commands:
 .\gradlew.bat :composeApp:desktopTest
 .\gradlew.bat build -x :innertube:test
 .\gradlew.bat :composeApp:run
-.\gradlew.bat :composeApp:packageDistributionForCurrentOS
+.\scripts\release\build-windows-release.ps1
 ```
 
 The `:innertube:test` task performs a live YouTube Music search and can fail because of network, provider, or regional behavior. It is useful for manual verification but is not treated as the stable CI gate.
@@ -125,8 +129,8 @@ OmniTune Windows includes a file-backed download manager that can persist comple
 - VLC/libVLC discovery checks a packaged `native/vlc` runtime, `VLC_HOME`, and the standard Windows VLC installation path.
 - Some provider-backed metadata is unavailable or inconsistent, including album studio credits, artist socials, tour dates, and some account-specific features.
 - Network-dependent provider behavior can change outside this repository.
-- GitHub release publishing is configured for future version tags, but no stable 1.0 release has been declared.
-- The non-minified MSI/EXE package task is currently validated; the `packageRelease*` ProGuard path still needs dependency-specific rules before it can be treated as release-ready.
+- GitHub release publishing is configured for version tags. The current public artifact is a pre-release RC, not stable 1.0.
+- Release packaging uses `packageReleaseExe` and `packageReleaseMsi` through `scripts/release/build-windows-release.ps1`. ProGuard minification is intentionally disabled for the desktop release package because optional transitive desktop dependencies expose unresolved non-runtime references.
 
 ## Roadmap
 

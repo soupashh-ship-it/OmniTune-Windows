@@ -44,12 +44,12 @@ Run:
 
 ```powershell
 .\gradlew.bat --version
-.\gradlew.bat :composeApp:packageDistributionForCurrentOS --stacktrace
+.\scripts\release\build-windows-release.ps1
 ```
 
 Packaging may need WiX-related tooling downloaded by Gradle/Compose Desktop. Make sure the machine has network access and a supported JDK 21 installation.
 
-If a `packageRelease*` task fails during `proguardReleaseJars`, use the validated non-minified package task until ProGuard rules are added for the unresolved optional dependency references.
+If release packaging fails, rerun the specific failing Gradle task from the release-script output with `--stacktrace`. The validated release path uses `:composeApp:packageReleaseExe` and `:composeApp:packageReleaseMsi`; release ProGuard minification is intentionally disabled for the desktop package.
 
 ## Stale Build Cache
 
