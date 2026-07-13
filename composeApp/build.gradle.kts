@@ -27,6 +27,7 @@ val prepareWindowsAppResources by tasks.registering(Copy::class) {
         include("libvlc.dll")
         include("libvlccore.dll")
         include("plugins/**")
+        exclude("plugins/plugins.dat")
         include("AUTHORS.txt")
         include("COPYING.txt")
         include("NEWS.txt")
@@ -34,6 +35,7 @@ val prepareWindowsAppResources by tasks.registering(Copy::class) {
     }
 
     doFirst {
+        delete(windowsAppResourcesDir)
         val vlcDir = file(bundledVlcHome)
         val libvlc = vlcDir.resolve("libvlc.dll")
         val libvlcCore = vlcDir.resolve("libvlccore.dll")
@@ -52,6 +54,10 @@ val copyWindowsAppResourcesToDistributable by tasks.registering(Copy::class) {
     mustRunAfter("createDistributable")
     from(windowsAppResourcesDir)
     into(composeAppImageDir)
+    doFirst {
+        delete(composeAppImageDir.map { it.dir("native") })
+        delete(composeAppImageDir.map { it.dir("licenses") })
+    }
 }
 
 kotlin {
@@ -132,6 +138,10 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "com.omnitune.app.MainKt"
+
+        buildTypes.release.proguard {
+            isEnabled.set(false)
+        }
 
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)

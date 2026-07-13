@@ -1,7 +1,6 @@
 package com.omnitune.app.platform
 
 import java.io.File
-import java.net.URI
 import java.time.Instant
 
 object NativeRuntime {
@@ -17,6 +16,9 @@ object NativeRuntime {
             System.setProperty("jna.library.path", selected.directory.absolutePath)
             System.setProperty("VLC_PLUGIN_PATH", selected.pluginsDirectory.absolutePath)
             log("Using VLC runtime from ${selected.source}: ${selected.directory.absolutePath}")
+            log("VLC libvlc=${File(selected.directory, "libvlc.dll").absolutePath}")
+            log("VLC libvlccore=${File(selected.directory, "libvlccore.dll").absolutePath}")
+            log("VLC plugins=${selected.pluginsDirectory.absolutePath}")
         } else {
             log("No VLC runtime found. Checked packaged native/vlc, VLC_HOME, and the standard Windows VLC install path.")
         }
@@ -25,13 +27,16 @@ object NativeRuntime {
 
     fun resolveVlcRuntime(): VlcRuntimeSelection? {
         val appDir = resolveApplicationDirectory()
+        val requireBundled = System.getenv("OMNITUNE_QA_REQUIRE_BUNDLED_VLC") == "true"
         val candidates = buildList {
             add("packaged" to File(appDir, "native/vlc"))
             appDir.parentFile?.let { add("packaged-parent" to File(it, "native/vlc")) }
-            add("working-directory" to File(System.getProperty("user.dir"), "native/vlc"))
-            add("working-directory-app" to File(System.getProperty("user.dir"), "app/native/vlc"))
-            System.getenv("VLC_HOME")?.takeIf { it.isNotBlank() }?.let { add("VLC_HOME" to File(it)) }
-            add("system-vlc" to File("C:/Program Files/VideoLAN/VLC"))
+            if (!requireBundled) {
+                add("working-directory" to File(System.getProperty("user.dir"), "native/vlc"))
+                add("working-directory-app" to File(System.getProperty("user.dir"), "app/native/vlc"))
+                System.getenv("VLC_HOME")?.takeIf { it.isNotBlank() }?.let { add("VLC_HOME" to File(it)) }
+                add("system-vlc" to File("C:/Program Files/VideoLAN/VLC"))
+            }
         }
 
         return candidates

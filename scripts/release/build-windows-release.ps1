@@ -64,13 +64,13 @@ if (-not $SkipTests) {
     Invoke-Gradle @(":composeApp:compileKotlinDesktop", ":composeApp:assemble", "test", ":composeApp:desktopTest")
 }
 
-Invoke-Gradle @(":composeApp:packageExe", ":composeApp:packageMsi")
+Invoke-Gradle @(":composeApp:createDistributable", ":composeApp:packageReleaseExe", ":composeApp:packageReleaseMsi")
 
 $releaseDir = Join-Path $projectRoot "build\release\windows"
 New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
 
-$sourceExe = Join-Path $projectRoot "composeApp\build\compose\binaries\main\exe\OmniTune-$releaseVersion.exe"
-$sourceMsi = Join-Path $projectRoot "composeApp\build\compose\binaries\main\msi\OmniTune-$releaseVersion.msi"
+$sourceExe = Join-Path $projectRoot "composeApp\build\compose\binaries\main-release\exe\OmniTune-$releaseVersion.exe"
+$sourceMsi = Join-Path $projectRoot "composeApp\build\compose\binaries\main-release\msi\OmniTune-$releaseVersion.msi"
 $targetExe = Join-Path $releaseDir "OmniTune-Setup-$releaseVersion-windows-$architecture.exe"
 $targetMsi = Join-Path $releaseDir "OmniTune-$releaseVersion-windows-$architecture.msi"
 
@@ -84,7 +84,9 @@ Write-HashFiles -Files $artifactFiles
 
 $exeHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $targetExe).Hash.ToLowerInvariant()
 $msiHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $targetMsi).Hash.ToLowerInvariant()
-$appImage = Join-Path $projectRoot "composeApp\build\compose\binaries\main\app\OmniTune"
+$releaseAppImage = Join-Path $projectRoot "composeApp\build\compose\binaries\main-release\app\OmniTune"
+$mainAppImage = Join-Path $projectRoot "composeApp\build\compose\binaries\main\app\OmniTune"
+$appImage = if (Test-Path $releaseAppImage) { $releaseAppImage } else { $mainAppImage }
 $manifest = [ordered]@{
     app = "OmniTune"
     version = $releaseVersion
