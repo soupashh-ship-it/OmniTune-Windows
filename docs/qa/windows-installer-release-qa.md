@@ -6,10 +6,11 @@
 | Compose release MSI installer task | PASS | `.\gradlew.bat :composeApp:packageReleaseMsi` | Produced jpackage MSI installer. |
 | Release wrapper script | PASS | `.\scripts\release\build-windows-release.ps1` | Ran compile, assemble, root tests, desktop tests, EXE/MSI packaging, hashes, manifest. |
 | GitHub Release workflow | PASS | `https://github.com/soupashh-ship-it/OmniTune-Windows/actions/runs/29241303516` | Corrected workflow ran from `main` and completed successfully, producing workflow artifacts. |
-| Primary EXE artifact | PASS | `build/release/windows/OmniTune-Setup-0.1.0-windows-x64.exe` | 133,166,592 bytes; SHA-256 `fbb445561b605f31738e167aba3770a7e8dffb3b74b08a5e40aac33460a0acb1`. |
-| MSI artifact | PASS | `build/release/windows/OmniTune-0.1.0-windows-x64.msi` | 132,594,516 bytes; SHA-256 `b063e06d7be292bd5a8c26fdd39e502d6a9cedd6c105f77ab7b7f0f200aed00c`. |
+| Primary EXE artifact | PASS | `build/release/windows/OmniTune-Setup-0.1.1-windows-x64.exe` | 133,166,592 bytes; SHA-256 `c5964c271517445dce10220456de8cc16694b5b255f5bdb6dd37c02627559ef0`. |
+| MSI artifact | PASS | `build/release/windows/OmniTune-0.1.1-windows-x64.msi` | 132,594,516 bytes; SHA-256 `c2fbfe6e75745e2baa96e3f30640d03c05d36c0311c6bf42bea3d270f6dd8f2c`. |
 | Release manifest | PASS | `build/release/windows/release-manifest.json` | Records version, x64 architecture, hashes, Java runtime bundled, VLC runtime bundled, unsigned status. |
-| GitHub RC publication | PASS | `https://github.com/soupashh-ship-it/OmniTune-Windows/releases/tag/v0.1.0-rc.2` | Pre-release contains EXE, MSI, `SHA256SUMS.txt`, and `release-manifest.json`; RC 2 includes the manual search hotfix. |
+| GitHub RC publication | PENDING | `https://github.com/soupashh-ship-it/OmniTune-Windows/releases/tag/v0.1.1-rc.1` | Pending upload. This release supersedes 0.1.0 RC2 to avoid Windows Installer same-version error 1638. |
+| Same-version installer failure diagnosis | PASS | Windows Event Log `MsiInstaller` status `1638` for OmniTune 0.1.0 | RC2 appeared not to open because OmniTune 0.1.0 was already installed; 0.1.1 uses a higher installer version for upgrade/install retry. |
 | Manual search hotfix validation | PASS | `:innertube:test --tests com.omnitune.innertube.InnertubeSearchTest`; `:composeApp:desktopTest` | Provider-backed song search returns results; desktop tests pass after preview-key search submission fix. |
 | Private Java runtime image | PASS | `composeApp/build/compose/binaries/main/app/OmniTune/runtime` | Runtime image exists in app image. |
 | Bundled VLC/libVLC files | PASS | `composeApp/build/compose/binaries/main/app/OmniTune/native/vlc/libvlc.dll` | Packaged app image contains libVLC and plugins. |
