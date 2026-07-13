@@ -40,36 +40,29 @@ jobs:
             throw "VLC/libVLC runtime was not installed at the expected path."
           }
 
-      - name: Run desktop tests
-        run: .\gradlew.bat :composeApp:desktopTest --stacktrace
-
-      - name: Build project without live provider test
-        run: .\gradlew.bat build -x :innertube:test --stacktrace
-
-      - name: Build Windows MSI and EXE
+      - name: Build validated Windows release
         shell: pwsh
         env:
           VLC_HOME: C:\Program Files\VideoLAN\VLC
-        run: .\gradlew.bat :composeApp:packageDistributionForCurrentOS --stacktrace
+        run: .\scripts\release\build-windows-release.ps1
 
-      - name: Collect artifacts and checksums
+      - name: Collect release artifacts
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-          $outputs = Get-ChildItem composeApp\build\compose\binaries\main -Recurse -File |
-            Where-Object { $_.FullName -match '\\(exe|msi)\\' -and $_.Extension -in '.exe', '.msi' }
-          if (-not $outputs) {
-            throw "No MSI/EXE artifacts found."
+          $releaseDir = "build\release\windows"
+          $required = @(
+            (Get-ChildItem $releaseDir -Filter "OmniTune-Setup-*-windows-x64.exe" -File | Select-Object -First 1),
+            (Get-ChildItem $releaseDir -Filter "OmniTune-*-windows-x64.msi" -File | Select-Object -First 1),
+            (Get-Item "$releaseDir\SHA256SUMS.txt"),
+            (Get-Item "$releaseDir\release-manifest.json")
+          )
+          if ($required.Count -ne 4 -or $required -contains $null) {
+            throw "Expected release artifacts were not found in $releaseDir."
           }
-          foreach ($file in $outputs) {
-            Copy-Item -LiteralPath $file.FullName -Destination artifacts
+          foreach ($file in $required) {
+            Copy-Item -LiteralPath $file.FullName -Destination artifacts -Force
           }
-          Get-ChildItem artifacts -File |
-            Where-Object { $_.Name -ne "SHA256SUMS.txt" } |
-            ForEach-Object {
-              $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName
-              "$($hash.Hash)  $($_.Name)"
-            } | Set-Content artifacts\SHA256SUMS.txt
 
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
@@ -77,13 +70,34 @@ jobs:
           name: omnitune-windows-installers
           path: artifacts/*
 
-      - name: Create GitHub Release
+      - name: Create or update GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create $env:GITHUB_REF_NAME artifacts/* `
-            --repo $env:GITHUB_REPOSITORY `
-            --title "OmniTune Windows $env:GITHUB_REF_NAME" `
-            --notes "Automated Windows installer build for $env:GITHUB_REF_NAME. Verify installation, VLC runtime behavior, playback, downloads, and SmartScreen behavior before promoting this release."
+          $notes = @"
+          Automated Windows installer build for $env:GITHUB_REF_NAME.
+
+          Includes EXE, MSI, SHA-256 checksums, and release manifest.
+
+          Verify clean-machine installation, VLC runtime behavior, playback, downloads, offline playback, uninstall/reinstall, and SmartScreen behavior before promoting this release.
+          "@
+
+          $isPrerelease = $env:GITHUB_REF_NAME -match "(?i)(rc|alpha|beta|preview)"
+          $files = Get-ChildItem artifacts -File | ForEach-Object { $_.FullName }
+          if (gh release view $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY *> $null) {
+            gh release upload $env:GITHUB_REF_NAME @files --repo $env:GITHUB_REPOSITORY --clobber
+          } else {
+            $args = @(
+              "release", "create", $env:GITHUB_REF_NAME
+            ) + $files + @(
+              "--repo", $env:GITHUB_REPOSITORY,
+              "--title", "OmniTune Windows $env:GITHUB_REF_NAME",
+              "--notes", $notes
+            )
+            if ($isPrerelease) {
+              $args += "--prerelease"
+            }
+            gh @args
+          }
