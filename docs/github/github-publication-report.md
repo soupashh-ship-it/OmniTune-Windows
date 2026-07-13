@@ -67,8 +67,8 @@ Major repository-quality additions and improvements:
   - `.\gradlew.bat :composeApp:desktopTest --stacktrace`
   - `.\gradlew.bat build -x :innertube:test --stacktrace`
 - Final status: PASS
-- Final run URL: `https://github.com/soupashh-ship-it/OmniTune-Windows/actions/runs/29238606957`
-- Final run HEAD: `f3d233b25392fa6004d6074d839b1823fd3c7a2d`
+- Final run URL: `https://github.com/soupashh-ship-it/OmniTune-Windows/actions/runs/29238920521`
+- Final run HEAD: `ca4e93205ccfa1ffa2ba2990b4ad1266a44fc2c1`
 
 ## 7. Release Automation
 
@@ -148,7 +148,7 @@ Local commands run:
 - `git diff --check`: PASS before commit
 - `gh repo view soupashh-ship-it/OmniTune-Windows`: PASS
 - `gh run list --repo soupashh-ship-it/OmniTune-Windows --limit 10`: PASS
-- `gh run view 29238606957 --repo soupashh-ship-it/OmniTune-Windows`: PASS
+- `gh run view 29238920521 --repo soupashh-ship-it/OmniTune-Windows`: PASS
 
 ## 11. Remaining Blockers
 
@@ -167,7 +167,7 @@ Before a stable 1.0 release:
 
 - Is the GitHub repository professionally set up? Yes.
 - Is the source safely published? Yes.
-- Is CI passing? Yes, on `main` at `f3d233b25392fa6004d6074d839b1823fd3c7a2d`.
+- Is CI passing? Yes, on `main` at `ca4e93205ccfa1ffa2ba2990b4ad1266a44fc2c1`.
 - Is the project ready for contributors? Yes, with documented setup, CI, issue templates, PR template, security policy, and contribution guidance.
 - Is Windows installer distribution ready? Conditional. MSI/EXE packaging works locally, but clean-machine install QA and signing are still required.
 - Is OmniTune Windows ready for 1.0? No. It is correctly published as active pre-1.0 software at version `0.1.0`.
