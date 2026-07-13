@@ -34,7 +34,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -266,7 +266,7 @@ fun OmniSearchField(
             .border(1.dp, if (isFocused) Iris.copy(alpha = 0.55f) else Color(0xFF121623), RoundedCornerShape(10.dp))
             .onFocusChanged { isFocused = it.isFocused }
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
-            .onKeyEvent { ev ->
+            .onPreviewKeyEvent { ev ->
                 if (ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
                     when (ev.key) {
                         Key.Enter, Key.NumPadEnter -> { onEnter?.invoke(); true }

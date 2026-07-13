@@ -7,8 +7,8 @@ OmniTune Windows uses the Compose Desktop native distribution pipeline, backed b
 Primary commands:
 
 ```powershell
-.\gradlew.bat :composeApp:packageExe
-.\gradlew.bat :composeApp:packageMsi
+.\gradlew.bat :composeApp:packageReleaseExe
+.\gradlew.bat :composeApp:packageReleaseMsi
 ```
 
 Release wrapper:
@@ -79,9 +79,18 @@ Startup/native-runtime diagnostics are written to:
 
 No signing certificate is configured in the repository. Produced installers are unsigned unless an external signing step is added by the release owner. Unsigned installers may trigger Windows SmartScreen reputation warnings.
 
-## Known packaging limitation
+## Release packaging policy
 
-`:composeApp:packageReleaseExe` currently fails at ProGuard because several desktop transitive dependencies contain optional Android/JSSE/JNA references. The production installer path is `packageExe/packageMsi`, which creates jpackage installers without ProGuard minification.
+The production Windows installer path is the Compose Desktop release native-distribution pipeline:
+
+```powershell
+.\gradlew.bat :composeApp:packageReleaseExe
+.\gradlew.bat :composeApp:packageReleaseMsi
+```
+
+Release ProGuard minification is intentionally disabled in `composeApp/build.gradle.kts`. Earlier release packaging failed because desktop transitive dependencies expose optional Android, JSSE, JNA, and native-provider references that ProGuard attempted to resolve even though those paths are not part of the Windows desktop runtime. The release build remains a normal jpackage native distribution with a private runtime and bundled VLC files.
+
+The VLC `plugins/plugins.dat` cache file is excluded from packaged output so VLC can build/use plugin discovery appropriate to the installed path instead of a stale cache generated on the build machine.
 
 The Windows installer is configured as a GUI application with:
 

@@ -108,6 +108,7 @@ class PlayerViewModel(
     private val _searchError = MutableStateFlow<String?>(null)
     val searchError: StateFlow<String?> = _searchError.asStateFlow()
     private var activeSearchJob: Job? = null
+    private var activeSearchToken: Long = 0L
 
     private val _playlistResults = MutableStateFlow<List<YTItem>>(emptyList())
     val playlistResults: StateFlow<List<YTItem>> = _playlistResults.asStateFlow()
@@ -401,25 +402,39 @@ class PlayerViewModel(
         settings.addRecentSearch(trimmed)
         settings.flush()
         _recentSearches.value = settings.recentSearches
+        val searchToken = ++activeSearchToken
         activeSearchJob?.cancel()
         activeSearchJob = launch {
             _searchLoading.value = true
             _searchError.value = null
             _searchResults.value = emptyList()
-            runCatching {
-                val songs = async { youTubeService.search(trimmed, YouTube.SearchFilter.FILTER_SONG).items }
-                val artists = async { youTubeService.search(trimmed, YouTube.SearchFilter.FILTER_ARTIST).items }
-                val albums = async { youTubeService.search(trimmed, YouTube.SearchFilter.FILTER_ALBUM).items }
-                val playlists = async { youTubeService.search(trimmed, YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST).items }
-                (songs.await() + artists.await() + albums.await() + playlists.await())
-                    .distinctBy { "${it::class.simpleName}:${it.id}" }
-            }.onSuccess { _searchResults.value = it }
-                .onFailure {
+            val searchResults = runCatching {
+                val songs = async { runCatching { youTubeService.search(trimmed, YouTube.SearchFilter.FILTER_SONG).items } }
+                val artists = async { runCatching { youTubeService.search(trimmed, YouTube.SearchFilter.FILTER_ARTIST).items } }
+                val albums = async { runCatching { youTubeService.search(trimmed, YouTube.SearchFilter.FILTER_ALBUM).items } }
+                val playlists = async { runCatching { youTubeService.search(trimmed, YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST).items } }
+                listOf(songs.await(), artists.await(), albums.await(), playlists.await())
+            }
+
+            if (searchToken == activeSearchToken) {
+                searchResults.onSuccess { categoryResults ->
+                    val successes = categoryResults.mapNotNull { it.getOrNull() }
+                    val failures = categoryResults.mapNotNull { it.exceptionOrNull() }
+                        .filterNot { it is CancellationException }
+                    val combined = successes.flatten()
+                        .distinctBy { "${it::class.simpleName}:${it.id}" }
+
+                    _searchResults.value = combined
+                    if (combined.isEmpty() && failures.isNotEmpty()) {
+                        _searchError.value = failures.first().message ?: "Search failed"
+                    }
+                }.onFailure {
                     if (it !is CancellationException) {
                         _searchError.value = it.message ?: "Search failed"
                     }
                 }
-            _searchLoading.value = false
+                _searchLoading.value = false
+            }
         }
     }
 
