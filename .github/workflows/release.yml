@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer:
+    name: Build Windows installers
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Install VLC runtime for packaging
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "C:\Program Files\VideoLAN\VLC\libvlc.dll")) {
+            choco install vlc --yes --no-progress
+          }
+          if (-not (Test-Path "C:\Program Files\VideoLAN\VLC\libvlc.dll")) {
+            throw "VLC/libVLC runtime was not installed at the expected path."
+          }
+
+      - name: Run desktop tests
+        run: .\gradlew.bat :composeApp:desktopTest --stacktrace
+
+      - name: Build project without live provider test
+        run: .\gradlew.bat build -x :innertube:test --stacktrace
+
+      - name: Build Windows MSI and EXE
+        shell: pwsh
+        env:
+          VLC_HOME: C:\Program Files\VideoLAN\VLC
+        run: .\gradlew.bat :composeApp:packageDistributionForCurrentOS --stacktrace
+
+      - name: Collect artifacts and checksums
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+          $outputs = Get-ChildItem composeApp\build\compose\binaries\main -Recurse -File |
+            Where-Object { $_.FullName -match '\\(exe|msi)\\' -and $_.Extension -in '.exe', '.msi' }
+          if (-not $outputs) {
+            throw "No MSI/EXE artifacts found."
+          }
+          foreach ($file in $outputs) {
+            Copy-Item -LiteralPath $file.FullName -Destination artifacts
+          }
+          Get-ChildItem artifacts -File |
+            Where-Object { $_.Name -ne "SHA256SUMS.txt" } |
+            ForEach-Object {
+              $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName
+              "$($hash.Hash)  $($_.Name)"
+            } | Set-Content artifacts\SHA256SUMS.txt
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: omnitune-windows-installers
+          path: artifacts/*
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create $env:GITHUB_REF_NAME artifacts/* `
+            --repo $env:GITHUB_REPOSITORY `
+            --title "OmniTune Windows $env:GITHUB_REF_NAME" `
+            --notes "Automated Windows installer build for $env:GITHUB_REF_NAME. Verify installation, VLC runtime behavior, playback, downloads, and SmartScreen behavior before promoting this release."

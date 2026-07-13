@@ -48,6 +48,7 @@ import com.omnitune.innertube.pages.*
 import com.omnitune.innertube.toHighResThumbnail
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
+import java.time.LocalTime
 
 @Composable
 fun HomeView(player: PlayerViewModel) {
@@ -84,10 +85,11 @@ enum class HomeSectionType {
 
 @Composable
 private fun HomeContent(player: PlayerViewModel, home: HomePage, currentSong: SongItem?, playbackState: PlaybackState, liked: Set<String>) {
-    
+    val queue by player.queue.collectAsState()
+
     // Robust Classification
     val usedIds = mutableSetOf<String>()
-    
+
     // Helper to get unused items
     fun <T: YTItem> filterUnused(items: List<T>, take: Int): List<T> {
         val result = items.filter { it.id !in usedIds }.take(take)
@@ -95,9 +97,9 @@ private fun HomeContent(player: PlayerViewModel, home: HomePage, currentSong: So
         return result
     }
 
-    val classifiedSections = home.sections.associateBy { section ->
-        val normalized = section.title.lowercase().trim()
-        when {
+    fun classify(sectionTitle: String): HomeSectionType {
+        val normalized = sectionTitle.lowercase().trim()
+        return when {
             normalized.contains("quick") || normalized.contains("pick") || normalized.contains("listen again") -> HomeSectionType.QuickPicks
             normalized.contains("made for") || normalized.contains("mix") -> HomeSectionType.Personalized
             normalized.contains("new release") || normalized.contains("new album") -> HomeSectionType.NewReleases
@@ -107,111 +109,814 @@ private fun HomeContent(player: PlayerViewModel, home: HomePage, currentSong: So
         }
     }
 
-    val allItems = home.sections.flatMap { it.items }
-    val allSongs = allItems.filterIsInstance<SongItem>()
-    
-    // 1. Featured Hero
-    val featuredItem = allItems.firstOrNull { (it is AlbumItem || it is PlaylistItem) && it.thumbnail != null && it.id !in usedIds }
-    if (featuredItem != null) usedIds.add(featuredItem.id)
+    val classifiedSections = home.sections.groupBy { section ->
+        classify(section.title)
+    }
 
-    // 2. Companion Rail
-    val companionItems = filterUnused(allSongs.ifEmpty { allItems.filter { it is AlbumItem || it is PlaylistItem } }, 4)
+    fun sectionItems(type: HomeSectionType): List<YTItem> =
+        classifiedSections[type].orEmpty().flatMap { it.items }
 
-    // 3. Continue Listening
-    val continueListeningCandidate = classifiedSections[HomeSectionType.ContinueListening]?.items
-        ?: allSongs.ifEmpty { allItems }
-    val continueListening = filterUnused(continueListeningCandidate, 4)
+    fun YTItem.stableIdentity(): String = "${id.ifBlank { title }}:${title}"
 
-    // 4. Quick Picks
-    val quickPicksCandidate = classifiedSections[HomeSectionType.QuickPicks]?.items ?: allItems
-    val quickPicks = filterUnused(quickPicksCandidate, 6)
-
-    // 5. Made For You
-    val madeForYouCandidate = classifiedSections[HomeSectionType.Personalized]?.items ?: allItems.filter { it is PlaylistItem || it is AlbumItem }
-    val madeForYou = filterUnused(madeForYouCandidate, 3)
-
-    // 6. Trending Now
-    val trendingCandidate = classifiedSections[HomeSectionType.Trending]?.items ?: allSongs.ifEmpty { allItems }
-    val trending = filterUnused(trendingCandidate, 5)
-
-    // 7. New Releases
-    val newReleasesCandidate = classifiedSections[HomeSectionType.NewReleases]?.items ?: allItems.filter { it is AlbumItem || it is PlaylistItem }
-    val newReleases = filterUnused(newReleasesCandidate, 5)
-
-    BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 24.dp)) {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(32.dp)
-        ) {
-            item {
-                Row(modifier = Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Good evening, Alex", style = MaterialTheme.typography.displaySmall, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 32.sp)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OmniIconButton(onClick = {}, icon = Icons.Default.ChevronLeft, contentDescription = "Back", size = 32.dp, iconSize = 24.dp, tint = TextPrimary)
-                        OmniIconButton(onClick = {}, icon = Icons.Default.ChevronRight, contentDescription = "Forward", size = 32.dp, iconSize = 24.dp, tint = TextPrimary)
-                    }
+    fun pickDistinct(take: Int, vararg sources: List<YTItem>): List<YTItem> {
+        val result = mutableListOf<YTItem>()
+        val candidates = sources.flatMap { it }.distinctBy { it.stableIdentity() }
+        candidates
+            .distinctBy { it.stableIdentity() }
+            .forEach { item ->
+                if (result.size < take && usedIds.add(item.stableIdentity())) {
+                    result += item
                 }
             }
-            
-            // ─── HERO & CONTINUE LISTENING ROW ─────────────────────────────
-            
-            item {
-                HomeHeroRow(featuredItem, companionItems, player, currentSong, playbackState)
+        candidates.forEach { item ->
+            if (result.size < take && result.none { it.stableIdentity() == item.stableIdentity() }) {
+                result += item
             }
+        }
+        result.forEach { usedIds.add(it.stableIdentity()) }
+        return result
+    }
 
-            // ─── QUICK PICKS & MADE FOR YOU ROW ────────────────────────────
-            if (quickPicks.isNotEmpty() || madeForYou.isNotEmpty()) {
-                item {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        if (quickPicks.isNotEmpty()) {
-                            Column(modifier = Modifier.weight(0.65f)) {
-                                SectionHeader("Quick Picks")
-                                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    items(quickPicks) { item -> QuickPicksCard(item, player) }
-                                }
-                            }
-                        }
-                        if (madeForYou.isNotEmpty()) {
-                            Column(modifier = Modifier.weight(0.35f)) {
-                                SectionHeader("Made for You", showSeeAll = true)
-                                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    items(madeForYou) { item -> MadeForYouCard(item, player) }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // ─── TRENDING NOW & NEW RELEASES ROW ───────────────────────────
-            if (trending.isNotEmpty() || newReleases.isNotEmpty()) {
-                item {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                        if (trending.isNotEmpty()) {
-                            Column(modifier = Modifier.weight(0.45f)) {
-                                SectionHeader("Trending Now")
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    trending.forEachIndexed { index, song ->
-                                        TrendingRow(song, index + 1, player)
-                                    }
-                                }
-                            }
-                        }
-                        if (newReleases.isNotEmpty()) {
-                            Column(modifier = Modifier.weight(0.55f)) {
-                                SectionHeader("New Releases", showSeeAll = true)
-                                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    items(newReleases) { item -> NewReleaseCard(item, player) }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            item { Spacer(Modifier.height(40.dp)) }
+    fun playHomeItem(item: YTItem) {
+        when (item) {
+            is SongItem -> player.playSong(item)
+            is AlbumItem -> player.openAlbum(item.browseId)
+            is PlaylistItem -> player.playPlaylist(item.id)
+            is ArtistItem -> player.openArtist(item.id)
         }
     }
+
+    val greeting = remember {
+        val hour = LocalTime.now().hour
+        when (hour) {
+            in 5..11 -> "Good morning"
+            in 12..16 -> "Good afternoon"
+            else -> "Good evening"
+        }
+    }
+
+    val queueItems = queue
+    val allItems = home.sections.flatMap { it.items }
+    val allSongs = allItems.filterIsInstance<SongItem>()
+    val mediaItems = allItems.filter { it is AlbumItem || it is PlaylistItem || it is ArtistItem }
+    val heroCandidates = mediaItems.ifEmpty { allItems }.filter { it.thumbnail != null }.distinctBy { it.stableIdentity() }
+    var heroIndex by remember(home) { mutableStateOf(0) }
+    val featuredItem = heroCandidates.getOrNull(heroIndex.coerceIn(0, (heroCandidates.size - 1).coerceAtLeast(0)))
+    if (featuredItem != null) usedIds.add(featuredItem.stableIdentity())
+
+    val companionItems = pickDistinct(
+        4,
+        allSongs,
+        sectionItems(HomeSectionType.QuickPicks),
+        allItems,
+    )
+
+    val continueListening = pickDistinct(
+        4,
+        queueItems,
+        sectionItems(HomeSectionType.ContinueListening),
+        allSongs,
+        allItems,
+    )
+
+    val quickPicks = pickDistinct(
+        6,
+        sectionItems(HomeSectionType.QuickPicks),
+        sectionItems(HomeSectionType.Personalized),
+        allItems,
+    )
+
+    val madeForYou = pickDistinct(
+        3,
+        sectionItems(HomeSectionType.Personalized),
+        mediaItems,
+        allItems,
+    )
+
+    val trending = pickDistinct(
+        5,
+        sectionItems(HomeSectionType.Trending),
+        allSongs,
+        allItems,
+    )
+
+    val newReleases = pickDistinct(
+        5,
+        sectionItems(HomeSectionType.NewReleases),
+        mediaItems,
+        allItems,
+    )
+
+    ReferenceLockedHome(
+        greeting = greeting,
+        featuredItem = featuredItem,
+        heroItems = companionItems,
+        continueListening = continueListening,
+        quickPicks = quickPicks,
+        madeForYou = madeForYou,
+        trending = trending,
+        newReleases = newReleases,
+        currentSong = currentSong,
+        playbackState = playbackState,
+        onHeroPrevious = {
+            if (heroCandidates.isNotEmpty()) heroIndex = (heroIndex - 1 + heroCandidates.size) % heroCandidates.size
+        },
+        onHeroNext = {
+            if (heroCandidates.isNotEmpty()) heroIndex = (heroIndex + 1) % heroCandidates.size
+        },
+        onPlayItem = { playHomeItem(it) },
+        player = player,
+    )
+}
+
+@Composable
+private fun ReferenceLockedHome(
+    greeting: String,
+    featuredItem: YTItem?,
+    heroItems: List<YTItem>,
+    continueListening: List<YTItem>,
+    quickPicks: List<YTItem>,
+    madeForYou: List<YTItem>,
+    trending: List<YTItem>,
+    newReleases: List<YTItem>,
+    currentSong: SongItem?,
+    playbackState: PlaybackState,
+    onHeroPrevious: () -> Unit,
+    onHeroNext: () -> Unit,
+    onPlayItem: (YTItem) -> Unit,
+    player: PlayerViewModel,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    val scroll = rememberScrollState()
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scroll)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(metrics.px(523f))
+        ) {
+            Row(
+                modifier = Modifier
+                    .offset(x = metrics.px(23f), y = metrics.px(19f))
+                    .width(metrics.px(HomeReferenceSpec.HeroWidth))
+                    .height(metrics.px(HomeReferenceSpec.HeroPagerHeight)),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = greeting,
+                    modifier = Modifier.offset(y = metrics.px(-5f)),
+                    color = OmniReferenceColors.TextPrimary,
+                    fontSize = 20.sp,
+                    lineHeight = 23.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = (-0.2).sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+
+                TargetHeroPager(
+                    canGoPrevious = true,
+                    canGoNext = true,
+                    onPrevious = onHeroPrevious,
+                    onNext = onHeroNext,
+                    modifier = Modifier
+                        .width(metrics.px(HomeReferenceSpec.HeroPagerWidth))
+                        .height(metrics.px(HomeReferenceSpec.HeroPagerHeight)),
+                )
+            }
+
+            ReferenceFeaturedHero(
+                item = featuredItem,
+                sideItems = heroItems,
+                onPlayItem = onPlayItem,
+                modifier = Modifier
+                    .offset(x = metrics.px(23f), y = metrics.px(55f))
+                    .width(metrics.px(HomeReferenceSpec.HeroWidth))
+                    .height(metrics.px(HomeReferenceSpec.HeroHeight)),
+            )
+
+            ReferenceContinueListening(
+                items = continueListening,
+                currentSong = currentSong,
+                playbackState = playbackState,
+                onPlayItem = onPlayItem,
+                modifier = Modifier
+                    .offset(x = metrics.px(671f), y = metrics.px(55f))
+                    .width(metrics.px(HomeReferenceSpec.ContinueWidth))
+                    .height(metrics.px(214f)),
+            )
+
+            ReferenceQuickPicks(
+                items = quickPicks,
+                onPlayItem = onPlayItem,
+                modifier = Modifier
+                    .offset(x = metrics.px(23f), y = metrics.px(280f))
+                    .width(metrics.px(565f)),
+            )
+
+            ReferenceMadeForYou(
+                items = madeForYou,
+                onPlayItem = onPlayItem,
+                modifier = Modifier
+                    .offset(x = metrics.px(600f), y = metrics.px(280f))
+                    .width(metrics.px(330f)),
+            )
+
+            ReferenceTrending(
+                items = trending,
+                currentSong = currentSong,
+                playbackState = playbackState,
+                player = player,
+                modifier = Modifier
+                    .offset(x = metrics.px(23f), y = metrics.px(419f))
+                    .width(metrics.px(398f)),
+            )
+
+            ReferenceNewReleases(
+                items = newReleases,
+                onPlayItem = onPlayItem,
+                modifier = Modifier
+                    .offset(x = metrics.px(447f), y = metrics.px(419f))
+                    .width(metrics.px(477f)),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReferenceFeaturedHero(
+    item: YTItem?,
+    sideItems: List<YTItem>,
+    onPlayItem: (YTItem) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    val shape = RoundedCornerShape(metrics.px(12f))
+
+    Row(
+        modifier = modifier
+            .clip(shape)
+            .background(OmniReferenceColors.SurfaceRaised)
+            .border(1.dp, OmniReferenceColors.BorderSoft, shape)
+    ) {
+        Box(
+            modifier = Modifier
+                .width(metrics.px(HomeReferenceSpec.HeroMainWidth))
+                .fillMaxHeight()
+        ) {
+            if (item != null) {
+                AsyncImage(
+                    model = item.thumbnail?.toHighResThumbnail(),
+                    contentDescription = item.title,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.horizontalGradient(
+                                0.00f to Color(0xF2040819),
+                                0.35f to Color(0xB0040819),
+                                0.72f to Color(0x30040819),
+                                1.00f to Color(0x16040819),
+                            )
+                        )
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                0.00f to Color.Transparent,
+                                0.58f to Color.Transparent,
+                                1.00f to Color(0xCC040819),
+                            )
+                        )
+                )
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(start = metrics.px(26f), end = metrics.px(24f), bottom = metrics.px(21f)),
+                ) {
+                    Text(
+                        text = when (item) {
+                            is AlbumItem -> "FEATURED ALBUM"
+                            is PlaylistItem -> "FEATURED PLAYLIST"
+                            is ArtistItem -> "FEATURED ARTIST"
+                            is SongItem -> "FEATURED TRACK"
+                        },
+                        color = OmniReferenceColors.TextSecondary,
+                        fontSize = 8.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.9.sp,
+                        maxLines = 1,
+                    )
+                    Spacer(Modifier.height(metrics.px(5f)))
+                    Text(
+                        text = item.title,
+                        color = OmniReferenceColors.TextPrimary,
+                        fontSize = 20.sp,
+                        lineHeight = 23.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(metrics.px(5f)))
+                    Text(
+                        text = itemSubtitle(item).ifBlank { "Personalized from your OmniTune home feed" },
+                        color = OmniReferenceColors.TextSecondary,
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.width(metrics.px(292f)),
+                    )
+                    Spacer(Modifier.height(metrics.px(12f)))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .width(metrics.px(75f))
+                                .height(metrics.px(31f))
+                                .clip(RoundedCornerShape(metrics.px(99f)))
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            OmniReferenceColors.AccentSoft,
+                                            OmniReferenceColors.Accent,
+                                            OmniReferenceColors.AccentBright,
+                                        )
+                                    )
+                                )
+                                .clickable { onPlayItem(item) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text("Play Now", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(metrics.px(10f)))
+                        Box(
+                            modifier = Modifier
+                                .size(metrics.px(31f))
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(Color.White.copy(alpha = 0.08f))
+                                .clickable { onPlayItem(item) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Default.MoreHoriz, null, tint = OmniReferenceColors.TextSecondary, modifier = Modifier.size(metrics.px(17f)))
+                        }
+                    }
+                }
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .width(metrics.px(HomeReferenceSpec.HeroSideWidth))
+                .fillMaxHeight()
+                .background(OmniReferenceColors.SurfaceDeepRaised.copy(alpha = 0.88f))
+                .padding(horizontal = metrics.px(7f), vertical = metrics.px(7f)),
+            verticalArrangement = Arrangement.spacedBy(metrics.px(4f)),
+        ) {
+            sideItems.take(4).forEachIndexed { index, sideItem ->
+                ReferenceHeroSideRow(
+                    item = sideItem,
+                    selected = index == 0,
+                    onClick = { onPlayItem(sideItem) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReferenceHeroSideRow(
+    item: YTItem,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(metrics.px(7f)))
+            .background(if (selected) OmniReferenceColors.SurfaceSelected else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = metrics.px(6f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AsyncImage(
+            model = item.thumbnail?.toHighResThumbnail(),
+            contentDescription = item.title,
+            modifier = Modifier
+                .size(metrics.px(35f))
+                .clip(RoundedCornerShape(metrics.px(6f))),
+            contentScale = ContentScale.Crop,
+        )
+        Spacer(Modifier.width(metrics.px(8f)))
+        Column(Modifier.weight(1f)) {
+            Text(item.title, color = OmniReferenceColors.TextPrimary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(itemSubtitle(item), color = OmniReferenceColors.TextMuted, fontSize = 8.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun ReferenceContinueListening(
+    items: List<YTItem>,
+    currentSong: SongItem?,
+    playbackState: PlaybackState,
+    onPlayItem: (YTItem) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(metrics.px(20f)),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Continue Listening", color = OmniReferenceColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.weight(1f))
+            Text("See all", color = OmniReferenceColors.AccentSoft, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+        }
+        Spacer(Modifier.height(metrics.px(2f)))
+        Column(verticalArrangement = Arrangement.spacedBy(metrics.px(3f))) {
+            items.take(4).forEach { item ->
+                val active = item is SongItem && item.id == currentSong?.id
+                ReferenceContinueRow(
+                    item = item,
+                    active = active,
+                    playing = active && playbackState == PlaybackState.PLAYING,
+                    onClick = { onPlayItem(item) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(metrics.px(46f)),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReferenceContinueRow(
+    item: YTItem,
+    active: Boolean,
+    playing: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    val shape = RoundedCornerShape(metrics.px(8f))
+    Row(
+        modifier = modifier
+            .clip(shape)
+            .background(if (active) OmniReferenceColors.SurfaceSelected else OmniReferenceColors.SurfaceAlternate)
+            .border(1.dp, OmniReferenceColors.SurfaceBorder.copy(alpha = 0.8f), shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = metrics.px(7f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AsyncImage(
+            model = item.thumbnail?.toHighResThumbnail(),
+            contentDescription = item.title,
+            modifier = Modifier
+                .size(metrics.px(35f))
+                .clip(RoundedCornerShape(metrics.px(6f))),
+            contentScale = ContentScale.Crop,
+        )
+        Spacer(Modifier.width(metrics.px(8f)))
+        Column(Modifier.weight(1f)) {
+            Text(item.title, color = OmniReferenceColors.TextPrimary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(itemSubtitle(item), color = OmniReferenceColors.TextSecondary, fontSize = 8.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(metrics.px(3f)))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(metrics.px(2f))
+                    .clip(RoundedCornerShape(metrics.px(99f)))
+                    .background(OmniReferenceColors.SeekTrack)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(if (active) 0.48f else 0.18f)
+                        .fillMaxHeight()
+                        .background(OmniReferenceColors.SeekFill)
+                )
+            }
+        }
+        Spacer(Modifier.width(metrics.px(6f)))
+        Box(
+            modifier = Modifier
+                .size(metrics.px(22f))
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .background(Color.White.copy(alpha = 0.09f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(metrics.px(14f)))
+        }
+    }
+}
+
+@Composable
+private fun ReferenceQuickPicks(
+    items: List<YTItem>,
+    onPlayItem: (YTItem) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(modifier = modifier) {
+        ReferenceSectionLabel("Quick Picks")
+        Spacer(Modifier.height(metrics.px(6f)))
+        Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(5f))) {
+            items.take(6).forEach {
+                ReferenceQuickPickCard(
+                    item = it,
+                    onClick = { onPlayItem(it) },
+                    modifier = Modifier
+                        .width(metrics.px(89f))
+                        .height(metrics.px(97f)),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReferenceQuickPickCard(item: YTItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val metrics = LocalHomeReferenceMetrics.current
+    val shape = RoundedCornerShape(metrics.px(8f))
+    Column(
+        modifier = modifier
+            .clip(shape)
+            .background(OmniReferenceColors.SurfaceBase)
+            .border(1.dp, OmniReferenceColors.SurfaceBorder.copy(alpha = 0.7f), shape)
+            .clickable(onClick = onClick)
+    ) {
+        AsyncImage(
+            model = item.thumbnail?.toHighResThumbnail(),
+            contentDescription = item.title,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(metrics.px(61f)),
+            contentScale = ContentScale.Crop,
+        )
+        Column(Modifier.padding(horizontal = metrics.px(6f), vertical = metrics.px(5f))) {
+            Text(item.title, color = OmniReferenceColors.TextPrimary, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(itemSubtitle(item), color = OmniReferenceColors.TextSecondary, fontSize = 7.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun ReferenceMadeForYou(
+    items: List<YTItem>,
+    onPlayItem: (YTItem) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ReferenceSectionLabel("Made for You")
+            Spacer(Modifier.weight(1f))
+            Text("See all", color = OmniReferenceColors.AccentSoft, fontSize = 9.5.sp, fontWeight = FontWeight.Medium)
+        }
+        Spacer(Modifier.height(metrics.px(7f)))
+        Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(2f))) {
+            items.take(3).forEach {
+                ReferenceMadeCard(
+                    item = it,
+                    onClick = { onPlayItem(it) },
+                    modifier = Modifier
+                        .width(metrics.px(109f))
+                        .height(metrics.px(95f)),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReferenceMadeCard(item: YTItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val metrics = LocalHomeReferenceMetrics.current
+    val tint = remember(item.id) {
+        listOf(Color(0xFF245063), Color(0xFF38235C), Color(0xFF5C233E), Color(0xFF1D264F))[kotlin.math.abs(item.id.hashCode()) % 4]
+    }
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(metrics.px(8f)))
+            .background(Brush.linearGradient(listOf(tint.copy(alpha = 0.42f), OmniReferenceColors.SurfaceDeepRaised)))
+            .border(1.dp, OmniReferenceColors.SurfaceBorder.copy(alpha = 0.62f), RoundedCornerShape(metrics.px(8f)))
+            .clickable(onClick = onClick)
+    ) {
+        AsyncImage(
+            model = item.thumbnail?.toHighResThumbnail(),
+            contentDescription = item.title,
+            modifier = Modifier.fillMaxSize().alpha(0.22f),
+            contentScale = ContentScale.Crop,
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(metrics.px(9f)),
+            verticalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(item.title, color = OmniReferenceColors.TextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Bold, lineHeight = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(itemSubtitle(item).ifBlank { "Personalized mix" }, color = OmniReferenceColors.TextSecondary, fontSize = 7.8.sp, lineHeight = 10.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Box(
+                    modifier = Modifier
+                        .size(metrics.px(22f))
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(metrics.px(14f)))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReferenceTrending(
+    items: List<YTItem>,
+    currentSong: SongItem?,
+    playbackState: PlaybackState,
+    player: PlayerViewModel,
+    modifier: Modifier = Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(modifier = modifier) {
+        ReferenceSectionLabel("Trending Now")
+        Spacer(Modifier.height(metrics.px(7f)))
+        items.take(2).forEachIndexed { index, item ->
+            val active = item is SongItem && item.id == currentSong?.id
+            ReferenceTrendingRow(
+                item = item,
+                rank = index + 1,
+                active = active,
+                playing = active && playbackState == PlaybackState.PLAYING,
+                onClick = {
+                    if (item is SongItem) player.playSong(item)
+                    else if (item is AlbumItem) player.openAlbum(item.browseId)
+                    else if (item is PlaylistItem) player.playPlaylist(item.id)
+                    else if (item is ArtistItem) player.openArtist(item.id)
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(metrics.px(41f)),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReferenceTrendingRow(
+    item: YTItem,
+    rank: Int,
+    active: Boolean,
+    playing: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(metrics.px(6f)))
+            .background(if (active) OmniReferenceColors.SurfaceSelected.copy(alpha = 0.7f) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = metrics.px(5f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(rank.toString(), color = OmniReferenceColors.TextSecondary, fontSize = 10.sp, modifier = Modifier.width(metrics.px(18f)))
+        AsyncImage(
+            model = item.thumbnail?.toHighResThumbnail(),
+            contentDescription = item.title,
+            modifier = Modifier
+                .size(metrics.px(30f))
+                .clip(RoundedCornerShape(metrics.px(5f))),
+            contentScale = ContentScale.Crop,
+        )
+        Spacer(Modifier.width(metrics.px(8f)))
+        Column(Modifier.weight(1.15f)) {
+            Text(item.title, color = if (active) OmniReferenceColors.AccentSoft else OmniReferenceColors.TextPrimary, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(itemSubtitle(item), color = OmniReferenceColors.TextSecondary, fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(itemAlbumLabel(item), color = OmniReferenceColors.TextMuted, fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(0.75f))
+        Text(durationLabel(item), color = OmniReferenceColors.TextMuted, fontSize = 8.sp, modifier = Modifier.width(metrics.px(30f)))
+        Icon(Icons.Default.Add, null, tint = OmniReferenceColors.TextMuted, modifier = Modifier.size(metrics.px(13f)))
+        Spacer(Modifier.width(metrics.px(8f)))
+        Icon(Icons.Default.MoreHoriz, null, tint = OmniReferenceColors.TextMuted, modifier = Modifier.size(metrics.px(13f)))
+    }
+}
+
+@Composable
+private fun ReferenceNewReleases(
+    items: List<YTItem>,
+    onPlayItem: (YTItem) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(modifier = modifier) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ReferenceSectionLabel("New Releases")
+            Spacer(Modifier.weight(1f))
+            Text("See all", color = OmniReferenceColors.AccentSoft, fontSize = 9.5.sp, fontWeight = FontWeight.Medium)
+        }
+        Spacer(Modifier.height(metrics.px(7f)))
+        Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(10f))) {
+            items.take(5).forEach {
+                ReferenceReleaseCard(
+                    item = it,
+                    onClick = { onPlayItem(it) },
+                    modifier = Modifier
+                        .width(metrics.px(86f))
+                        .height(metrics.px(116f)),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReferenceReleaseCard(item: YTItem, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(modifier = modifier.clickable(onClick = onClick)) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(metrics.px(70f))
+                .clip(RoundedCornerShape(metrics.px(8f)))
+        ) {
+            AsyncImage(
+                model = item.thumbnail?.toHighResThumbnail(),
+                contentDescription = item.title,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(metrics.px(5f))
+                    .size(metrics.px(18f))
+                    .clip(androidx.compose.foundation.shape.CircleShape)
+                    .background(Color.Black.copy(alpha = 0.45f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(metrics.px(11f)))
+            }
+        }
+        Spacer(Modifier.height(metrics.px(5f)))
+        Text(item.title, color = OmniReferenceColors.TextPrimary, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(itemSubtitle(item), color = OmniReferenceColors.TextSecondary, fontSize = 7.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun ReferenceSectionLabel(title: String) {
+    Text(
+        text = title,
+        color = OmniReferenceColors.TextPrimary,
+        fontSize = 13.sp,
+        lineHeight = 16.sp,
+        fontWeight = FontWeight.SemiBold,
+        maxLines = 1,
+    )
+}
+
+private fun itemSubtitle(item: YTItem): String = when (item) {
+    is SongItem -> item.artists.joinToString(", ") { it.name }
+    is AlbumItem -> item.artists?.joinToString(", ") { it.name ?: "" }.orEmpty()
+    is PlaylistItem -> item.author?.name ?: item.songCountText ?: "Playlist"
+    is ArtistItem -> "Artist"
+}
+
+private fun itemAlbumLabel(item: YTItem): String = when (item) {
+    is SongItem -> item.album?.name.orEmpty()
+    is AlbumItem -> item.year?.toString() ?: "Album"
+    is PlaylistItem -> "Playlist"
+    is ArtistItem -> "Artist"
+}
+
+private fun durationLabel(item: YTItem): String {
+    val duration = (item as? SongItem)?.duration ?: return ""
+    return "${duration / 60}:${(duration % 60).toString().padStart(2, '0')}"
 }
 
 
@@ -221,7 +926,7 @@ private fun ContinueListeningRow(item: YTItem, isActive: Boolean, isPlaying: Boo
     val isHovered by interactionSource.collectIsHoveredAsState()
 
     val shape = RoundedCornerShape(10.dp)
-    
+
     val rowBackground by animateColorAsState(
         targetValue = when {
             isActive -> Color(0xCC11172C)
@@ -291,7 +996,7 @@ private fun ContinueListeningRow(item: YTItem, isActive: Boolean, isPlaying: Boo
                     color = Color(0xFFF4F3FA),
                     style = MaterialTheme.typography.titleSmall
                 )
-                
+
                 val artists = when (item) {
                     is SongItem -> item.artists?.joinToString(", ") { it.name ?: "" } ?: ""
                     is AlbumItem -> item.artists?.joinToString(", ") { it.name ?: "" } ?: ""
@@ -372,14 +1077,25 @@ private fun QuickPicksCard(item: YTItem, player: PlayerViewModel) {
     val isHovered by interactionSource.collectIsHoveredAsState()
 
     val scale by animateFloatAsState(if (isHovered) 1.015f else 1f, tween(160))
+    val subtitle = when (item) {
+        is SongItem -> item.artists?.joinToString(", ") { it.name ?: "" } ?: ""
+        is AlbumItem -> item.artists?.joinToString(", ") { it.name ?: "" } ?: ""
+        is PlaylistItem -> "Playlist"
+        is ArtistItem -> "Artist"
+        else -> ""
+    }
 
-    Box(
+    Column(
         modifier = Modifier
-            .width(130.dp)
-            .height(140.dp)
             .scale(scale)
-            .clip(Shapes.medium)
-            .border(1.dp, Color.White.copy(alpha = 0.05f), Shapes.medium)
+            .width(126.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF0A0F20))
+            .border(
+                width = 1.dp,
+                color = Color(0xFF181D34).copy(alpha = 0.70f),
+                shape = RoundedCornerShape(12.dp)
+            )
             .clickable(interactionSource = interactionSource, indication = null) {
                 if (item is AlbumItem) player.openAlbum(item.browseId)
                 else if (item is PlaylistItem) player.playPlaylist(item.id)
@@ -387,39 +1103,54 @@ private fun QuickPicksCard(item: YTItem, player: PlayerViewModel) {
                 else if (item is SongItem) player.playSong(item, 0)
             }
     ) {
-        AsyncImage(
-            model = item.thumbnail?.toHighResThumbnail(),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop
-        )
-        Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(
-            0f to Color.Transparent,
-            0.5f to Color.Transparent,
-            1f to Color.Black.copy(alpha = 0.95f)
-        )))
-        Column(modifier = Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.Bottom) {
-            Text(item.title, style = MaterialTheme.typography.titleSmall, color = TextWhite, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val sub = when (item) {
-                is SongItem -> item.artists?.joinToString(", ") { it.name ?: "" }
-                is AlbumItem -> item.artists?.joinToString(", ") { it.name ?: "" }
-                else -> null
-            }
-            if (!sub.isNullOrEmpty()) {
-                Text(sub, style = MaterialTheme.typography.labelSmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+        ) {
+            AsyncImage(
+                model = item.thumbnail?.toHighResThumbnail(),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+            if (isHovered) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(40.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(Color.Black.copy(alpha = 0.4f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                }
             }
         }
-        if (isHovered) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .size(40.dp)
-                    .clip(androidx.compose.foundation.shape.CircleShape)
-                    .background(Color.Black.copy(alpha = 0.4f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(24.dp))
-            }
+
+        Column(
+            modifier = Modifier.padding(
+                horizontal = 10.dp,
+                vertical = 8.dp
+            )
+        ) {
+            Text(
+                text = item.title,
+                style = MaterialTheme.typography.labelLarge,
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            Spacer(Modifier.height(2.dp))
+
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF9495A7),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
@@ -464,10 +1195,10 @@ private fun MadeForYouCard(item: YTItem, player: PlayerViewModel) {
             modifier = Modifier.fillMaxSize().alpha(0.15f),
             contentScale = ContentScale.Crop
         )
-        
+
         Column(modifier = Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.SpaceBetween) {
             Text(item.title, style = MaterialTheme.typography.titleSmall.copy(fontSize = 14.sp), color = TextWhite, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            
+
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 val sub = when (item) {
                     is PlaylistItem -> "Based on your recent listening"
@@ -475,7 +1206,7 @@ private fun MadeForYouCard(item: YTItem, player: PlayerViewModel) {
                     else -> ""
                 }
                 Text(sub, style = MaterialTheme.typography.labelSmall, color = TextSecondary, maxLines = 3, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(end = 8.dp))
-                
+
                 Box(modifier = Modifier.size(32.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
                     Icon(Icons.Default.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(20.dp))
                 }
@@ -491,8 +1222,8 @@ private fun TrendingRow(item: YTItem, rank: Int, player: PlayerViewModel) {
     Row(
         modifier = Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(6.dp))
             .background(if (isHovered) Color.White.copy(alpha = 0.035f) else Color.Transparent)
-            .clickable(interactionSource = interactionSource, indication = null) { 
-                if (item is SongItem) player.playSong(item) 
+            .clickable(interactionSource = interactionSource, indication = null) {
+                if (item is SongItem) player.playSong(item)
             }
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -517,7 +1248,13 @@ private fun TrendingRow(item: YTItem, rank: Int, player: PlayerViewModel) {
             else -> ""
         }
         Text(albumName, style = MaterialTheme.typography.bodySmall, color = TextSecondary, modifier = Modifier.weight(0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text("3:14", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+        val d = if (item is SongItem) item.duration else null
+        val duration = if (d != null) {
+            val mins = d / 60
+            val secs = d % 60
+            "$mins:${secs.toString().padStart(2, '0')}"
+        } else ""
+        Text(duration, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         Spacer(Modifier.width(16.dp))
         Icon(Icons.Default.Add, contentDescription = "Add", tint = TextSecondary, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(16.dp))
@@ -538,9 +1275,9 @@ private fun NewReleaseCard(item: YTItem, player: PlayerViewModel) {
         is ArtistItem -> "Artist"
         else -> ""
     }
-    
+
     Box(modifier = Modifier.width(120.dp).height(150.dp).clip(RoundedCornerShape(8.dp)).background(Color.Transparent)
-        .clickable(interactionSource = interactionSource, indication = null) { 
+        .clickable(interactionSource = interactionSource, indication = null) {
             if (item is AlbumItem) player.openAlbum(item.browseId)
             else if (item is SongItem) player.playSong(item)
         }
@@ -569,7 +1306,11 @@ private fun FeaturedCompanionRow(item: YTItem, selected: Boolean, onClick: () ->
     val isHovered by interactionSource.collectIsHoveredAsState()
 
     val background by animateColorAsState(
-        targetValue = if (selected) Color(0xFF171D49) else if (isHovered) Color(0x33171D49) else Color.Transparent,
+        targetValue = if (selected) com.omnitune.app.window.OmniReferenceColors.SurfaceSelected else if (isHovered) com.omnitune.app.window.OmniReferenceColors.SurfaceRaised else com.omnitune.app.window.OmniReferenceColors.SurfaceBase,
+        animationSpec = tween(160)
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (selected) Color(0xFF252C58).copy(alpha = 0.60f) else com.omnitune.app.window.OmniReferenceColors.SurfaceBorder.copy(alpha = 0.72f),
         animationSpec = tween(160)
     )
 
@@ -578,8 +1319,9 @@ private fun FeaturedCompanionRow(item: YTItem, selected: Boolean, onClick: () ->
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(background)
+            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 9.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         AsyncImage(
@@ -604,12 +1346,84 @@ private fun FeaturedCompanionRow(item: YTItem, selected: Boolean, onClick: () ->
 }
 
 @Composable
+private fun TargetHeroPager(
+    canGoPrevious: Boolean,
+    canGoNext: Boolean,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .width(48.dp)
+            .height(24.dp)
+            .clip(RoundedCornerShape(50))
+            .background(Color(0xFF0E1223)),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        Icon(
+            Icons.Default.ChevronLeft,
+            contentDescription = "Previous",
+            tint = Color.White.copy(alpha=if (canGoPrevious) 0.7f else 0.3f),
+            modifier = Modifier.size(16.dp).clickable(enabled = canGoPrevious, onClick = onPrevious)
+        )
+        Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = "Next",
+            tint = Color.White.copy(alpha=if (canGoNext) 0.7f else 0.3f),
+            modifier = Modifier.size(16.dp).clickable(enabled = canGoNext, onClick = onNext)
+        )
+    }
+}
+
+@Composable
 private fun HomeHeroRow(album: YTItem?, continueListening: List<YTItem>, player: PlayerViewModel, currentSong: SongItem?, playbackState: PlaybackState) {
     val shape = RoundedCornerShape(14.dp)
-    
-    Row(modifier = Modifier.fillMaxWidth().height(290.dp).clip(shape).border(1.dp, Color.White.copy(alpha = 0.055f), shape)) {
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(28.dp)
+    ) {
         // Left side: Cinematic main hero
-        Box(modifier = Modifier.weight(2.65f).fillMaxHeight().background(Color(0xFF0C1122))) {
+        Column(
+            modifier = Modifier.weight(2.35f)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(25.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Good evening, Alex",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    lineHeight = 23.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = (-0.2).sp,
+                    maxLines = 1
+                )
+
+                TargetHeroPager(
+                    canGoPrevious = true, // Placeholders for now if pagination isn't strictly tracked
+                    canGoNext = true,
+                    onPrevious = { },
+                    onNext = { }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(13.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(290.dp)
+                    .clip(shape)
+                    .background(com.omnitune.app.window.OmniReferenceColors.SurfaceRaised)
+                    .border(1.dp, com.omnitune.app.window.OmniReferenceColors.SurfaceBorder, shape)
+            ) {
             if (album != null) {
                 AsyncImage(
                     model = album.thumbnail?.toHighResThumbnail(),
@@ -625,11 +1439,11 @@ private fun HomeHeroRow(album: YTItem?, continueListening: List<YTItem>, player:
                     1.00f to Color(0x22050918)
                 )))
                 Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(
-                    0.00f to Color.Transparent,
-                    0.65f to Color.Transparent,
-                    1.00f to Color(0x99040916)
+                    0.00f to Color(0xFF131131).copy(alpha = 0.50f),
+                    0.40f to Color.Transparent,
+                    1.00f to Color(0xFF1A1535).copy(alpha = 0.70f) // Matches user spec for hero dark overlay
                 )))
-                
+
                 Column(modifier = Modifier.fillMaxSize().padding(32.dp), verticalArrangement = Arrangement.Bottom) {
                     Text("FEATURED PLAYLIST", style = MaterialTheme.typography.labelSmall, color = Color(0xFFA9AEC2), fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                     Spacer(Modifier.height(8.dp))
@@ -646,8 +1460,8 @@ private fun HomeHeroRow(album: YTItem?, continueListening: List<YTItem>, player:
                         Box(
                             modifier = Modifier
                                 .clip(Shapes.pill)
-                                .background(Brush.horizontalGradient(listOf(Color(0xFF7180FF), Color(0xFF8D70FF))))
-                                .clickable { 
+                                .background(Brush.horizontalGradient(listOf(Color(0xFF7E84F6), Color(0xFF7D82FB), Color(0xFF8085FB), Color(0xFF787EF8))))
+                                .clickable {
                                     if (album is AlbumItem) player.openAlbum(album.browseId)
                                     else if (album is PlaylistItem) player.playPlaylist(album.id)
                                     else if (album is SongItem) player.playSong(album)
@@ -657,7 +1471,11 @@ private fun HomeHeroRow(album: YTItem?, continueListening: List<YTItem>, player:
                             Text("Play Now", style = MaterialTheme.typography.titleSmall, color = Color.White, fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.width(16.dp))
-                        Box(modifier = Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.White.copy(alpha=0.08f)).clickable { }, contentAlignment=Alignment.Center) {
+                        Box(modifier = Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.White.copy(alpha=0.08f)).clickable {
+                            if (album is SongItem) player.playNext(album)
+                            else if (album is PlaylistItem) player.openPlaylist(album.id)
+                            else if (album is AlbumItem) player.openAlbum(album.browseId)
+                        }, contentAlignment=Alignment.Center) {
                             Icon(Icons.Default.MoreHoriz, null, tint = Color(0xFFA9AEC2), modifier = Modifier.size(22.dp))
                         }
                     }
@@ -668,34 +1486,44 @@ private fun HomeHeroRow(album: YTItem?, continueListening: List<YTItem>, player:
                 }
             }
         }
-        
-        // Vertical divider
-        Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.045f)))
-        
-        // Right side: Companion rail
-        Column(modifier = Modifier.weight(1f).fillMaxHeight().background(Color(0xFF0C1122)).padding(vertical = 12.dp, horizontal = 8.dp), verticalArrangement = Arrangement.Center) {
-            continueListening.take(4).forEachIndexed { i, song ->
-                val isSelected = i == 0 // Fake selected state for visual QA, or derive from real state
-                FeaturedCompanionRow(song, selected = isSelected, onClick = { 
-                    if (song is SongItem) player.playSong(song)
-                    else if (song is PlaylistItem) player.playPlaylist(song.id)
-                    else if (song is AlbumItem) player.openAlbum(song.browseId)
-                })
-                if (i < 3) {
-                    Box(modifier = Modifier.fillMaxWidth().padding(start = 68.dp, top = 4.dp, bottom = 4.dp).height(1.dp).background(Color.White.copy(alpha = 0.045f)))
+
+        }
+
+        // Right side: Continue Listening
+        Column(
+            modifier = Modifier
+                .weight(1.0f)
+                .height(290.dp)
+        ) {
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("Continue Listening", style = MaterialTheme.typography.titleMedium, color = Color(0xFFF4F3FA), fontWeight = FontWeight.Bold)
+                Text("See all", style = MaterialTheme.typography.labelMedium, color = com.omnitune.app.window.OmniReferenceColors.AccentSoft, modifier = Modifier.clickable { player.navigateTo(com.omnitune.app.player.NavScreen.Queue) })
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxHeight()) {
+                continueListening.take(4).forEachIndexed { i, song ->
+                    val isSelected = i == 0 // Fake selected state for visual QA, or derive from real state
+                    FeaturedCompanionRow(song, selected = isSelected, onClick = {
+                        if (song is SongItem) player.playSong(song)
+                        else if (song is PlaylistItem) player.playPlaylist(song.id)
+                        else if (song is AlbumItem) player.openAlbum(song.browseId)
+                    })
                 }
             }
         }
     }
 }
 
-
 @Composable
-private fun SectionHeader(title: String, showSeeAll: Boolean = false) {
+private fun SectionHeader(title: String, showSeeAll: Boolean = false, onSeeAll: (() -> Unit)? = null) {
     Row(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
         Text(title, style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
         if (showSeeAll) {
-            Text("See all", style = MaterialTheme.typography.labelMedium, color = IrisSoft, modifier = Modifier.clickable { })
+            Text(
+                "See all",
+                style = MaterialTheme.typography.labelMedium,
+                color = IrisSoft,
+                modifier = if (onSeeAll != null) Modifier.clickable(onClick = onSeeAll) else Modifier,
+            )
         }
     }
 }

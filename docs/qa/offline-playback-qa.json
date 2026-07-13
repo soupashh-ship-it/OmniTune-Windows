@@ -1,0 +1,16 @@
+{
+  "resume": "PASS",
+  "playbackStarted": true,
+  "trackId": "J7p4bzqLvCw",
+  "positionAfterStartMs": 150,
+  "positionAdvanced": true,
+  "seek": "PASS",
+  "pause": "PASS",
+  "playbackSource": "LOCAL_FILE",
+  "fileSize": 1231206,
+  "restartOffline": "NOT_EXECUTED_ENVIRONMENT",
+  "localPath": "D:\\Omnitune Windoww\\docs\\qa\\runtime-download-artifacts\\appdata\\downloads\\Blinding Lights-J7p4bzqLvCw.m4a",
+  "onlineResolverCalled": false,
+  "track": "Blinding Lights",
+  "positionAfterSeekMs": 10000
+}

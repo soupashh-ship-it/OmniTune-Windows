@@ -1,6 +1,8 @@
 package com.omnitune.app.di
 
 import com.omnitune.app.platform.PlatformContext
+import com.omnitune.app.platform.FileBackedOmniDownloadManager
+import com.omnitune.app.platform.OmniDownloadManager
 import com.omnitune.app.platform.SettingsRepository
 import com.omnitune.app.platform.VlcjAudioEngine
 import com.omnitune.app.player.PlayerViewModel
@@ -21,6 +23,7 @@ actual val platformNetworkModule: Module = module {
 
 actual val platformPlayerModule: Module = module {
     single { SettingsRepository() }
+    single<OmniDownloadManager> { FileBackedOmniDownloadManager(get(), get()) }
     single { VlcjAudioEngine(CoroutineScope(SupervisorJob() + Dispatchers.Default)) }
-    single { PlayerViewModel(get(), get(), get()) }
+    single { PlayerViewModel(get(), get(), get(), get()) }
 }

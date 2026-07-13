@@ -60,7 +60,7 @@ private fun CarouselCard(item: YTItem, player: PlayerViewModel, currentSong: Son
         is SongItem -> CompactSongCard(item, player, currentSong, playbackState, Modifier.width(w))
         is AlbumItem -> OmniMediaCard(item.title, item.artists?.firstOrNull()?.name, item.thumbnail, Modifier.width(w), onPlay = { player.openAlbum(item.browseId) }, onClick = { player.openAlbum(item.browseId) })
         is ArtistItem -> OmniMediaCard(item.title, "Artist", item.thumbnail, Modifier.width(w), onPlay = { player.openArtist(item.id) }, onClick = { player.openArtist(item.id) })
-        is PlaylistItem -> OmniMediaCard(item.title, item.author?.name, item.thumbnail, Modifier.width(w), onClick = {})
+        is PlaylistItem -> OmniMediaCard(item.title, item.author?.name, item.thumbnail, Modifier.width(w), onClick = { player.openPlaylist(item.id) }, onPlay = { player.playPlaylist(item.id) })
         else -> OmniMediaCard(item.title, "", item.thumbnail, Modifier.width(w))
     }
 }

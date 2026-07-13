@@ -1,10 +1,57 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import org.gradle.api.tasks.Copy
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlin.serialization)
+}
+
+val omniTuneVersion: String = providers.gradleProperty("omnitune.version").get()
+val bundledVlcHome: String = providers.environmentVariable("VLC_HOME")
+    .orElse("C:/Program Files/VideoLAN/VLC")
+    .get()
+
+val windowsAppResourcesDir = layout.buildDirectory.dir("generated/windowsAppResources")
+val composeAppImageDir = layout.buildDirectory.dir("compose/binaries/main/app/OmniTune")
+
+val prepareWindowsAppResources by tasks.registering(Copy::class) {
+    into(windowsAppResourcesDir)
+
+    from(rootProject.file("THIRD_PARTY_NOTICES.txt")) {
+        into("licenses")
+    }
+
+    from(bundledVlcHome) {
+        include("libvlc.dll")
+        include("libvlccore.dll")
+        include("plugins/**")
+        include("AUTHORS.txt")
+        include("COPYING.txt")
+        include("NEWS.txt")
+        into("native/vlc")
+    }
+
+    doFirst {
+        val vlcDir = file(bundledVlcHome)
+        val libvlc = vlcDir.resolve("libvlc.dll")
+        val libvlcCore = vlcDir.resolve("libvlccore.dll")
+        val plugins = vlcDir.resolve("plugins")
+        require(libvlc.isFile && libvlcCore.isFile && plugins.isDirectory) {
+            "VLC/libVLC runtime was not found at '$bundledVlcHome'. Install VLC x64 or set VLC_HOME to a redistributable VLC runtime before packaging."
+        }
+        rootProject.file("THIRD_PARTY_NOTICES.txt").also {
+            require(it.isFile) { "THIRD_PARTY_NOTICES.txt is required for release packaging." }
+        }
+    }
+}
+
+val copyWindowsAppResourcesToDistributable by tasks.registering(Copy::class) {
+    dependsOn(prepareWindowsAppResources)
+    mustRunAfter("createDistributable")
+    from(windowsAppResourcesDir)
+    into(composeAppImageDir)
 }
 
 kotlin {
@@ -50,7 +97,6 @@ kotlin {
             implementation(libs.re2j)
             implementation(libs.brotli)
             implementation(libs.rhino)
-            implementation(libs.timber)
             implementation(libs.apache.lang3)
             implementation(libs.kuromoji.ipadic)
             implementation(libs.coroutines.core)
@@ -72,6 +118,14 @@ kotlin {
             implementation(project(":kizzy"))
             implementation(project(":canvas"))
         }
+
+        val desktopTest by getting {
+            dependencies {
+                implementation(kotlin("test"))
+                implementation(libs.coroutines.core)
+                implementation(project(":innertube"))
+            }
+        }
     }
 }
 
@@ -83,7 +137,7 @@ compose.desktop {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
 
             packageName = "OmniTune"
-            packageVersion = "0.11.6"
+            packageVersion = omniTuneVersion
             description = "Open-source YouTube music player for Windows"
             vendor = "OmniTune"
 
@@ -94,4 +148,25 @@ compose.desktop {
             }
         }
     }
+}
+
+tasks.matching {
+    it.name in setOf(
+        "createDistributable"
+    )
+}.configureEach {
+    finalizedBy(copyWindowsAppResourcesToDistributable)
+}
+
+tasks.matching {
+    it.name in setOf(
+        "packageDistributionForCurrentOS",
+        "packageReleaseDistributionForCurrentOS",
+        "packageExe",
+        "packageMsi",
+        "packageReleaseExe",
+        "packageReleaseMsi"
+    )
+}.configureEach {
+    dependsOn(copyWindowsAppResourcesToDistributable)
 }

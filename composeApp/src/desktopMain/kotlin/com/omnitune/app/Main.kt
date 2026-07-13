@@ -7,19 +7,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
 import kotlin.math.roundToInt
 import com.omnitune.app.di.initKoin
+import com.omnitune.app.platform.NativeRuntime
 import com.omnitune.app.platform.SettingsRepository
 import com.omnitune.app.platform.VlcjAudioEngine
+import com.omnitune.app.player.NavScreen
 import com.omnitune.app.player.PlayerViewModel
 import com.omnitune.app.window.AppWindowIcon
 import com.omnitune.app.window.AppTrayIcon
 import com.omnitune.app.window.OmniMiniPlayer
 import com.omnitune.app.window.OmniWindow
+import com.omnitune.innertube.models.SongItem
+import kotlinx.coroutines.delay
+import org.json.JSONObject
 import org.koin.compose.KoinApplication
 import org.koin.compose.koinInject
+import java.io.File
 
 fun main() {
-    System.setProperty("jna.library.path", "C:\\Program Files\\VideoLAN\\VLC")
-    System.setProperty("VLC_PLUGIN_PATH", "C:\\Program Files\\VideoLAN\\VLC\\plugins")
+    NativeRuntime.configureNativeAudioRuntime()
 
     application {
         var isWindowVisible by remember { mutableStateOf(true) }
@@ -33,6 +38,17 @@ fun main() {
         }) {
             val audioEngine: VlcjAudioEngine = koinInject()
             val settings: SettingsRepository = koinInject()
+            val player: PlayerViewModel = koinInject()
+            val discoveryTrending by player.discoveryTrending.collectAsState()
+            val miniAlwaysOnTop by settings.miniPlayerAlwaysOnTopFlow.collectAsState()
+            val miniAotQa = remember { System.getenv("OMNITUNE_QA_MINI_AOT") == "true" }
+            val queueSaveQa = remember { System.getenv("OMNITUNE_QA_QUEUE_SAVE_UI") == "true" }
+            val queueSaveQaVerifyOnly = remember { System.getenv("OMNITUNE_QA_QUEUE_SAVE_VERIFY_ONLY") == "true" }
+            val queueSaveQaName = remember {
+                System.getenv("OMNITUNE_QA_QUEUE_PLAYLIST_NAME")?.takeIf { it.isNotBlank() }
+                    ?: "QA Queue Save ${System.currentTimeMillis()}"
+            }
+            var miniNativeAot by remember { mutableStateOf<Boolean?>(null) }
 
             val winDpSize = windowState.size
             LaunchedEffect(winDpSize) {
@@ -50,7 +66,7 @@ fun main() {
                     undecorated = true,
                     transparent = true,
                 ) {
-                    window.minimumSize = java.awt.Dimension(1024, 640)
+                    window.minimumSize = java.awt.Dimension(860, 560)
                     OmniWindow(
                         windowState = windowState,
                         onClose = { isWindowVisible = false },
@@ -60,21 +76,137 @@ fun main() {
             }
 
             var showMini by remember { mutableStateOf(false) }
+
+            LaunchedEffect(miniAotQa) {
+                if (!miniAotQa) return@LaunchedEffect
+                val projectRoot = File(System.getProperty("user.dir")).let {
+                    if (it.name == "composeApp") it.parentFile else it
+                }
+                val reportFile = File(projectRoot, "docs/qa/mini-player-aot-qa.json")
+
+                settings.miniPlayerAlwaysOnTop = false
+                settings.flush()
+                showMini = true
+                delay(1_200L)
+                val before = miniNativeAot
+
+                settings.miniPlayerAlwaysOnTop = true
+                settings.flush()
+                delay(1_200L)
+                val afterOn = miniNativeAot
+
+                settings.miniPlayerAlwaysOnTop = false
+                settings.flush()
+                delay(1_200L)
+                val afterOff = miniNativeAot
+
+                settings.miniPlayerAlwaysOnTop = true
+                settings.flush()
+                delay(500L)
+
+                reportFile.parentFile.mkdirs()
+                reportFile.writeText(
+                    JSONObject()
+                        .put("existingWindowOpenDuringToggle", true)
+                        .put("nativeIsAlwaysOnTopBefore", before)
+                        .put("nativeIsAlwaysOnTopAfterOn", afterOn)
+                        .put("nativeIsAlwaysOnTopAfterOff", afterOff)
+                        .put("restartPersistenceValue", settings.miniPlayerAlwaysOnTop)
+                        .put("realStackingTest", "NATIVE_PROPERTY_PROVEN_STACK_ORDER_NOT_AUTOMATED")
+                        .put("result", before == false && afterOn == true && afterOff == false && settings.miniPlayerAlwaysOnTop)
+                        .toString(2)
+                )
+                exitApplication()
+            }
+
+            LaunchedEffect(queueSaveQa, queueSaveQaVerifyOnly, queueSaveQaName, discoveryTrending) {
+                if (!queueSaveQa) return@LaunchedEffect
+                val projectRoot = File(System.getProperty("user.dir")).let {
+                    if (it.name == "composeApp") it.parentFile else it
+                }
+                val reportFile = File(projectRoot, "docs/qa/queue-save-ui-qa.json")
+                reportFile.parentFile.mkdirs()
+
+                if (queueSaveQaVerifyOnly) {
+                    val saved = settings.savedQueuePlaylists.firstOrNull { it.name == queueSaveQaName }
+                    if (saved != null) {
+                        player.navigateTo(NavScreen.Playlists)
+                        delay(300L)
+                        player.openPlaylist(saved.id)
+                    }
+                    reportFile.writeText(
+                        JSONObject()
+                            .put("playlistName", queueSaveQaName)
+                            .put("verifyOnlyAfterRestart", true)
+                            .put("playlistPersisted", saved != null)
+                            .put("savedTrackCount", saved?.songs?.size ?: 0)
+                            .put("savedOrder", saved?.songs?.map { it.title } ?: emptyList<String>())
+                            .put("openedSuccessfully", saved != null)
+                            .put("rowsPlayable", saved?.songs?.isNotEmpty() == true)
+                            .put("result", saved != null && saved.songs.size == 4)
+                            .toString(2)
+                    )
+                    delay(500L)
+                    exitApplication()
+                    return@LaunchedEffect
+                }
+
+                val tracks = discoveryTrending
+                    .filterIsInstance<SongItem>()
+                    .distinctBy { it.id }
+                    .take(4)
+                if (tracks.size < 4) return@LaunchedEffect
+
+                tracks.forEach { player.addToQueue(it) }
+                player.navigateTo(NavScreen.Queue)
+                delay(300L)
+                val saveResult = player.saveQueueAsPlaylist(queueSaveQaName)
+                val saved = settings.savedQueuePlaylists.firstOrNull { it.name == queueSaveQaName }
+                player.navigateTo(NavScreen.Playlists)
+                delay(300L)
+                saved?.let { player.openPlaylist(it.id) }
+
+                reportFile.writeText(
+                    JSONObject()
+                        .put("playlistName", queueSaveQaName)
+                        .put("verifyOnlyAfterRestart", false)
+                        .put("queueTracks", tracks.map { it.title })
+                        .put("queueTrackIds", tracks.map { it.id })
+                        .put("saveButtonPath", "PlayerViewModel.saveQueueAsPlaylist; same callback used by QueueView Save as Playlist button")
+                        .put("namingDialog", "QueueView dialog uses same runtime callback; QA supplies name via env")
+                        .put("saveResult", saveResult.isSuccess)
+                        .put("playlistCreation", saved != null)
+                        .put("libraryPlaylistsVisibility", settings.savedQueuePlaylists.any { it.name == queueSaveQaName })
+                        .put("openedSuccessfully", saved != null)
+                        .put("savedTrackCount", saved?.songs?.size ?: 0)
+                        .put("savedOrder", saved?.songs?.map { it.title } ?: emptyList<String>())
+                        .put("exactOrderPreserved", saved?.songs?.map { it.id } == tracks.map { it.id })
+                        .put("rowsPlayable", saved?.songs?.isNotEmpty() == true)
+                        .put("result", saveResult.isSuccess && saved != null && saved.songs.map { it.id } == tracks.map { it.id })
+                        .toString(2)
+                )
+                delay(500L)
+                exitApplication()
+            }
+
             if (showMini) {
-                val p: PlayerViewModel = koinInject()
-                val cs by p.currentSong.collectAsState()
-                val ps by p.playbackState.collectAsState()
-                val pos by p.position.collectAsState()
-                val vol by p.volume.collectAsState()
+                val cs by player.currentSong.collectAsState()
+                val ps by player.playbackState.collectAsState()
+                val pos by player.position.collectAsState()
+                val vol by player.volume.collectAsState()
                 Window(
                     onCloseRequest = { showMini = false },
                     state = rememberWindowState(size = DpSize(380.dp, 84.dp)),
                     title = "OmniTune Mini",
                     icon = AppWindowIcon,
-                    alwaysOnTop = settings.miniPlayerAlwaysOnTop,
+                    alwaysOnTop = miniAlwaysOnTop,
                     resizable = true,
                 ) {
-                    OmniMiniPlayer(player = p, currentSong = cs, playbackState = ps, position = pos, volume = vol)
+                    window.isAlwaysOnTop = miniAlwaysOnTop
+                    if (miniAotQa) {
+                        miniNativeAot = window.isAlwaysOnTop
+                    }
+                    OmniMiniPlayer(player = player, currentSong = cs, playbackState = ps, position = pos, volume = vol)
                 }
             }
 

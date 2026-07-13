@@ -1,0 +1,100 @@
+name: Bug report
+description: Report a reproducible OmniTune Windows problem.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: OmniTune Windows version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: windows-version
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2"
+    validations:
+      required: true
+  - type: dropdown
+    id: architecture
+    attributes:
+      label: Architecture
+      options:
+        - x64
+        - ARM64
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: Installation method
+      options:
+        - Built from source
+        - MSI installer
+        - EXE installer
+        - App image/distributable
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: playback-mode
+    attributes:
+      label: Playback mode
+      options:
+        - Streaming
+        - Completed download / local file
+        - Not playback-related
+        - Unknown
+    validations:
+      required: true
+  - type: textarea
+    id: online-offline-context
+    attributes:
+      label: Online/offline context
+      description: Include whether the machine was online, offline, behind a proxy/VPN, or using a saved download.
+  - type: textarea
+    id: vlc
+    attributes:
+      label: VLC/libVLC runtime
+      description: Say whether VLC is installed, bundled, or provided through VLC_HOME.
+      placeholder: "VLC installed at C:\\Program Files\\VideoLAN\\VLC"
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the exact steps.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Paste relevant logs without tokens, cookies, credentials, or private data.
+      render: text
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or screen recordings
+      description: Attach visual evidence if the issue is UI-related.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety checks
+      options:
+        - label: I removed tokens, cookies, credentials, and private data from this report.
+          required: true

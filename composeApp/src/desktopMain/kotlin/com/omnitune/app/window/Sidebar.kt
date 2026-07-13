@@ -7,6 +7,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
@@ -38,6 +39,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -62,7 +64,10 @@ fun OmniSidebar(
     currentSong: SongItem?,
     likedCount: Int,
     onNavigate: (NavScreen) -> Unit,
+    width: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
 ) {
+    val motionPolicy = LocalOmniMotionPolicy.current
     val librarySubScreens = setOf(NavScreen.Playlists, NavScreen.Album, NavScreen.Artist, NavScreen.Search, NavScreen.Downloads)
     var libraryExpanded by remember { mutableStateOf(activeScreen in librarySubScreens || activeScreen == NavScreen.Library) }
 
@@ -71,51 +76,79 @@ fun OmniSidebar(
         if (activeScreen in librarySubScreens) libraryExpanded = true
     }
 
-    val sidebarBrush = androidx.compose.ui.graphics.Brush.verticalGradient(
-        colorStops = arrayOf(
-            0.0f to Color(0xFF0C0A1A),
-            0.35f to Color(0xFF090A18),
-            0.72f to Color(0xFF070A16),
-            1.0f to Color(0xFF060914),
-        )
-    )
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxHeight()
-            .width(OmniLayout.sidebarWidth)
-            .background(sidebarBrush)
-            .drawBehind {
-                drawLine(
-                    color = Color.White.copy(alpha = 0.055f),
-                    start = Offset(size.width - 1f, 0f),
-                    end = androidx.compose.ui.geometry.Offset(size.width - 1f, size.height),
-                    strokeWidth = 1f,
-                )
-            }
+            .width(width)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(vertical = 16.dp, horizontal = 12.dp)
-        ) {
+        androidx.compose.foundation.Canvas(modifier = Modifier.matchParentSize()) {
+            drawRect(
+                brush = Brush.verticalGradient(
+                    colorStops = arrayOf(
+                        0.00f to Color(0xFF090B20),
+                        0.20f to Color(0xFF090D23),
+                        0.45f to Color(0xFF071127),
+                        0.72f to Color(0xFF041028),
+                        1.00f to Color(0xFF03102A)
+                    )
+                )
+            )
+
+            val violetCenter = Offset(size.width * 0.10f, size.height * 0.34f)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFF4A1E72).copy(alpha = 0.22f),
+                        Color(0xFF4A1E72).copy(alpha = 0.08f),
+                        Color.Transparent
+                    ),
+                    center = violetCenter,
+                    radius = size.width * 0.75f
+                ),
+                center = violetCenter,
+                radius = size.width * 0.75f
+            )
+
+            val blueCenter = Offset(size.width * 0.72f, size.height * 0.17f)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFF1D56C9).copy(alpha = 0.18f),
+                        Color(0xFF1D56C9).copy(alpha = 0.07f),
+                        Color.Transparent
+                    ),
+                    center = blueCenter,
+                    radius = size.width * 0.58f
+                ),
+                center = blueCenter,
+                radius = size.width * 0.58f
+            )
+        }
+        Column(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = 10.dp, horizontal = 0.dp)
+            ) {
             // ── Brand ──────────────────────────────────────────────────────────
             Row(
-                modifier = Modifier.padding(start = 22.dp, end = 12.dp, top = 20.dp, bottom = 12.dp).fillMaxWidth(),
+                modifier = Modifier.padding(start = 16.dp, end = 10.dp, top = 13.dp, bottom = 1.dp).fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(
-                    modifier = Modifier.size(32.dp).clip(CircleShape).background(OmniGradients.primaryAction),
+                    modifier = Modifier.size(26.dp).clip(CircleShape).background(OmniGradients.primaryAction),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Default.MusicNote, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    Icon(Icons.Default.MusicNote, null, tint = Color.White, modifier = Modifier.size(16.dp))
                 }
                 Spacer(Modifier.width(12.dp))
-                Text("OmniTune", style = MaterialTheme.typography.titleLarge, color = Color(0xFFF4F3FA), fontWeight = FontWeight.SemiBold, fontSize = 19.sp)
+                Text("OmniTune", style = MaterialTheme.typography.titleLarge, color = Color(0xFFD7DBEE), fontWeight = FontWeight.Medium, fontSize = 18.sp)
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(4.dp))
 
             // ── Primary Nav: Home, Browse, Radio ──────────────────────────────
             NavItem(
@@ -143,31 +176,64 @@ fun OmniSidebar(
             // ── Library (collapsible) ─────────────────────────────────────────
             LibraryHeader(
                 expanded = libraryExpanded,
-                isActive = activeScreen == NavScreen.Library && !libraryExpanded,
-                onClick = {
+                isActive = activeScreen == NavScreen.Library,
+                onOpen = {
+                    libraryExpanded = true
+                    onNavigate(NavScreen.Library)
+                },
+                onToggle = {
                     libraryExpanded = !libraryExpanded
-                    if (!libraryExpanded) onNavigate(NavScreen.Library)
                 }
             )
 
-            
+
             AnimatedVisibility(
                 visible = libraryExpanded,
-                enter = expandVertically(animationSpec = tween(200)),
-                exit = shrinkVertically(animationSpec = tween(200)),
+                enter = expandVertically(
+                    animationSpec = tween(
+                        durationMillis = motionPolicy.standardDurationMs,
+                        easing = androidx.compose.animation.core.FastOutSlowInEasing
+                    )
+                ) + androidx.compose.animation.fadeIn(
+                    animationSpec = tween(durationMillis = motionPolicy.shortDurationMs)
+                ),
+                exit = shrinkVertically(
+                    animationSpec = tween(
+                        durationMillis = motionPolicy.standardDurationMs,
+                        easing = androidx.compose.animation.core.FastOutSlowInEasing
+                    )
+                ) + androidx.compose.animation.fadeOut(
+                    animationSpec = tween(durationMillis = motionPolicy.shortDurationMs)
+                )
             ) {
-                Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                    Spacer(Modifier.width(28.dp))
-                    Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.06f)))
-                    Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
+                Row(
+                    modifier = Modifier
+                        .height(androidx.compose.foundation.layout.IntrinsicSize.Min)
+                        .padding(top = 4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(36.dp)
+                            .fillMaxHeight(),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .fillMaxHeight()
+                                .background(
+                                    Color(0xFF465276).copy(alpha = 0.55f)
+                                )
+                        )
+                    }
+
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
                         LibrarySubItem(label = "Playlists", isActive = activeScreen == NavScreen.Playlists) { onNavigate(NavScreen.Playlists) }
-                        Spacer(Modifier.height(2.dp))
                         LibrarySubItem(label = "Albums", isActive = activeScreen == NavScreen.Album) { onNavigate(NavScreen.Album) }
-                        Spacer(Modifier.height(2.dp))
                         LibrarySubItem(label = "Artists", isActive = activeScreen == NavScreen.Artist) { onNavigate(NavScreen.Artist) }
-                        Spacer(Modifier.height(2.dp))
                         LibrarySubItem(label = "Songs", isActive = activeScreen == NavScreen.Search) { onNavigate(NavScreen.Search) }
-                        Spacer(Modifier.height(2.dp))
                         LibrarySubItem(label = "Downloads", isActive = activeScreen == NavScreen.Downloads) { onNavigate(NavScreen.Downloads) }
                     }
                 }
@@ -188,14 +254,14 @@ fun OmniSidebar(
                     "Your Playlists",
                     style = MaterialTheme.typography.labelSmall,
                     color = TextMuted,
-                    fontWeight = FontWeight.SemiBold,
+                    fontWeight = FontWeight.Medium,
                     letterSpacing = 0.5.sp,
                 )
                 Box(
                     modifier = Modifier
                         .size(20.dp)
                         .clip(CircleShape)
-                        .clickable { },
+                        .clickable { onNavigate(NavScreen.Playlists) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Playlist", tint = TextMuted, modifier = Modifier.size(14.dp))
@@ -209,45 +275,48 @@ fun OmniSidebar(
                 gradientColors = listOf(Color(0xFFFF6B35), Color(0xFFFF8C42)),
                 label = "Chill Mornings",
                 isActive = false,
-                onClick = {}
+                onClick = { onNavigate(NavScreen.Playlists) }
             )
             PlaylistItem(
                 gradientColors = listOf(Color(0xFF4A1DE0), Color(0xFF7B5EA7)),
                 label = "Night Drive",
                 isActive = false,
-                onClick = {}
+                onClick = { onNavigate(NavScreen.Playlists) }
             )
             PlaylistItem(
                 gradientColors = listOf(Color(0xFF2D6A9F), Color(0xFF1E3A5F)),
                 label = "Focus Flow",
                 isActive = false,
-                onClick = {}
+                onClick = { onNavigate(NavScreen.Playlists) }
             )
             PlaylistItem(
                 gradientColors = listOf(Color(0xFFE67E22), Color(0xFFD4580A)),
                 label = "Afrobeats Hits",
                 isActive = false,
-                onClick = {}
+                onClick = { onNavigate(NavScreen.Playlists) }
             )
             PlaylistItem(
                 gradientColors = listOf(Color(0xFF7C5CFC), Color(0xFF5B3EE8)),
                 label = "Liked Songs",
                 icon = Icons.Default.Favorite,
                 isActive = false,
-                onClick = {}
+                onClick = { onNavigate(NavScreen.Library) }
             )
 
-            Spacer(Modifier.weight(1f))
+            }
 
-            // ── Settings at bottom ────────────────────────────────────────────
-            HorizontalDivider(color = SurfaceHairline, thickness = 1.dp)
-            Spacer(Modifier.height(8.dp))
-            NavItem(
-                icon = Icons.Default.Settings,
-                label = "Settings",
-                isActive = activeScreen == NavScreen.Settings,
-                onClick = { onNavigate(NavScreen.Settings) }
-            )
+            Column(modifier = Modifier.fillMaxWidth().background(Color(0xFF030D23))) {
+                HorizontalDivider(color = Color(0xFF8892C7).copy(alpha = 0.08f), thickness = 1.dp)
+                Spacer(Modifier.height(8.dp))
+                Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                    NavItem(
+                        icon = Icons.Default.Settings,
+                        label = "Settings",
+                        isActive = activeScreen == NavScreen.Settings,
+                        onClick = { onNavigate(NavScreen.Settings) }
+                    )
+                }
+            }
         }
     }
 }
@@ -261,58 +330,52 @@ private fun NavItem(
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
+    val motionPolicy = LocalOmniMotionPolicy.current
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
     val contentColor = when {
         isActive -> Color.White
-        isHovered -> TextPrimary
-        else -> TextSecondary
+        isHovered -> Color(0xFFD7DBEE).copy(alpha = 0.9f)
+        else -> Color(0xFFD7DBEE).copy(alpha = 0.5f)
     }
 
-    val activeBrush = androidx.compose.ui.graphics.Brush.horizontalGradient(
-        colors = listOf(
-            Color(0xFF31226D),
-            Color(0xFF281C64),
-            Color(0xFF211952),
-        )
-    )
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(44.dp)
-            .padding(horizontal = 18.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .then(
-                when {
-                    isActive -> Modifier.background(activeBrush)
-                    isHovered && enabled -> Modifier.background(Surface3)
-                    else -> Modifier
-                }
+    val innerRow = @Composable {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(31.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .then(if (isHovered && !isActive && enabled) Modifier.background(Surface3) else Modifier)
+                .hoverable(interactionSource)
+                .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, onClick = onClick)
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = contentColor,
+                modifier = Modifier.size(17.dp)
             )
-            .hoverable(interactionSource)
-            .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, onClick = onClick)
-            .padding(horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (isActive) {
-            Box(modifier = Modifier.width(3.dp).height(24.dp).clip(RoundedCornerShape(1.5.dp)).background(Color(0xFF8B7CFF)))
             Spacer(Modifier.width(12.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.5.sp),
+                color = contentColor,
+                fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
+            )
         }
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = contentColor,
-            modifier = Modifier.size(18.dp)
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = contentColor,
-            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
-        )
+    }
+
+    Box(modifier = Modifier.padding(horizontal = 10.dp).height(31.dp)) {
+        if (isActive) {
+            OmniReferenceSelectedNavigation {
+                innerRow()
+            }
+        } else {
+            innerRow()
+        }
     }
 }
 
@@ -321,11 +384,20 @@ private fun NavItem(
 private fun LibraryHeader(
     expanded: Boolean,
     isActive: Boolean,
-    onClick: () -> Unit,
+    onOpen: () -> Unit,
+    onToggle: () -> Unit,
 ) {
+    val motionPolicy = LocalOmniMotionPolicy.current
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
-    val chevronAngle by animateFloatAsState(if (expanded) 90f else 0f, label = "chevron")
+    val chevronAngle by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        animationSpec = tween(
+            durationMillis = motionPolicy.standardDurationMs,
+            easing = androidx.compose.animation.core.FastOutSlowInEasing
+        ),
+        label = "libraryChevronRotation"
+    )
 
     val contentColor = when {
         isActive -> Color.White
@@ -336,12 +408,12 @@ private fun LibraryHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(38.dp)
+            .height(31.dp)
             .clip(RoundedCornerShape(8.dp))
-            .then(if (isActive) Modifier.background(OmniGradients.primaryAction) else if (isHovered) Modifier.background(Surface3) else Modifier)
+            .then(if (isActive) Modifier.background(Color(0xFF252450)) else if (isHovered) Modifier.background(Surface3) else Modifier)
             .hoverable(interactionSource)
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-            .padding(horizontal = 12.dp),
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onOpen)
+            .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(Icons.Default.LibraryMusic, contentDescription = "Library", tint = contentColor, modifier = Modifier.size(18.dp))
@@ -351,7 +423,10 @@ private fun LibraryHeader(
             Icons.Default.ChevronRight,
             contentDescription = null,
             tint = contentColor.copy(alpha = 0.7f),
-            modifier = Modifier.size(16.dp).rotate(chevronAngle)
+            modifier = Modifier
+                .size(16.dp)
+                .rotate(chevronAngle)
+                .clickable(onClick = onToggle)
         )
     }
 }
@@ -369,14 +444,14 @@ private fun LibrarySubItem(
 
     val contentColor = when {
         isActive -> Color.White
-        isHovered -> TextPrimary
-        else -> TextSecondary.copy(alpha = 0.8f)
+        isHovered -> Color.White
+        else -> Color(0xFFD3D7E8).copy(alpha = 0.6f)
     }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(34.dp)
+            .height(28.dp)
             .clip(RoundedCornerShape(6.dp))
             .then(if (isActive) Modifier.background(Color.White.copy(alpha=0.05f)) else if (isHovered) Modifier.background(Surface3) else Modifier)
             .hoverable(interactionSource)
@@ -389,7 +464,7 @@ private fun LibrarySubItem(
             style = MaterialTheme.typography.bodySmall,
             color = contentColor,
             fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
-            fontSize = 13.sp,
+            fontSize = 11.sp,
         )
     }
 }
@@ -413,8 +488,8 @@ private fun PlaylistItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(42.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .height(30.dp)
+            .clip(RoundedCornerShape(6.dp))
             .background(if (isActive || isHovered) bgHover else Color.Transparent)
             .hoverable(interactionSource)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
@@ -424,7 +499,7 @@ private fun PlaylistItem(
         // Thumbnail placeholder (gradient box)
         Box(
             modifier = Modifier
-                .size(32.dp)
+                .size(22.dp)
                 .clip(RoundedCornerShape(6.dp))
                 .background(androidx.compose.ui.graphics.Brush.linearGradient(gradientColors)),
             contentAlignment = Alignment.Center,
@@ -433,10 +508,10 @@ private fun PlaylistItem(
                 Icon(icon, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(16.dp))
             }
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(10.dp))
         Text(
             label,
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.5.sp),
             color = if (isActive) Color(0xFFF4F3FA) else Color(0xFFA9AEC2),
             fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
             maxLines = 1,
@@ -445,3 +520,51 @@ private fun PlaylistItem(
     }
 }
 
+
+
+@Composable
+fun OmniReferenceSelectedNavigation(
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val shape = RoundedCornerShape(8.dp)
+
+    Box(
+        modifier = modifier
+            .background(
+                brush = Brush.horizontalGradient(
+                    colorStops = arrayOf(
+                        0.00f to Color(0xFF1A0F47),
+                        0.22f to Color(0xFF211253),
+                        0.50f to Color(0xFF201566),
+                        0.76f to Color(0xFF221C7B),
+                        1.00f to Color(0xFF18184C)
+                    )
+                ),
+                shape = shape
+            )
+            .border(
+                width = 1.dp,
+                color = Color(0xFF615BCE).copy(alpha = 0.15f),
+                shape = shape
+            )
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .width(3.dp)
+                .fillMaxHeight()
+                .background(
+                    color = OmniReferenceColors.NavSelectedIndicator,
+                    shape = RoundedCornerShape(
+                        topStart = 10.dp,
+                        bottomStart = 10.dp,
+                        topEnd = 4.dp,
+                        bottomEnd = 4.dp
+                    )
+                )
+        )
+
+        content()
+    }
+}

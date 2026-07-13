@@ -174,6 +174,7 @@ class VlcjAudioEngine(
         scope.launch(vlcDispatcher) {
             player.release()
             factory.release()
+            vlcDispatcher.close()
         }
     }
 }

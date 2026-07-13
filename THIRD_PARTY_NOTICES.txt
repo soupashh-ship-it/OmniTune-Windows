@@ -1,0 +1,38 @@
+OmniTune third-party notices
+============================
+
+This notice file is included with OmniTune Windows distributions to identify
+runtime components that are redistributed or required by the desktop build.
+
+OmniTune desktop runtime
+------------------------
+- Kotlin: JetBrains Kotlin, Apache License 2.0
+- Compose Multiplatform/Desktop: JetBrains Compose, Apache License 2.0
+- Ktor: JetBrains Ktor, Apache License 2.0
+- Coil: Coil contributors, Apache License 2.0
+- Koin: InsertKoinIO, Apache License 2.0
+- kotlinx.coroutines / kotlinx.serialization: Kotlin project, Apache License 2.0
+- org.json JSON-java: JSON License
+- jsoup: jsoup contributors, MIT License
+- re2j: Google, BSD-style license
+- Apache Commons Lang: Apache Software Foundation, Apache License 2.0
+- vlcj 4.11.0: Caprica Software Limited, GPL/LGPL-compatible use subject to vlcj and libVLC terms
+- JNA, transitive through vlcj: LGPL 2.1 / Apache License 2.0 dual license
+- Java Media Transport Controls: upstream project license as distributed by its package metadata
+
+Bundled native audio runtime
+----------------------------
+When packaged by scripts/release/build-windows-release.ps1 or the Compose
+native distribution tasks on a machine with VLC available, OmniTune includes a
+private VLC/libVLC runtime under native/vlc.
+
+The VLC runtime is redistributed under the terms supplied with the VLC
+distribution, including COPYING.txt, AUTHORS.txt, and NEWS.txt copied from the
+bundled VLC runtime. VLC includes GPL/LGPL components and plugins; downstream
+release owners must review the exact VLC build being redistributed and comply
+with its source-code and notice obligations.
+
+No warranty
+-----------
+This file is a technical redistribution notice, not legal advice. Release
+owners should perform a legal review before public distribution.

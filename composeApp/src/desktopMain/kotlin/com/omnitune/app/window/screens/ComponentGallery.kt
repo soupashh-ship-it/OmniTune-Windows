@@ -7,6 +7,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -19,18 +23,23 @@ import com.omnitune.innertube.models.SongItem
 
 @Composable
 fun ComponentGallery() {
+    var message by remember { mutableStateOf("Component gallery ready") }
+    var searchValue by remember { mutableStateOf("") }
+    var progress by remember { mutableStateOf(0.4f) }
+    var volume by remember { mutableStateOf(120) }
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(BgDeep).padding(32.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         item {
-            OmniSectionHeader("Buttons & Controls", actionLabel = "See all", onAction = {})
+            OmniSectionHeader("Buttons & Controls", actionLabel = "See all", onAction = { message = "Showing all gallery controls" })
+            Text(message)
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                OmniPrimaryButton(text = "Play Now", icon = Icons.Default.PlayArrow, onClick = {})
-                OmniSecondaryButton(text = "Shuffle", onClick = {})
-                OmniIconButton(icon = Icons.Default.PlayArrow, contentDescription = "Play", onClick = {})
+                OmniPrimaryButton(text = "Play Now", icon = Icons.Default.PlayArrow, onClick = { message = "Play Now sample clicked" })
+                OmniSecondaryButton(text = "Shuffle", onClick = { message = "Shuffle sample clicked" })
+                OmniIconButton(icon = Icons.Default.PlayArrow, contentDescription = "Play", onClick = { message = "Icon sample clicked" })
             }
         }
         item {
@@ -38,8 +47,9 @@ fun ComponentGallery() {
         }
         item {
             OmniSearchField(
-                value = "",
-                onValueChange = {},
+                value = searchValue,
+                onValueChange = { searchValue = it },
+                onEnter = { message = "Gallery search submitted: $searchValue" },
                 modifier = Modifier.width(400.dp)
             )
         }
@@ -71,8 +81,9 @@ fun ComponentGallery() {
                     id = "1", title = "YE YE", artists = listOf(Artist("Faydee", null)),
                     duration = 182, thumbnail = "", explicit = false
                 )
-                OmniSongRow(item = dummySong, isActive = true, isPlaying = true, onClick = {})
-                OmniSongRow(item = dummySong.copy(title = "La Chica Yeye"), isActive = false, isPlaying = false, onClick = {})
+                OmniSongRow(item = dummySong, isActive = true, isPlaying = true, onClick = { message = "Selected ${dummySong.title}" })
+                val secondSong = dummySong.copy(title = "La Chica Yeye")
+                OmniSongRow(item = secondSong, isActive = false, isPlaying = false, onClick = { message = "Selected ${secondSong.title}" })
             }
         }
         item {
@@ -80,8 +91,8 @@ fun ComponentGallery() {
         }
         item {
             Row(modifier = Modifier.width(400.dp), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                OmniProgressSlider(fraction = 0.4f, onSeek = {}, modifier = Modifier.weight(1f))
-                OmniVolumeControl(volume = 120, onVolumeChange = {}, modifier = Modifier.width(120.dp))
+                OmniProgressSlider(fraction = progress, onSeek = { progress = it }, modifier = Modifier.weight(1f))
+                OmniVolumeControl(volume = volume, onVolumeChange = { volume = it }, modifier = Modifier.width(120.dp))
             }
         }
     }

@@ -1,248 +1,240 @@
 package com.omnitune.app.window
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.foundation.border
-
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.*
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.runtime.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.omnitune.app.platform.PlatformContext
 import com.omnitune.app.platform.SettingsRepository
 import org.koin.compose.koinInject
 
 @Composable
 fun SettingsView() {
     val settings = koinInject<SettingsRepository>()
+    val platform = koinInject<PlatformContext>()
     var volume by remember { mutableStateOf(settings.volume) }
     var reduceMotion by remember { mutableStateOf(settings.reduceMotionEnabled) }
     var miniOnTop by remember { mutableStateOf(settings.miniPlayerAlwaysOnTop) }
+    var theme by remember { mutableStateOf(settings.appearanceTheme) }
+    var shuffle by remember { mutableStateOf(settings.shuffleEnabled) }
+    var repeat by remember { mutableStateOf(settings.repeatMode) }
+    val metrics = LocalHomeReferenceMetrics.current
+    val scroll = rememberScrollState()
 
+    Box(Modifier.fillMaxSize().verticalScroll(scroll)) {
+        Box(Modifier.fillMaxWidth().height(metrics.px(560f))) {
+            Text("Settings & Personalization", color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(17f)))
+            Text("Customize OmniTune using real local desktop preferences.", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(44f)))
+
+            SettingsCard("Account", Icons.Default.Person, Modifier.offset(x = metrics.px(24f), y = metrics.px(69f)).width(metrics.px(296f)).height(metrics.px(170f))) {
+                SettingsLine("Profile", "Local Windows user")
+                SettingsLine("Sign-in", "No account provider configured")
+                SettingsLine("Recent searches", "${settings.recentSearches.size} stored")
+            }
+
+            SettingsCard("Audio", Icons.Default.VolumeUp, Modifier.offset(x = metrics.px(335f), y = metrics.px(69f)).width(metrics.px(296f)).height(metrics.px(170f))) {
+                Text("Default volume: $volume%", color = TextSecondary, fontSize = 9.sp)
+                Slider(
+                    value = volume.toFloat(),
+                    onValueChange = {
+                        volume = it.toInt()
+                        settings.volume = volume
+                        settings.flush()
+                    },
+                    valueRange = 0f..200f,
+                    colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = IrisSoft, inactiveTrackColor = Surface3),
+                )
+                SettingsLine("Quality", "Provider stream quality; no lossless claim")
+            }
+
+            SettingsCard("Playback", Icons.Default.GraphicEq, Modifier.offset(x = metrics.px(646f), y = metrics.px(69f)).width(metrics.px(296f)).height(metrics.px(170f))) {
+                SettingsSwitch("Shuffle default", "Persist shuffle mode", shuffle) {
+                    shuffle = it
+                    settings.shuffleEnabled = it
+                    settings.flush()
+                }
+                SettingsSegment("Repeat mode", listOf("Off", "All", "One"), repeat.coerceIn(0, 2)) {
+                    repeat = it
+                    settings.repeatMode = it
+                    settings.flush()
+                }
+                SettingsSwitch("Mini player always on top", "Keep compact player above windows", miniOnTop) {
+                    miniOnTop = it
+                    settings.miniPlayerAlwaysOnTop = it
+                    settings.flush()
+                }
+            }
+
+            SettingsCard("Appearance", null, Modifier.offset(x = metrics.px(24f), y = metrics.px(247f)).width(metrics.px(296f)).height(metrics.px(176f))) {
+                SettingsSegment("Theme", listOf("Nocturne", "Midnight", "Dusk", "Aurora"), when (theme) {
+                    "midnight" -> 1
+                    "dusk" -> 2
+                    "aurora" -> 3
+                    else -> 0
+                }) {
+                    theme = listOf("nocturne", "midnight", "dusk", "aurora")[it]
+                    settings.appearanceTheme = theme
+                    settings.flush()
+                }
+                SettingsSwitch("Reduced motion", "Use calmer transitions where supported", reduceMotion) {
+                    reduceMotion = it
+                    settings.reduceMotionEnabled = it
+                    settings.flush()
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(8f))) {
+                    listOf(IrisSoft, CoolBlue, SuccessGreen, ErrorRed, VioletSoft).forEachIndexed { index, color ->
+                        Box(Modifier.size(metrics.px(17f)).clip(CircleShape).background(color).border(if (index == 0) 2.dp else 1.dp, if (index == 0) Color.White else BorderLow, CircleShape))
+                    }
+                }
+            }
+
+            SettingsCard("Downloads", Icons.Default.Storage, Modifier.offset(x = metrics.px(335f), y = metrics.px(247f)).width(metrics.px(296f)).height(metrics.px(176f))) {
+                SettingsLine("Offline engine", "Persistent local downloads enabled")
+                SettingsLine("Quality", settings.downloadQualityMode.readableLabel())
+                SettingsLine("Download folder", platform.downloadsDir.absolutePath)
+                SettingsLine("Files present", "${platform.downloadsDir.listFiles()?.size ?: 0}")
+            }
+
+            SettingsCard("Notifications", null, Modifier.offset(x = metrics.px(646f), y = metrics.px(247f)).width(metrics.px(296f)).height(metrics.px(176f))) {
+                SettingsLine("New music", "No notification provider configured")
+                SettingsLine("Product updates", "Shown only inside app surfaces")
+                SettingsLine("System tray", "Available from desktop shell")
+            }
+
+            SettingsCard("Keyboard Shortcuts", Icons.Default.Keyboard, Modifier.offset(x = metrics.px(24f), y = metrics.px(433f)).width(metrics.px(296f)).height(metrics.px(82f))) {
+                SettingsLine("Ctrl + K", "Focus global search")
+                SettingsLine("Space / ← / →", "Play-pause and seek")
+            }
+
+            SettingsCard("About", null, Modifier.offset(x = metrics.px(335f), y = metrics.px(433f)).width(metrics.px(607f)).height(metrics.px(82f))) {
+                SettingsLine("OmniTune for Windows", "Desktop Compose build")
+                SettingsLine("Data directory", platform.appDataDir.absolutePath)
+            }
+        }
+    }
+}
+
+private fun com.omnitune.app.platform.DownloadQualityMode.readableLabel(): String = when (this) {
+    com.omnitune.app.platform.DownloadQualityMode.PROVIDER_DEFAULT -> "Provider default"
+    com.omnitune.app.platform.DownloadQualityMode.SMALLER_FILE -> "Smaller files"
+    com.omnitune.app.platform.DownloadQualityMode.PREFER_HIGH -> "Prefer high bitrate"
+}
+
+@Composable
+private fun SettingsCard(title: String, icon: androidx.compose.ui.graphics.vector.ImageVector?, modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
+    val metrics = LocalHomeReferenceMetrics.current
     Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 28.dp),
+        modifier = modifier
+            .clip(RoundedCornerShape(metrics.px(8f)))
+            .background(OmniReferenceColors.SurfaceBase.copy(alpha = 0.84f))
+            .border(1.dp, BorderLow.copy(alpha = 0.68f), RoundedCornerShape(metrics.px(8f)))
+            .padding(metrics.px(14f)),
     ) {
-        Text("Settings & Personalization", style = MaterialTheme.typography.displaySmall, color = TextPrimary, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(4.dp))
-        Text("Customize OmniTune to match your sound and style.", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
-        Spacer(Modifier.height(32.dp))
-
-        Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            // Column 1
-            Column(modifier = Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                SettingsGroup("Account") {
-                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(48.dp).clip(CircleShape).background(Surface3))
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Local User", color = TextPrimary, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            Text("Not signed in", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-                        }
-                        Surface(shape = Shapes.small, color = Surface3, border = BorderStroke(1.dp, BorderLow)) {
-                            Text("Manage Account", color = TextPrimary, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    SettingsRow("Subscription", null) { Text("OmniTune Premium  >", color = TextSecondary, style = MaterialTheme.typography.bodyMedium) }
-                    SettingsRow("Manage Devices", null) { Text("1 of 5 active  >", color = TextSecondary, style = MaterialTheme.typography.bodyMedium) }
-                }
-                
-                SettingsGroup("Appearance") {
-                    Text("Theme", color = TextPrimary, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 8.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        ThemePill("Nocturne Prism", true)
-                        ThemePill("Midnight", false)
-                        ThemePill("Dusk", false)
-                        ThemePill("Aurora", false)
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Text("Accent Color", color = TextPrimary, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 8.dp))
-                    Text("Choose your vibe", color = TextSecondary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ColorCircle(Iris, true)
-                        ColorCircle(CoolBlue, false)
-                        ColorCircle(SuccessGreen, false)
-                        ColorCircle(ErrorRed, false)
-                        ColorCircle(VioletSoft, false)
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("UI Preview", color = TextPrimary, style = MaterialTheme.typography.titleSmall)
-                            Text("See how OmniTune looks with your style", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-                        }
-                        Box(modifier = Modifier.width(140.dp).height(60.dp).clip(Shapes.medium).background(Surface3))
-                    }
-                }
-                
-                SettingsGroup("Keyboard Shortcuts") {
-                    SettingsRow("Show all shortcuts", null) { Text(">", color = TextSecondary) }
-                    SettingsSwitch("Global Shortcuts", "Use shortcuts when OmniTune is in the background", false) {}
-                }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) {
+                Icon(icon, null, tint = IrisSoft, modifier = Modifier.size(metrics.px(14f)))
+                Spacer(Modifier.width(metrics.px(7f)))
             }
-            
-            // Column 2
-            Column(modifier = Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                SettingsGroup("Audio Quality") {
-                    Text("Choose your streaming quality", color = TextSecondary, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(bottom = 12.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        ThemePill("Low", false)
-                        ThemePill("Normal", false)
-                        ThemePill("High", false)
-                        ThemePill("Lossless", true)
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    SettingsRow("Lossless Quality", null) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Up to 24-bit / 192 kHz", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-                            Spacer(Modifier.width(8.dp))
-                            Surface(shape = Shapes.small, color = SuccessGreen.copy(alpha = 0.2f)) {
-                                Text("FLAC", color = SuccessGreen, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp))
-                            }
-                        }
-                    }
-                    SettingsSwitch("Normalize Volume", "Maintain consistent volume across tracks", true) {}
-                    SettingsSwitch("Spatial Audio", "Immersive sound experience", false) {}
-                }
-                
-                SettingsGroup("Downloads") {
-                    SettingsRow("Download Quality", null) { Text("High (320 kbps) ˅", color = TextSecondary, style = MaterialTheme.typography.bodyMedium) }
-                    Spacer(Modifier.height(8.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Download Location", color = TextPrimary, style = MaterialTheme.typography.titleSmall)
-                            Text("C:\\Users\\Local\\Music\\OmniTune", color = TextSecondary, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                        Surface(shape = Shapes.small, color = Surface3, border = BorderStroke(1.dp, BorderLow)) {
-                            Text("Change", color = TextPrimary, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    SettingsSwitch("Download over cellular", "Recommended: Off", false) {}
-                    SettingsSwitch("Auto download playlists", "Automatically download new songs", true) {}
-                }
-            }
-            
-            // Column 3
-            Column(modifier = Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                SettingsGroup("Playback") {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Text("Crossfade", color = TextPrimary, style = MaterialTheme.typography.titleSmall)
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Smooth transitions between tracks", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-                            Switch(checked = true, onCheckedChange = {}, colors = SwitchDefaults.colors(checkedTrackColor = Iris, checkedThumbColor = Color.White))
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        Slider(value = 5f, onValueChange = {}, valueRange = 0f..12f, colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = Iris, inactiveTrackColor = Surface3))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("0s", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-                            Text("5s", color = TextPrimary, style = MaterialTheme.typography.bodySmall)
-                            Text("12s", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    SettingsSwitch("Gapless Playback", "Play tracks without any gaps", true) {}
-                    SettingsSwitch("Autoplay", "Automatically play similar music", true) {}
-                    SettingsSwitch("Mini player always on top", "Keep the compact player above other windows", miniOnTop) { miniOnTop = it; settings.miniPlayerAlwaysOnTop = it; settings.flush() }
-                }
-                
-                SettingsGroup("Notifications") {
-                    SettingsSwitch("New Music", "Updates about new releases", true) {}
-                    SettingsSwitch("Recommendations", "Personalized music suggestions", true) {}
-                    SettingsSwitch("Concert Alerts", "Notify about nearby concerts", false) {}
-                    SettingsSwitch("Product Updates", "OmniTune news and updates", true) {}
-                }
-                
-                SettingsGroup("About") {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("OmniTune for Windows", color = TextPrimary, style = MaterialTheme.typography.titleSmall)
-                            Text("Version 1.0.0 (Build 10023)", color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-                            Spacer(Modifier.height(12.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("What's New", color = IrisSoft, style = MaterialTheme.typography.labelSmall)
-                                Text("|", color = TextMuted, style = MaterialTheme.typography.labelSmall)
-                                Text("Help Center", color = IrisSoft, style = MaterialTheme.typography.labelSmall)
-                                Text("|", color = TextMuted, style = MaterialTheme.typography.labelSmall)
-                                Text("Terms of Service", color = IrisSoft, style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                        Box(modifier = Modifier.size(60.dp).clip(Shapes.medium).background(Surface3))
-                    }
-                }
-            }
+            Text(title, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         }
+        Spacer(Modifier.height(metrics.px(10f)))
+        content()
     }
 }
 
 @Composable
-private fun ThemePill(label: String, isActive: Boolean) {
-    val bg = if (isActive) Iris.copy(alpha = 0.2f) else Color.Transparent
-    val border = if (isActive) Iris else BorderLow
-    Surface(shape = Shapes.pill, color = bg, border = BorderStroke(1.dp, border), modifier = Modifier.height(32.dp)) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 16.dp).fillMaxHeight()) {
-            Text(label, color = if (isActive) TextPrimary else TextSecondary, style = MaterialTheme.typography.labelMedium)
-        }
+private fun SettingsLine(label: String, value: String) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Row(Modifier.fillMaxWidth().height(metrics.px(24f)), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = TextPrimary, fontSize = 9.sp, modifier = Modifier.weight(0.62f), maxLines = 1)
+        Text(value, color = TextSecondary, fontSize = 8.5.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
 @Composable
-private fun ColorCircle(color: Color, isActive: Boolean) {
-    Box(modifier = Modifier.size(24.dp).clip(CircleShape).background(color).border(2.dp, if (isActive) Color.White else Color.Transparent, CircleShape))
-}
-
-@Composable
-private fun SettingsGroup(title: String, content: @Composable () -> Unit) {
-    Surface(shape = Shapes.large, color = Surface1, border = BorderStroke(1.dp, BorderLow), modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(18.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(16.dp))
-            content()
-        }
-    }
-}
-
-@Composable
-private fun SettingsRow(label: String, description: String?, trailing: @Composable (() -> Unit)? = null) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(label, color = TextPrimary, style = MaterialTheme.typography.titleSmall)
-            if (description != null) {
-                Text(description, color = TextSecondary, style = MaterialTheme.typography.bodySmall)
-            }
-        }
-        trailing?.invoke()
-    }
-}
-
-@Composable
-private fun SettingsSwitch(label: String, description: String, value: Boolean, onChanged: (Boolean) -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(label, color = TextPrimary, style = MaterialTheme.typography.titleSmall)
-            Text(description, color = TextSecondary, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+private fun SettingsSwitch(label: String, description: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().height(LocalHomeReferenceMetrics.current.px(34f)), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text(label, color = TextPrimary, fontSize = 9.sp, maxLines = 1)
+            Text(description, color = TextSecondary, fontSize = 7.7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Switch(
-            checked = value,
-            onCheckedChange = onChanged,
-            colors = SwitchDefaults.colors(
-                checkedTrackColor = Iris,
-                uncheckedTrackColor = Surface3,
-                uncheckedBorderColor = Color.Transparent,
-                checkedThumbColor = Color.White
-            )
+            checked = checked,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(checkedTrackColor = IrisSoft, checkedThumbColor = Color.White, uncheckedTrackColor = Surface3),
         )
     }
 }
 
+@Composable
+private fun SettingsSegment(label: String, options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Text(label, color = TextPrimary, fontSize = 9.sp)
+    Spacer(Modifier.height(metrics.px(5f)))
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(metrics.px(26f))
+            .clip(RoundedCornerShape(metrics.px(5f)))
+            .background(Surface3.copy(alpha = 0.45f))
+            .border(1.dp, BorderLow.copy(alpha = 0.55f), RoundedCornerShape(metrics.px(5f))),
+    ) {
+        options.forEachIndexed { index, option ->
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(metrics.px(5f)))
+                    .background(if (index == selected) OmniReferenceColors.SurfaceSelectedStrong else Color.Transparent)
+                    .clickable { onSelect(index) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(option, color = if (index == selected) TextPrimary else TextSecondary, fontSize = 8.5.sp, maxLines = 1)
+            }
+        }
+    }
+    Spacer(Modifier.height(metrics.px(8f)))
+}

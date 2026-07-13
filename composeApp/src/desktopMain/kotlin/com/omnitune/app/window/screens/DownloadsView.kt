@@ -1,320 +1,434 @@
 package com.omnitune.app.window.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.border
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material3.Icon
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import com.omnitune.app.player.PlayerViewModel
-import com.omnitune.app.window.*
-import com.omnitune.app.window.components.*
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import coil3.compose.AsyncImage
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.omnitune.app.platform.DownloadQualityMode
+import com.omnitune.app.platform.DownloadState
+import com.omnitune.app.platform.DownloadTask
+import com.omnitune.app.platform.PlatformContext
+import com.omnitune.app.player.PlayerViewModel
+import com.omnitune.app.window.BorderLow
+import com.omnitune.app.window.CoolBlue
+import com.omnitune.app.window.ErrorRed
+import com.omnitune.app.window.IrisSoft
+import com.omnitune.app.window.LocalHomeReferenceMetrics
+import com.omnitune.app.window.OmniGradients
+import com.omnitune.app.window.OmniReferenceColors
+import com.omnitune.app.window.SuccessGreen
+import com.omnitune.app.window.Surface3
+import com.omnitune.app.window.TextPrimary
+import com.omnitune.app.window.TextSecondary
+import org.koin.compose.koinInject
+import java.io.File
 
 @Composable
 fun DownloadsView(player: PlayerViewModel) {
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 28.dp)) {
-        // Header
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-            Column {
-                Text("Downloads & Offline", style = MaterialTheme.typography.displaySmall, color = TextPrimary, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(4.dp))
-                Text("Listen anywhere, anytime. Manage your downloads and offline content.", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
+    val platform = koinInject<PlatformContext>()
+    val downloadsDir = platform.downloadsDir
+    val diskFiles = remember(downloadsDir) {
+        downloadsDir.walkTopDown().filter { it.isFile && it.extension != "part" }.toList()
+    }
+    val root = downloadsDir.toPath().root?.toFile()
+    val total = root?.totalSpace ?: downloadsDir.totalSpace
+    val free = root?.freeSpace ?: downloadsDir.freeSpace
+    val tasks by player.downloadTasks.collectAsState()
+    val quality by player.downloadQuality.collectAsState()
+
+    val completed = tasks.filter { it.state == DownloadState.COMPLETED }
+    val active = tasks.filter { it.state == DownloadState.QUEUED || it.state == DownloadState.RESOLVING || it.state == DownloadState.DOWNLOADING }
+    val failed = tasks.filter { it.state == DownloadState.FAILED }
+    val paused = tasks.filter { it.state == DownloadState.PAUSED }
+
+    DownloadsReferenceContent(
+        downloadsDir = downloadsDir,
+        diskFileCount = diskFiles.size,
+        tasks = tasks,
+        downloadedBytes = completed.sumOf { it.bytesDownloaded },
+        totalBytes = total,
+        freeBytes = free,
+        quality = quality,
+        onQuality = player::setDownloadQuality,
+        downloadsPaused = active.isEmpty() && paused.isNotEmpty(),
+        onPauseToggle = {
+            if (active.isNotEmpty()) player.pauseAllDownloads() else player.resumeAllDownloads()
+        },
+        completedCount = completed.size,
+        activeCount = active.size,
+        failedCount = failed.size,
+        onPlay = player::playDownload,
+        onPause = player::pauseDownload,
+        onResume = player::resumeDownload,
+        onRetry = player::retryDownload,
+        onDelete = player::deleteDownload,
+    )
+}
+
+@Composable
+private fun DownloadsReferenceContent(
+    downloadsDir: File,
+    diskFileCount: Int,
+    tasks: List<DownloadTask>,
+    downloadedBytes: Long,
+    totalBytes: Long,
+    freeBytes: Long,
+    quality: DownloadQualityMode,
+    onQuality: (DownloadQualityMode) -> Unit,
+    downloadsPaused: Boolean,
+    onPauseToggle: () -> Unit,
+    completedCount: Int,
+    activeCount: Int,
+    failedCount: Int,
+    onPlay: (String) -> Unit,
+    onPause: (String) -> Unit,
+    onResume: (String) -> Unit,
+    onRetry: (String) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    val scroll = rememberScrollState()
+    val usedBytes = (totalBytes - freeBytes).coerceAtLeast(0)
+
+    Box(Modifier.fillMaxSize().verticalScroll(scroll)) {
+        Box(Modifier.fillMaxWidth().height(metrics.px(560f))) {
+            Text("Downloads & Offline", color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(22f)))
+            Text("Manage persistent download tasks and verified local playback files.", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(50f)))
+
+            ActionButton("Quality Settings", Icons.Default.Settings, Modifier.offset(x = metrics.px(527f), y = metrics.px(36f)).width(metrics.px(104f)).height(metrics.px(28f))) {
+                val options = listOf(DownloadQualityMode.PROVIDER_DEFAULT, DownloadQualityMode.SMALLER_FILE, DownloadQualityMode.PREFER_HIGH)
+                onQuality(options[(options.indexOf(quality).coerceAtLeast(0) + 1) % options.size])
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(shape = Shapes.pill, color = Surface3, border = BorderStroke(1.dp, BorderLow)) {
-                    Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Settings, null, tint = TextPrimary, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Quality Settings", color = TextPrimary, style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-                Surface(shape = Shapes.pill, color = Iris.copy(alpha = 0.2f), border = BorderStroke(1.dp, Iris)) {
-                    Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Pause, null, tint = TextPrimary, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Pause All", color = TextPrimary, style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-            }
-        }
-        
-        Spacer(Modifier.height(24.dp))
-        
-        Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            // Main content column
-            Column(modifier = Modifier.weight(1.8f).fillMaxHeight()) {
-                // Filter pills
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterPill("All", true)
-                    FilterPill("Completed  128", false)
-                    FilterPill("In Progress  3", false)
-                    FilterPill("Failed  1", false)
-                }
-                Spacer(Modifier.height(24.dp))
-                
-                // Summary cards
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    SummaryCard(Modifier.weight(1f), "Downloaded", "128", "Items", Icons.Default.MusicNote, Iris.copy(alpha = 0.2f), Iris)
-                    SummaryCard(Modifier.weight(1f), "Offline Mixes", "6", "Smart mixes", Icons.Default.GraphicEq, CoolBlue.copy(alpha = 0.2f), CoolBlue)
-                    SummaryCard(Modifier.weight(1f), "Downloading", "3", "In progress", Icons.Default.Download, Surface3, CoolBlue)
-                    SummaryCard(Modifier.weight(1f), "Failed", "1", "Tap to retry", Icons.Default.Error, ErrorRed.copy(alpha = 0.15f), ErrorRed)
-                }
-                
-                Spacer(Modifier.height(32.dp))
-                
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
-                    item {
-                        Text("Downloaded Songs", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(16.dp))
-                    }
-                    
-                    items(4) { i ->
-                        val titles = listOf("YE YE", "La Chica Yeye (Version Pop)", "Ye 'te Na", "Yeye")
-                        val artists = listOf("Faydee, I'm Bax and Pav Dharia", "DANNA", "Oxlade", "Genius.im x66")
-                        val times = listOf("3:02", "2:59", "2:45", "2:49")
-                        DownloadedSongRow(titles[i], artists[i], times[i])
-                        Spacer(Modifier.height(4.dp))
-                    }
-                    
-                    item {
-                        Spacer(Modifier.height(32.dp))
-                        Text("Downloaded Albums", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(16.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            DownloadedAlbumCard(Modifier.weight(1f), "After Hours", "OmniTune", "12 songs · 34 min", true)
-                            DownloadedAlbumCard(Modifier.weight(1f), "Aurora", "Chillwave", "10 songs · 29 min", false)
-                            DownloadedAlbumCard(Modifier.weight(1f), "Neon Skyline", "Synth Pop", "11 songs · 38 min", false)
-                        }
-                    }
-                    
-                    item {
-                        Spacer(Modifier.height(32.dp))
-                        Text("Smart Offline Mixes", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(16.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            OfflineMixCard(Modifier.weight(1f), "Daily Mix 1", "50 songs")
-                            OfflineMixCard(Modifier.weight(1f), "Focus Flow", "40 songs")
-                            OfflineMixCard(Modifier.weight(1f), "Afrobeats Heat", "60 songs")
-                            OfflineMixCard(Modifier.weight(1f), "Chill Evenings", "45 songs")
-                        }
-                    }
-                    
-                    item { Spacer(Modifier.height(40.dp)) }
+            ActionButton(if (downloadsPaused) "Resume All" else "Pause All", Icons.Default.Pause, Modifier.offset(x = metrics.px(642f), y = metrics.px(36f)).width(metrics.px(84f)).height(metrics.px(28f)), onPauseToggle)
+
+            Row(
+                modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(75f)).width(metrics.px(350f)).height(metrics.px(26f)),
+                horizontalArrangement = Arrangement.spacedBy(metrics.px(8f)),
+            ) {
+                listOf("All ${tasks.size}", "Completed $completedCount", "In Progress $activeCount", "Failed $failedCount").forEachIndexed { index, label ->
+                    FilterChip(label, index == 0)
                 }
             }
-            
-            // Side panel
-            Column(modifier = Modifier.weight(0.7f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(24.dp)) {
-                // Device Storage
-                OmniSurface(modifier = Modifier.fillMaxWidth(), color = Surface2, border = true) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Saved Storage", style = MaterialTheme.typography.titleSmall, color = TextPrimary)
-                            Icon(Icons.Default.CheckCircle, null, tint = SuccessGreen, modifier = Modifier.size(24.dp))
-                        }
-                        Text("4.2 GB", style = MaterialTheme.typography.displayMedium, color = TextPrimary, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
-                        Text("This device", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                        
-                        Spacer(Modifier.height(24.dp))
-                        
-                        Text("Device Storage", style = MaterialTheme.typography.titleMedium, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(16.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("This PC", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                            Text("256 GB total", style = MaterialTheme.typography.bodySmall, color = TextPrimary)
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        
-                        // Progress bar
-                        Box(modifier = Modifier.fillMaxWidth().height(6.dp).clip(Shapes.pill).background(Surface3)) {
-                            Row(modifier = Modifier.fillMaxSize()) {
-                                Box(modifier = Modifier.fillMaxHeight().weight(0.35f).background(Iris))
-                                Box(modifier = Modifier.fillMaxHeight().weight(0.35f).background(CoolBlue))
-                                Box(modifier = Modifier.fillMaxHeight().weight(0.30f).background(Color.Transparent))
-                            }
-                        }
-                        
-                        Spacer(Modifier.height(12.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("87.6 GB used", style = MaterialTheme.typography.bodySmall, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                            Text("168.4 GB free", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                        }
-                        
-                        Spacer(Modifier.height(16.dp))
-                        StorageLegendRow(Iris, "OmniTune", "87.6 GB")
-                        StorageLegendRow(CoolBlue, "Other Apps", "96.2 GB")
-                        StorageLegendRow(Surface3, "Free", "168.4 GB")
-                        
-                        Spacer(Modifier.height(24.dp))
-                        Surface(shape = Shapes.small, color = Surface3, border = BorderStroke(1.dp, BorderLow), modifier = Modifier.fillMaxWidth()) {
-                            Text("Manage Storage", color = TextPrimary, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(vertical = 10.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                        }
+
+            Row(
+                modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(111f)).width(metrics.px(700f)).height(metrics.px(64f)),
+                horizontalArrangement = Arrangement.spacedBy(metrics.px(10f)),
+            ) {
+                StatCard("Downloaded", "$completedCount", "Verified files", Icons.Default.Download, IrisSoft, Modifier.weight(1f))
+                StatCard("Offline Mixes", "0", "Removed", Icons.Default.GraphicEq, CoolBlue, Modifier.weight(1f))
+                StatCard("Downloading", "$activeCount", "In progress", Icons.Default.Download, CoolBlue, Modifier.weight(1f))
+                StatCard("Failed", "$failedCount", if (failedCount == 0) "No failures" else "Retry available", Icons.Default.ErrorOutline, ErrorRed, Modifier.weight(1f))
+                StatCard("Saved", formatBytes(downloadedBytes), "This device", Icons.Default.Storage, SuccessGreen, Modifier.weight(1f))
+            }
+
+            DownloadsPanel("Downloaded Songs", Modifier.offset(x = metrics.px(24f), y = metrics.px(196f)).width(metrics.px(700f)).height(metrics.px(136f))) {
+                if (tasks.isEmpty()) {
+                    EmptyDownloadText("No download tasks yet. Use album or playlist download actions to create real offline files.")
+                } else {
+                    tasks.take(4).forEach { task ->
+                        DownloadTaskRow(
+                            task = task,
+                            onPlay = { onPlay(task.id) },
+                            onPause = { onPause(task.id) },
+                            onResume = { onResume(task.id) },
+                            onRetry = { onRetry(task.id) },
+                            onDelete = { onDelete(task.id) },
+                        )
                     }
                 }
-                
-                // Settings
-                OmniSurface(modifier = Modifier.fillMaxWidth(), color = Surface2, border = true) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Text("Download Quality", style = MaterialTheme.typography.titleMedium, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(16.dp))
-                        RadioOption("High (320 kbps)", "Best audio quality", true)
-                        Spacer(Modifier.height(12.dp))
-                        RadioOption("Medium (256 kbps)", "Balanced quality and size", false)
-                        Spacer(Modifier.height(12.dp))
-                        RadioOption("Low (128 kbps)", "Smaller file size", false)
-                        
-                        Spacer(Modifier.height(24.dp))
-                        Text("Download Over", style = MaterialTheme.typography.titleMedium, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(16.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            RadioOption("Wi-Fi Only", null, true)
-                            Text("Recommended", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            RadioOption("Wi-Fi & Cellular", null, false)
-                            Text("May use data", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                        }
-                        
-                        Spacer(Modifier.height(24.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Auto-Download", style = MaterialTheme.typography.titleMedium, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                                Spacer(Modifier.height(4.dp))
-                                Text("Smart Downloads", style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
-                                Text("Automatically download music you listen to most.", style = MaterialTheme.typography.bodySmall, color = TextSecondary, lineHeight = 16.sp)
-                            }
-                            Switch(checked = true, onCheckedChange = {}, colors = SwitchDefaults.colors(checkedTrackColor = Iris, checkedThumbColor = Color.White))
-                        }
-                    }
-                }
+            }
+
+            DownloadsPanel("Downloaded Albums", Modifier.offset(x = metrics.px(24f), y = metrics.px(348f)).width(metrics.px(700f)).height(metrics.px(78f))) {
+                EmptyDownloadText("Album grouping appears after downloaded tracks contain reliable album metadata.")
+            }
+
+            DownloadsPanel("Smart Offline Mixes", Modifier.offset(x = metrics.px(24f), y = metrics.px(442f)).width(metrics.px(700f)).height(metrics.px(78f))) {
+                EmptyDownloadText("Smart offline mixes were removed as unsupported until a real smart-mix engine exists.")
+            }
+
+            SidePanel("Device Storage", Modifier.offset(x = metrics.px(735f), y = metrics.px(38f)).width(metrics.px(205f)).height(metrics.px(185f))) {
+                SettingsLine("This PC", "${formatBytes(totalBytes)} total")
+                StorageBar(used = usedBytes, total = totalBytes)
+                SettingsLine(formatBytes(usedBytes) + " used", formatBytes(freeBytes) + " free")
+                SettingsLine("Verified downloads", formatBytes(downloadedBytes))
+                SettingsLine("Files on disk", "$diskFileCount")
+                SettingsLine("Folder", downloadsDir.absolutePath)
+            }
+
+            SidePanel("Download Quality", Modifier.offset(x = metrics.px(735f), y = metrics.px(232f)).width(metrics.px(205f)).height(metrics.px(130f))) {
+                QualityRadioLine("Provider default", DownloadQualityMode.PROVIDER_DEFAULT, quality, onQuality)
+                QualityRadioLine("Smaller cache files", DownloadQualityMode.SMALLER_FILE, quality, onQuality)
+                QualityRadioLine("Prefer high bitrate when available", DownloadQualityMode.PREFER_HIGH, quality, onQuality)
+            }
+
+            SidePanel("Download Over", Modifier.offset(x = metrics.px(735f), y = metrics.px(372f)).width(metrics.px(205f)).height(metrics.px(85f))) {
+                SettingsLine("Policy", "Any network")
+                SettingsLine("Metering", "Desktop detection unavailable")
+            }
+
+            SidePanel("Auto-Download", Modifier.offset(x = metrics.px(735f), y = metrics.px(467f)).width(metrics.px(205f)).height(metrics.px(68f))) {
+                Text("Smart Downloads", color = TextPrimary, fontSize = 9.sp)
+                Text("Not interactive: no real smart-mix engine is available.", color = TextSecondary, fontSize = 7.7.sp, lineHeight = 10.sp)
             }
         }
     }
 }
 
 @Composable
-private fun FilterPill(label: String, isActive: Boolean) {
-    val bg = if (isActive) Iris else Surface2
-    val border = if (isActive) Color.Transparent else BorderLow
-    val textColor = if (isActive) Color.White else TextSecondary
-    
-    Surface(shape = Shapes.pill, color = bg, border = BorderStroke(1.dp, border), modifier = Modifier.height(36.dp).clickable {}) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 20.dp).fillMaxHeight()) {
-            Text(label, color = textColor, style = MaterialTheme.typography.labelMedium)
-        }
-    }
-}
-
-@Composable
-private fun SummaryCard(modifier: Modifier, title: String, value: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, bgTint: Color, iconTint: Color) {
-    OmniSurface(modifier = modifier, color = Surface2, border = true) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, color = TextPrimary)
-            Spacer(Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                Column {
-                    Text(value, style = MaterialTheme.typography.displaySmall, color = TextPrimary, fontWeight = FontWeight.Bold)
-                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+private fun ActionButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier, onClick: () -> Unit) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(metrics.px(8f)))
+            .then(
+                if (text.contains("Pause")) {
+                    Modifier.background(brush = OmniGradients.primaryAction)
+                } else {
+                    Modifier.background(color = OmniReferenceColors.SurfaceBase.copy(alpha = 0.84f))
                 }
-                Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(bgTint), contentAlignment = Alignment.Center) {
-                    Icon(icon, null, tint = iconTint, modifier = Modifier.size(20.dp))
-                }
-            }
+            )
+            .border(1.dp, BorderLow.copy(alpha = 0.65f), RoundedCornerShape(metrics.px(8f)))
+            .clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Icon(icon, null, tint = TextPrimary, modifier = Modifier.size(metrics.px(11f)))
+        Spacer(Modifier.width(metrics.px(5f)))
+        Text(text, color = TextPrimary, fontSize = 8.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
+@Composable
+private fun FilterChip(label: String, active: Boolean) {
+    Box(
+        modifier = Modifier
+            .height(LocalHomeReferenceMetrics.current.px(24f))
+            .clip(RoundedCornerShape(LocalHomeReferenceMetrics.current.px(99f)))
+            .background(if (active) OmniReferenceColors.SurfaceSelectedStrong else Color.Transparent)
+            .padding(horizontal = LocalHomeReferenceMetrics.current.px(13f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = if (active) TextPrimary else TextSecondary, fontSize = 8.5.sp)
+    }
+}
+
+@Composable
+private fun StatCard(title: String, value: String, subtitle: String, icon: androidx.compose.ui.graphics.vector.ImageVector, tint: Color, modifier: Modifier) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Row(
+        modifier = modifier
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(metrics.px(8f)))
+            .background(OmniReferenceColors.SurfaceBase.copy(alpha = 0.82f))
+            .border(1.dp, BorderLow.copy(alpha = 0.65f), RoundedCornerShape(metrics.px(8f)))
+            .padding(metrics.px(10f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = TextPrimary, fontSize = 8.5.sp)
+            Text(value, color = TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(subtitle, color = TextSecondary, fontSize = 7.5.sp, maxLines = 1)
+        }
+        Box(Modifier.size(metrics.px(28f)).clip(CircleShape).background(tint.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = tint, modifier = Modifier.size(metrics.px(15f)))
         }
     }
 }
 
 @Composable
-private fun DownloadedSongRow(title: String, artist: String, time: String) {
-    OmniSurface(modifier = Modifier.fillMaxWidth(), color = Surface2, border = false) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(40.dp).clip(Shapes.artworkSmall).background(BgCard))
-            Spacer(Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, color = TextPrimary)
-                Text(artist, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-            }
-            Text("320 kbps", style = MaterialTheme.typography.bodySmall, color = TextSecondary, modifier = Modifier.padding(horizontal = 16.dp))
-            Text("Downloaded", style = MaterialTheme.typography.bodySmall, color = TextSecondary, modifier = Modifier.padding(horizontal = 16.dp))
-            Text(time, style = MaterialTheme.typography.bodySmall, color = TextSecondary, modifier = Modifier.padding(horizontal = 16.dp))
-            Icon(Icons.Default.MoreHoriz, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
-        }
-    }
-}
-
-@Composable
-private fun DownloadedAlbumCard(modifier: Modifier, title: String, subtitle: String, meta: String, isFirst: Boolean) {
-    OmniSurface(modifier = modifier, color = Surface2, border = true) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                Box(modifier = Modifier.size(60.dp).clip(Shapes.medium).background(if (isFirst) Iris.copy(alpha = 0.5f) else BgCard))
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text(title, style = MaterialTheme.typography.titleSmall, color = TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Icon(Icons.Default.MoreHoriz, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
-                    }
-                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1)
-                    Spacer(Modifier.height(8.dp))
-                    Text(meta, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                    Text("320 kbps    Downloaded", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun OfflineMixCard(modifier: Modifier, title: String, count: String) {
+private fun DownloadsPanel(title: String, modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
+    val metrics = LocalHomeReferenceMetrics.current
     Column(modifier = modifier) {
-        Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(Shapes.medium).background(Surface2)) {
-            // Placeholder for mix art
-            Box(modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp).size(32.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(20.dp))
-            }
-        }
-        Spacer(Modifier.height(8.dp))
-        Text(title, style = MaterialTheme.typography.titleSmall, color = TextPrimary)
-        Text(count, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+        Text(title, color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(metrics.px(8f)))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .clip(RoundedCornerShape(metrics.px(8f)))
+                .background(OmniReferenceColors.SurfaceBase.copy(alpha = 0.74f))
+                .border(1.dp, BorderLow.copy(alpha = 0.62f), RoundedCornerShape(metrics.px(8f)))
+                .padding(metrics.px(10f)),
+            content = content,
+        )
     }
 }
 
 @Composable
-private fun StorageLegendRow(color: Color, label: String, size: String) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(8.dp).clip(CircleShape).background(color))
-        Spacer(Modifier.width(12.dp))
-        Text(label, style = MaterialTheme.typography.bodySmall, color = TextPrimary, modifier = Modifier.weight(1f))
-        Text(size, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+private fun DownloadTaskRow(
+    task: DownloadTask,
+    onPlay: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onRetry: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Row(Modifier.fillMaxWidth().height(metrics.px(27f)), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(metrics.px(15f)).clip(CircleShape).background(statusColor(task.state).copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.Download, null, tint = statusColor(task.state), modifier = Modifier.size(metrics.px(10f)))
+        }
+        Spacer(Modifier.width(metrics.px(8f)))
+        Column(Modifier.weight(1f)) {
+            Text(task.title, color = TextPrimary, fontSize = 8.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(task.artist, color = TextSecondary, fontSize = 7.4.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(taskProgressLabel(task), color = TextSecondary, fontSize = 8.2.sp, maxLines = 1, modifier = Modifier.width(metrics.px(96f)))
+        DownloadRowIcon(task, onPlay, onPause, onResume, onRetry)
+        Spacer(Modifier.width(metrics.px(10f)))
+        Icon(Icons.Default.Delete, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onDelete))
     }
 }
 
 @Composable
-private fun RadioOption(label: String, description: String?, selected: Boolean) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(16.dp).clip(CircleShape).background(if (selected) Iris else Color.Transparent).border(1.dp, if (selected) Color.Transparent else BorderLow, CircleShape))
-        Spacer(Modifier.width(12.dp))
-        Column {
-            Text(label, style = MaterialTheme.typography.bodyMedium, color = if (selected) TextPrimary else TextSecondary)
-            if (description != null) {
-                Text(description, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-            }
-        }
+private fun DownloadRowIcon(
+    task: DownloadTask,
+    onPlay: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
+    onRetry: () -> Unit,
+) {
+    val (icon, action) = when (task.state) {
+        DownloadState.COMPLETED -> Icons.Default.PlayArrow to onPlay
+        DownloadState.PAUSED -> Icons.Default.PlayArrow to onResume
+        DownloadState.FAILED, DownloadState.CANCELLED -> Icons.Default.Refresh to onRetry
+        DownloadState.QUEUED, DownloadState.RESOLVING, DownloadState.DOWNLOADING -> Icons.Default.Pause to onPause
     }
+    Icon(icon, null, tint = IrisSoft, modifier = Modifier.size(LocalHomeReferenceMetrics.current.px(13f)).clickable(onClick = action))
+}
+
+@Composable
+private fun EmptyDownloadText(text: String) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Text(text, color = TextSecondary, fontSize = 8.8.sp, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun SidePanel(title: String, modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(metrics.px(8f)))
+            .background(OmniReferenceColors.SurfaceBase.copy(alpha = 0.82f))
+            .border(1.dp, BorderLow.copy(alpha = 0.65f), RoundedCornerShape(metrics.px(8f)))
+            .padding(metrics.px(12f)),
+    ) {
+        Text(title, color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(metrics.px(9f)))
+        content()
+    }
+}
+
+@Composable
+private fun SettingsLine(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().height(LocalHomeReferenceMetrics.current.px(18f)), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = TextSecondary, fontSize = 8.1.sp, maxLines = 1, modifier = Modifier.weight(1f))
+        Text(value, color = TextPrimary, fontSize = 8.1.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun QualityRadioLine(label: String, value: DownloadQualityMode, selected: DownloadQualityMode, onSelect: (DownloadQualityMode) -> Unit) {
+    Row(Modifier.fillMaxWidth().height(LocalHomeReferenceMetrics.current.px(24f)).clickable { onSelect(value) }, verticalAlignment = Alignment.CenterVertically) {
+        RadioButton(
+            selected = selected == value,
+            onClick = { onSelect(value) },
+            colors = RadioButtonDefaults.colors(selectedColor = IrisSoft, unselectedColor = TextSecondary),
+            modifier = Modifier.size(LocalHomeReferenceMetrics.current.px(18f)),
+        )
+        Spacer(Modifier.width(LocalHomeReferenceMetrics.current.px(8f)))
+        Text(label, color = TextPrimary, fontSize = 8.5.sp, maxLines = 1)
+    }
+}
+
+@Composable
+private fun StorageBar(used: Long, total: Long) {
+    val fraction = if (total > 0) (used.toDouble() / total.toDouble()).toFloat().coerceIn(0f, 1f) else 0f
+    Box(Modifier.fillMaxWidth().height(LocalHomeReferenceMetrics.current.px(5f)).clip(CircleShape).background(Surface3)) {
+        Box(Modifier.fillMaxHeight().fillMaxWidth(fraction).background(IrisSoft))
+    }
+    Spacer(Modifier.height(LocalHomeReferenceMetrics.current.px(8f)))
+}
+
+private fun statusColor(state: DownloadState): Color = when (state) {
+    DownloadState.COMPLETED -> SuccessGreen
+    DownloadState.FAILED, DownloadState.CANCELLED -> ErrorRed
+    DownloadState.PAUSED -> TextSecondary
+    DownloadState.QUEUED, DownloadState.RESOLVING, DownloadState.DOWNLOADING -> IrisSoft
+}
+
+private fun taskProgressLabel(task: DownloadTask): String {
+    val prefix = when (task.state) {
+        DownloadState.QUEUED -> "Queued"
+        DownloadState.RESOLVING -> "Resolving"
+        DownloadState.DOWNLOADING -> "Downloading"
+        DownloadState.PAUSED -> "Paused"
+        DownloadState.COMPLETED -> "Complete"
+        DownloadState.FAILED -> "Failed"
+        DownloadState.CANCELLED -> "Cancelled"
+    }
+    val size = when {
+        task.totalBytes != null && task.totalBytes > 0L -> "${formatBytes(task.bytesDownloaded)} / ${formatBytes(task.totalBytes)}"
+        task.bytesDownloaded > 0L -> formatBytes(task.bytesDownloaded)
+        else -> ""
+    }
+    val format = listOfNotNull(task.actualCodec, task.actualBitrateKbps?.let { "$it kbps" }).joinToString(" · ")
+    return listOf(prefix, size, format).filter { it.isNotBlank() }.joinToString(" · ")
+}
+
+private fun formatBytes(bytes: Long): String {
+    if (bytes <= 0L) return "0 B"
+    val units = listOf("B", "KB", "MB", "GB", "TB")
+    var value = bytes.toDouble()
+    var unit = 0
+    while (value >= 1024.0 && unit < units.lastIndex) {
+        value /= 1024.0
+        unit++
+    }
+    return if (unit == 0) "${bytes} B" else "%.1f %s".format(value, units[unit])
 }

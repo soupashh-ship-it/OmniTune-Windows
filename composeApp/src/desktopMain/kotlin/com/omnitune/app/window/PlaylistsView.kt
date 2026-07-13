@@ -56,7 +56,7 @@ fun PlaylistsView(player: PlayerViewModel) {
                 Icon(Icons.Default.Search, null, modifier = Modifier.size(20.dp), tint = TextGray)
                 Spacer(Modifier.width(10.dp))
                 Box(modifier = Modifier.weight(1f).onKeyEvent { event ->
-                    if (event.key == Key.Enter && event.type == KeyEventType.KeyUp) {
+                    if ((event.key == Key.Enter || event.key == Key.NumPadEnter) && event.type == KeyEventType.KeyDown) {
                         player.searchPlaylists(query)
                         true
                     } else false
@@ -112,7 +112,10 @@ fun PlaylistsView(player: PlayerViewModel) {
             ) {
                 items(results) { item ->
                     when (item) {
-                        is PlaylistItem -> MacPlaylistCard(item = item)
+                        is PlaylistItem -> MacPlaylistCard(
+                            item = item,
+                            onClick = { player.openPlaylist(item.id) },
+                        )
                         else -> Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = Shapes.small,
@@ -128,7 +131,7 @@ fun PlaylistsView(player: PlayerViewModel) {
 }
 
 @Composable
-private fun MacPlaylistCard(item: PlaylistItem) {
+private fun MacPlaylistCard(item: PlaylistItem, onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
@@ -138,7 +141,7 @@ private fun MacPlaylistCard(item: PlaylistItem) {
             .clip(Shapes.medium)
             .background(if (isHovered) BgCardHover else BgCard)
             .hoverable(interactionSource)
-            .clickable(interactionSource = interactionSource, indication = null) { }
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
             .pressBounce(interactionSource),
         shape = Shapes.medium,
         color = Color.Transparent

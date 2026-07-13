@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -29,71 +32,148 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-object NocturneColors {
-    val DeepestBase = Color(0xFF040716)
-    val CanvasBase = Color(0xFF040716)
-    val CanvasUpper = Color(0xFF050A1D)
+object OmniReferenceColors {
+    // ---------------------------------------------------------
+    // GLOBAL WINDOW / SHELL
+    // ---------------------------------------------------------
+    val WindowBase = Color(0xFF030819)
+    val MainBase = Color(0xFF040819)
+    val MainBaseAlt = Color(0xFF04081A)
+    val ContentBase = Color(0xFF04081A)
+    val ContentDeep = Color(0xFF030718)
+    val TopBarBase = Color(0xFF030715)
+    val TopBarSecondary = Color(0xFF040716)
 
-    val SidebarTop = Color(0xFF080F22)
-    val SidebarMiddle = Color(0xFF080F22)
-    val SidebarBottom = Color(0xFF080F22)
+    // ---------------------------------------------------------
+    // SIDEBAR
+    // ---------------------------------------------------------
+    val SidebarTop = Color(0xFF0D0C23)
+    val SidebarBase = Color(0xFF080F22)
+    val SidebarMiddle = Color(0xFF0C1025)
+    val SidebarBottom = Color(0xFF090E1F)
+    val SidebarBlueTint = Color(0xFF0E1743)
 
-    val TopChrome = Color(0xFF040716)
+    // ---------------------------------------------------------
+    // MAIN CONTENT ILLUMINATION
+    // ---------------------------------------------------------
+    val ContentBluePeak = Color(0xFF07183B)
+    val ContentBlueCore = Color(0xFF0C326E)
+    val ContentBlueSecondary = Color(0xFF06112B)
+    val ContentVioletAmbient = Color(0xFF100C2F)
 
-    val SurfaceLow = Color(0xFF0B1121)
-    val SurfaceStandard = Color(0xFF0E133B)
-    val SurfaceStrong = Color(0xFF0E133B)
-    val SurfaceHover = Color(0xFF181D35)
+    // ---------------------------------------------------------
+    // GENERAL SURFACES
+    // ---------------------------------------------------------
+    val SurfaceLowest = Color(0xFF080D1D)
+    val SurfaceBase = Color(0xFF0A0F20)
+    val SurfaceAlternate = Color(0xFF0B0F20)
+    val SurfaceRaised = Color(0xFF0F122C)
+    val SurfaceDeepRaised = Color(0xFF0C1021)
+    val SurfaceSelected = Color(0xFF0F143C)
+    val SurfaceSelectedStrong = Color(0xFF181F5B)
+    val Border = Color(0xFF181D34)
+    val BorderSoft = Color(0xFF12172A)
+    val SurfaceBorder = Color(0xFF181D34)
+    val Divider = Color(0xFF161A2B)
 
-    val Iris = Color(0xFF7C6DFF)
-    val Violet = Color(0xFF9468FF)
-    val CoolBlue = Color(0xFF7084FF)
+    // ---------------------------------------------------------
+    // SEARCH
+    // ---------------------------------------------------------
+    val SearchBackground = Color(0xFF0C0F1E)
+    val SearchBackgroundAlternate = Color(0xFF0B0F1E)
+    val SearchBorder = Color(0xFF121623)
+    val SearchBorderTop = Color(0xFF131624)
+    val SearchBorderBottom = Color(0xFF121623)
 
-    val PrimaryText = Color(0xFFF4F3FA)
-    val SecondaryText = Color(0xFFA9AEC2)
-    val MutedText = Color(0xFF737B93)
+    // ---------------------------------------------------------
+    // SELECTED NAVIGATION
+    // ---------------------------------------------------------
+    val NavSelectedStart = Color(0xFF1A0F47)
+    val NavSelectedLeftMiddle = Color(0xFF211253)
+    val NavSelectedCenter = Color(0xFF201566)
+    val NavSelectedRightMiddle = Color(0xFF221C7B)
+    val NavSelectedEnd = Color(0xFF18184C)
+    val NavSelectedIndicator = Color(0xFF7D84F7)
 
-    val BorderSubtle = Color(0x14FFFFFF)
+    // ---------------------------------------------------------
+    // PRIMARY ACCENT
+    // ---------------------------------------------------------
+    val Accent = Color(0xFF7D82FB)
+    val AccentSoft = Color(0xFF7E84F6)
+    val AccentBright = Color(0xFF8085FB)
+    val AccentEnd = Color(0xFF787EF8)
+
+    // ---------------------------------------------------------
+    // TEXT
+    // ---------------------------------------------------------
+    val TextPrimary = Color(0xFFFFFFFF)
+    val TextSecondary = Color(0xFF9495A7)
+    val TextMuted = Color(0xFF72758F)
+    val TextDisabled = Color(0xFF4F536B)
+
+    // ---------------------------------------------------------
+    // BOTTOM PLAYER
+    // ---------------------------------------------------------
+    val PlayerBase = Color(0xFF0B0F20)
+    val PlayerCenter = Color(0xFF0C101F)
+    val PlayerViolet = Color(0xFF16112D)
+    val PlayerVioletStrong = Color(0xFF1D1033)
+    val PlayerRightViolet = Color(0xFF0F1027)
+    val PlayerBorder = Color(0xFF181C32)
+
+    // ---------------------------------------------------------
+    // PLAYBACK SLIDERS
+    // ---------------------------------------------------------
+    val SeekFill = Color(0xFF8795FA)
+    val SeekFillBright = Color(0xFF8A98FE)
+    val SeekTrack = Color(0xFF232737)
+    val VolumeFill = Color(0xFF808AFF)
+
+    // ---------------------------------------------------------
+    // PRIMARY PLAYER CONTROL
+    // ---------------------------------------------------------
+    val PlayerPrimaryControl = Color(0xFFD6D7E1)
+    val PlayerPrimaryControlIcon = Color(0xFF0B0F20)
 }
 
-val BgDeep = NocturneColors.DeepestBase
-val BgInk = NocturneColors.CanvasBase
-val BgDark = NocturneColors.DeepestBase
-val BgCard = NocturneColors.SurfaceStandard
-val BgCardHover = NocturneColors.SurfaceHover
-val BgElevated = NocturneColors.SurfaceStrong
-val SurfaceSelected = NocturneColors.SurfaceStrong
+val BgDeep = OmniReferenceColors.WindowBase
+val BgInk = OmniReferenceColors.ContentBase
+val BgDark = OmniReferenceColors.ContentBase
+val BgCard = OmniReferenceColors.SurfaceBase
+val BgCardHover = OmniReferenceColors.SurfaceRaised
+val BgElevated = OmniReferenceColors.SurfaceRaised
+val SurfaceSelected = OmniReferenceColors.SurfaceSelected
+val NavActiveBackground = OmniReferenceColors.NavSelectedStart
 
-val BgSurface = NocturneColors.SurfaceStandard
-val SidebarBg = NocturneColors.SidebarTop
-val SidebarBackground = NocturneColors.SidebarMiddle
-val PlayerDock = Color(0xFF0A0F1F)
-val Surface1 = NocturneColors.SurfaceStandard
-val Surface2 = NocturneColors.SurfaceStrong
-val Surface3 = NocturneColors.SurfaceHover
-val Elevated1 = NocturneColors.SurfaceStrong
-val Elevated2 = NocturneColors.SurfaceHover
-val Iris = NocturneColors.Iris
-val IrisSoft = NocturneColors.Violet
-val Violet = NocturneColors.Violet
-val VioletSoft = Color(0xFFA855F7)
-val CoolBlue = NocturneColors.CoolBlue
+val BgSurface = OmniReferenceColors.SurfaceBase
+val SidebarBg = OmniReferenceColors.SidebarBase
+val PlayerDock = OmniReferenceColors.PlayerBase
+val Surface1 = OmniReferenceColors.SurfaceBase
+val Surface2 = OmniReferenceColors.SurfaceAlternate
+val Surface3 = OmniReferenceColors.SurfaceRaised
+val Elevated1 = OmniReferenceColors.SurfaceRaised
+val Elevated2 = OmniReferenceColors.SurfaceDeepRaised
+val Iris = OmniReferenceColors.Accent
+val IrisSoft = OmniReferenceColors.AccentSoft
+val Violet = OmniReferenceColors.AccentBright
+val VioletSoft = OmniReferenceColors.AccentEnd
+val CoolBlue = OmniReferenceColors.ContentBlueCore
 
-val AccentLavender = Iris
-val AccentLavenderLight = VioletSoft
-val AccentSecondary = IrisSoft
+val AccentLavender = OmniReferenceColors.Accent
+val AccentLavenderLight = OmniReferenceColors.AccentSoft
+val AccentSecondary = OmniReferenceColors.AccentBright
 
-val TextWhite = NocturneColors.PrimaryText
-val TextPrimary = NocturneColors.PrimaryText
-val TextSecondary = NocturneColors.SecondaryText
-val TextMuted = NocturneColors.MutedText
-val TextDim = Color(0xFF4A485B)
-val TextGray = NocturneColors.SecondaryText
+val TextWhite = OmniReferenceColors.TextPrimary
+val TextPrimary = OmniReferenceColors.TextPrimary
+val TextSecondary = OmniReferenceColors.TextSecondary
+val TextMuted = OmniReferenceColors.TextMuted
+val TextDim = OmniReferenceColors.TextDisabled
+val TextGray = OmniReferenceColors.TextSecondary
 
-val BorderColor = NocturneColors.BorderSubtle
-val SurfaceHairline = NocturneColors.BorderSubtle
-val BorderLow = NocturneColors.BorderSubtle
-val BorderWhite = NocturneColors.BorderSubtle
+val BorderColor = OmniReferenceColors.SurfaceBorder
+val SurfaceHairline = OmniReferenceColors.SurfaceBorder
+val BorderLow = OmniReferenceColors.SurfaceBorder
+val BorderWhite = OmniReferenceColors.SurfaceBorder
 val BorderHover = Color(0x24FFFFFF)
 
 val SuccessGreen = Color(0xFF5BD6A0)
@@ -169,7 +249,7 @@ object Shapes {
 }
 
 object OmniLayout {
-    val sidebarWidth = 230.dp
+    val sidebarWidth = 252.dp
     val topBarHeight = 56.dp
     val bottomPlayerHeight = 80.dp
     val mainContentMaxWidth = 1200.dp
@@ -195,10 +275,105 @@ object OmniMotion {
         stiffness = Spring.StiffnessLow,
     )
 
-    fun screenTween() = tween<Float>(
-        durationMillis = normalMs,
+    fun screenTween(policy: OmniMotionPolicy = OmniMotionPolicy.Default) = tween<Float>(
+        durationMillis = policy.standardDurationMs,
         easing = FastOutSlowInEasing,
     )
+}
+
+@Immutable
+data class OmniMotionPolicy(
+    val reduced: Boolean,
+    val standardDurationMs: Int,
+    val shortDurationMs: Int,
+    val decorativeMotionEnabled: Boolean,
+) {
+    companion object {
+        val Default = OmniMotionPolicy(
+            reduced = false,
+            standardDurationMs = OmniMotion.normalMs,
+            shortDurationMs = OmniMotion.fastFadeMs,
+            decorativeMotionEnabled = true,
+        )
+        val Reduced = OmniMotionPolicy(
+            reduced = true,
+            standardDurationMs = 1,
+            shortDurationMs = 1,
+            decorativeMotionEnabled = false,
+        )
+    }
+}
+
+val LocalOmniMotionPolicy = staticCompositionLocalOf { OmniMotionPolicy.Default }
+
+@Immutable
+data class OmniThemePalette(
+    val windowBase: Color,
+    val contentBase: Color,
+    val topBarStart: Color,
+    val topBarCenter: Color,
+    val topBarEnd: Color,
+    val mainGlow: Color,
+    val violetGlow: Color,
+    val rightGlow: Color,
+    val accent: Color,
+)
+
+private val NocturnePrismPalette = OmniThemePalette(
+    windowBase = OmniReferenceColors.WindowBase,
+    contentBase = OmniReferenceColors.ContentBase,
+    topBarStart = Color(0xFF040716),
+    topBarCenter = Color(0xFF030715),
+    topBarEnd = Color(0xFF020615),
+    mainGlow = Color(0xFF0B2A5C),
+    violetGlow = Color(0xFF25105B),
+    rightGlow = Color(0xFF091A43),
+    accent = OmniReferenceColors.Accent,
+)
+
+private val MidnightPalette = OmniThemePalette(
+    windowBase = Color(0xFF01040E),
+    contentBase = Color(0xFF020712),
+    topBarStart = Color(0xFF020612),
+    topBarCenter = Color(0xFF01040D),
+    topBarEnd = Color(0xFF00030A),
+    mainGlow = Color(0xFF082047),
+    violetGlow = Color(0xFF101A4A),
+    rightGlow = Color(0xFF06132E),
+    accent = Color(0xFF6F8CFF),
+)
+
+private val DuskPalette = OmniThemePalette(
+    windowBase = Color(0xFF080412),
+    contentBase = Color(0xFF0A0616),
+    topBarStart = Color(0xFF0A0616),
+    topBarCenter = Color(0xFF070411),
+    topBarEnd = Color(0xFF05030D),
+    mainGlow = Color(0xFF33204E),
+    violetGlow = Color(0xFF5B2256),
+    rightGlow = Color(0xFF2E173F),
+    accent = Color(0xFFC088FF),
+)
+
+private val AuroraPalette = OmniThemePalette(
+    windowBase = Color(0xFF02080E),
+    contentBase = Color(0xFF031017),
+    topBarStart = Color(0xFF031018),
+    topBarCenter = Color(0xFF020B12),
+    topBarEnd = Color(0xFF01070C),
+    mainGlow = Color(0xFF0A4B5F),
+    violetGlow = Color(0xFF253067),
+    rightGlow = Color(0xFF0A5A52),
+    accent = Color(0xFF62D6D0),
+)
+
+val LocalOmniThemePalette = staticCompositionLocalOf { NocturnePrismPalette }
+
+private fun paletteForTheme(theme: String): OmniThemePalette = when (theme.lowercase()) {
+    "midnight" -> MidnightPalette
+    "dusk" -> DuskPalette
+    "aurora" -> AuroraPalette
+    else -> NocturnePrismPalette
 }
 data class GlassSurfaceStyle(
     val surfaceTint: Color,
@@ -224,7 +399,7 @@ object GlassDefaults {
         shadowElevation = 4.dp
     )
     val navBar = GlassSurfaceStyle(
-        surfaceTint = SidebarBackground,
+        surfaceTint = OmniReferenceColors.SidebarMiddle,
         borderAlpha = 0f,
         shadowElevation = 0.dp
     )
@@ -317,21 +492,53 @@ val OmniTuneTypography = Typography(
 )
 
 @Composable
-fun OmniTuneTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = DarkColorScheme,
-        typography = OmniTuneTypography,
-        content = content
+fun OmniTuneTheme(
+    reducedMotion: Boolean = false,
+    theme: String = "nocturne",
+    content: @Composable () -> Unit,
+) {
+    val motionPolicy = if (reducedMotion) OmniMotionPolicy.Reduced else OmniMotionPolicy.Default
+    val palette = paletteForTheme(theme)
+    val scheme = darkColorScheme(
+        primary = palette.accent,
+        onPrimary = Color.White,
+        primaryContainer = palette.accent.copy(alpha = 0.15f),
+        onPrimaryContainer = palette.accent,
+        secondary = palette.accent,
+        onSecondary = Color.White,
+        secondaryContainer = Surface1,
+        onSecondaryContainer = TextPrimary,
+        background = palette.windowBase,
+        onBackground = TextPrimary,
+        surface = palette.contentBase,
+        onSurface = TextPrimary,
+        surfaceVariant = Surface2,
+        onSurfaceVariant = TextSecondary,
+        error = ErrorRed,
+        onError = Color.White,
+        outline = BorderLow,
+        outlineVariant = BorderWhite,
     )
+    CompositionLocalProvider(
+        LocalOmniMotionPolicy provides motionPolicy,
+        LocalOmniThemePalette provides palette,
+    ) {
+        MaterialTheme(
+            colorScheme = scheme,
+            typography = OmniTuneTypography,
+            content = content
+        )
+    }
 }
 
 fun Modifier.pressBounce(
     interactionSource: MutableInteractionSource,
     pressedScale: Float = 0.97f
 ) = composed {
+    val motionPolicy = LocalOmniMotionPolicy.current
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) pressedScale else 1f,
+        targetValue = if (motionPolicy.decorativeMotionEnabled && isPressed) pressedScale else 1f,
         animationSpec = OmniMotion.pressSpring()
     )
     this.scale(scale)

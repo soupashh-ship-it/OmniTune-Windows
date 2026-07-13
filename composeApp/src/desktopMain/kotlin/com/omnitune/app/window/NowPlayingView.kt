@@ -161,6 +161,10 @@ private fun PlayerRegion(
     onSliderChange: (Float) -> Unit,
     onSliderFinish: () -> Unit,
 ) {
+    var actionMessage by remember(currentSong.id) { mutableStateOf<String?>(null) }
+    val likedIds by player.likedSongs.collectAsState()
+    val isLiked = currentSong.id in likedIds
+
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -233,18 +237,31 @@ private fun PlayerRegion(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            NpIconButton(icon = Icons.Default.FavoriteBorder, tooltip = "Like") { /* NOT SUPPORTED: no like endpoint */ }
+            NpIconButton(icon = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, tooltip = "Like") {
+                player.toggleLike(currentSong.id)
+                actionMessage = if (isLiked) "Removed from liked songs." else "Added to liked songs."
+            }
             Spacer(Modifier.width(8.dp))
-            NpIconButton(icon = Icons.Default.AddCircleOutline, tooltip = "Add to library") { /* NOT SUPPORTED */ }
+            NpIconButton(icon = Icons.Default.AddCircleOutline, tooltip = "Play next") {
+                player.playNext(currentSong)
+                actionMessage = "Added to play next."
+            }
             Spacer(Modifier.width(8.dp))
-            NpIconButton(icon = Icons.Default.MoreHoriz, tooltip = "More options") { /* Overflow menu - future */ }
+            NpIconButton(icon = Icons.Default.MoreHoriz, tooltip = "More options") {
+                player.navigateTo(com.omnitune.app.player.NavScreen.Queue)
+                actionMessage = "Opened Queue & Session."
+            }
+        }
+        actionMessage?.let {
+            Spacer(Modifier.height(6.dp))
+            Text(it, color = TextSecondary, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
         }
 
         Spacer(Modifier.weight(1f))
 
-        // Decorative playback visualizer (honest: animated bars, NOT real waveform)
-        PlaybackVisualizer(
-            isPlaying = playbackState == PlaybackState.PLAYING,
+        // Progress-derived visualization. This is intentionally not audio-reactive.
+        PlaybackProgressVisualizer(
+            progress = displayPos,
             modifier = Modifier.fillMaxWidth().height(28.dp).padding(horizontal = 4.dp),
         )
 
@@ -799,49 +816,35 @@ private fun AnimatedEqBars() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Decorative playback visualizer — animated soft bars, NOT real waveform data
+// Playback progress visualization — derived from actual seek progress, not audio-reactive waveform data
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun PlaybackVisualizer(isPlaying: Boolean, modifier: Modifier) {
-    val barCount = 18
-    val infiniteTransition = rememberInfiniteTransition(label = "visualizer")
-
-    // All bars always animated; target height collapses to low when paused
-    val barHeights: List<State<Float>> = (0 until barCount).map { i ->
-        val period = 500 + (i * 53 % 450)
-        infiniteTransition.animateFloat(
-            initialValue = if (i % 2 == 0) 0.15f else 0.85f,
-            targetValue = if (i % 2 == 0) 0.85f else 0.15f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(period, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse,
-            ),
-            label = "vbar$i",
-        )
-    }
-
-    val playingAlpha by animateFloatAsState(
-        targetValue = if (isPlaying) 0.75f else 0.3f,
-        animationSpec = tween(300),
-        label = "vizAlpha",
-    )
-
+private fun PlaybackProgressVisualizer(progress: Float, modifier: Modifier) {
+    val barCount = 30
+    val clampedProgress = progress.coerceIn(0f, 1f)
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.Bottom,
         horizontalArrangement = Arrangement.SpaceEvenly,
     ) {
-        barHeights.forEach { anim ->
-            val fraction = if (isPlaying) anim.value else 0.12f
+        repeat(barCount) { index ->
+            val base = (((index * 37) % 10) + 4) / 14f
+            val position = (index + 1).toFloat() / barCount.toFloat()
+            val isElapsed = position <= clampedProgress
+            val fraction = if (isElapsed) base else 0.14f
             Box(
                 modifier = Modifier
-                    .width(4.dp)
+                    .width(3.dp)
                     .height((fraction * 28f).coerceAtLeast(3f).dp)
                     .clip(RoundedCornerShape(2.dp))
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(Iris.copy(alpha = playingAlpha), IrisSoft.copy(alpha = playingAlpha * 0.4f))
+                            colors = if (isElapsed) {
+                                listOf(Iris.copy(alpha = 0.72f), IrisSoft.copy(alpha = 0.34f))
+                            } else {
+                                listOf(Surface3.copy(alpha = 0.88f), Surface3.copy(alpha = 0.42f))
+                            }
                         )
                     ),
             )

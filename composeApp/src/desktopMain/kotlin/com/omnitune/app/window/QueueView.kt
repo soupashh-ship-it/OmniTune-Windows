@@ -1,50 +1,70 @@
 package com.omnitune.app.window
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import com.omnitune.app.platform.PlaybackState
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import com.omnitune.innertube.toHighResThumbnail
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.hoverable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsHoveredAsState
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.filled.PlaylistAdd
-import androidx.compose.material.icons.filled.Shuffle
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.GraphicEq
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Tune
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextAlign
-import com.omnitune.app.window.components.*
-import androidx.compose.foundation.border
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DragIndicator
+import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.PlaylistAdd
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.Icon
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.omnitune.app.platform.PlaybackSession
+import com.omnitune.app.platform.PlaybackState
 import com.omnitune.app.player.PlayerViewModel
 import com.omnitune.innertube.models.SongItem
+import com.omnitune.innertube.toHighResThumbnail
 
 @Composable
 fun QueueView(player: PlayerViewModel) {
@@ -52,124 +72,234 @@ fun QueueView(player: PlayerViewModel) {
     val queueIndex by player.queueIndex.collectAsState()
     val currentSong by player.currentSong.collectAsState()
     val playbackState by player.playbackState.collectAsState()
+    val repeatMode by player.repeatMode.collectAsState()
+    val recommendations by player.discoveryTrending.collectAsState()
+    val playbackHistory by player.playbackHistory.collectAsState()
+    val playbackSessions by player.playbackSessions.collectAsState()
+    var message by remember { mutableStateOf<String?>(null) }
+    var recRotation by remember { mutableIntStateOf(0) }
+    var showSaveDialog by remember { mutableStateOf(false) }
+    var playlistName by remember { mutableStateOf("") }
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 28.dp)) {
-        // Header
-        Text("Queue & Session", style = MaterialTheme.typography.displaySmall, color = TextPrimary, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(4.dp))
-        Text("Manage your listening queue, session history, and discover what's next.", style = MaterialTheme.typography.bodyLarge, color = TextSecondary)
-        Spacer(Modifier.height(32.dp))
+    val realRecommendations = remember(recommendations, queue, recRotation) {
+        val queuedIds = queue.map { it.id }.toSet()
+        recommendations
+            .filterNot { it.id in queuedIds }
+            .let { if (it.isEmpty()) it else it.drop(recRotation % it.size) + it.take(recRotation % it.size) }
+            .take(8)
+    }
 
-        Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-            // Column 1: Up Next
-            Column(modifier = Modifier.weight(1.2f).fillMaxHeight()) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Up Next", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.width(12.dp))
-                        val remaining = queue.drop(queueIndex + 1).size
-                        Text("$remaining songs", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+    QueueReferenceContent(
+        queue = queue,
+        queueIndex = queueIndex,
+        currentSong = currentSong,
+        playbackState = playbackState,
+        repeatModeLabel = repeatMode.name.lowercase().replaceFirstChar { it.titlecase() },
+        history = playbackHistory.map { it.song },
+        sessions = playbackSessions,
+        recommendations = realRecommendations,
+        message = message,
+        onClear = {
+            player.clearQueue()
+            message = "Queue cleared."
+        },
+        onSave = {
+            if (queue.isEmpty()) {
+                message = "Queue is empty. Add tracks before saving."
+            } else {
+                playlistName = "Queue ${java.time.LocalDateTime.now().toString().replace('T', ' ').substringBeforeLast(':')}"
+                showSaveDialog = true
+            }
+        },
+        onShuffle = {
+            player.toggleShuffle()
+            message = "Shuffle toggled."
+        },
+        onRepeat = {
+            player.cycleRepeat()
+            message = "Repeat changed."
+        },
+        onSeeAllHistory = {
+            message = "Showing latest persisted playback history."
+        },
+        onPlayQueueIndex = player::playQueueIndex,
+        onPlayHistoryItem = { player.playSong(it) },
+        onRemove = player::removeFromQueue,
+        onAddRecommendation = {
+            player.addToQueue(it)
+            message = "Added to queue."
+        },
+        onAddAllRecommendations = {
+            realRecommendations.forEach(player::addToQueue)
+            message = "Added ${realRecommendations.size} real recommendations to queue."
+        },
+        onRefreshRecommendations = {
+            recRotation += 1
+            message = "Recommendations refreshed from loaded discovery data."
+        },
+    )
+
+    if (showSaveDialog) {
+        AlertDialog(
+            onDismissRequest = { showSaveDialog = false },
+            title = { Text("Save queue as playlist") },
+            text = {
+                OutlinedTextField(
+                    value = playlistName,
+                    onValueChange = { playlistName = it },
+                    singleLine = true,
+                    label = { Text("Playlist name") },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = playlistName.isNotBlank(),
+                    onClick = {
+                        player.saveQueueAsPlaylist(playlistName)
+                            .onSuccess { message = "Saved playlist: $it" }
+                            .onFailure { message = it.message ?: "Could not save playlist." }
+                        showSaveDialog = false
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        QueueHeaderAction(Icons.Default.Delete, "Clear") { player.clearQueue() }
-                        QueueHeaderAction(Icons.Default.PlaylistAdd, "Save as Playlist") {}
-                        QueueHeaderAction(Icons.Default.Shuffle, "Shuffle") {}
-                        QueueHeaderAction(Icons.Default.Repeat, "Repeat") {}
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
+                ) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSaveDialog = false }) { Text("Cancel") }
+            },
+        )
+    }
+}
 
+@Composable
+private fun QueueReferenceContent(
+    queue: List<SongItem>,
+    queueIndex: Int,
+    currentSong: SongItem?,
+    playbackState: PlaybackState,
+    repeatModeLabel: String,
+    history: List<SongItem>,
+    sessions: List<PlaybackSession>,
+    recommendations: List<SongItem>,
+    message: String?,
+    onClear: () -> Unit,
+    onSave: () -> Unit,
+    onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
+    onSeeAllHistory: () -> Unit,
+    onPlayQueueIndex: (Int) -> Unit,
+    onPlayHistoryItem: (SongItem) -> Unit,
+    onRemove: (Int) -> Unit,
+    onAddRecommendation: (SongItem) -> Unit,
+    onAddAllRecommendations: () -> Unit,
+    onRefreshRecommendations: () -> Unit,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    val scroll = rememberScrollState()
+    val remaining = if (queueIndex >= 0) queue.drop(queueIndex + 1) else queue
+    val totalSeconds = queue.mapNotNull { it.duration }.sum()
+
+    Box(Modifier.fillMaxSize().verticalScroll(scroll)) {
+        Box(Modifier.fillMaxWidth().height(metrics.px(560f))) {
+            Text("Queue & Session", color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(22f)))
+            Text("Manage the active playback queue and real loaded recommendations.", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(50f)))
+            message?.let {
+                Text(it, color = IrisSoft, fontSize = 8.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.offset(x = metrics.px(430f), y = metrics.px(31f)).width(metrics.px(250f)))
+            }
+
+            ReferencePanel(
+                title = "Up Next",
+                subtitle = "${remaining.size} remaining · ${formatDuration(totalSeconds)} total",
+                modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(65f)).width(metrics.px(474f)).height(metrics.px(334f)),
+                header = {
+                    QueueHeaderAction(Icons.Default.Delete, "Clear", onClear)
+                    QueueHeaderAction(Icons.Default.PlaylistAdd, "Save as Playlist", onSave)
+                    QueueHeaderAction(Icons.Default.Shuffle, "Shuffle", onShuffle)
+                    QueueHeaderAction(Icons.Default.Repeat, "Repeat", onRepeat)
+                },
+            ) {
                 if (queue.isEmpty()) {
-                    OmniEmptyState("Queue is empty", "Search and play a song to get started")
+                    QueueEmpty("Queue is empty", "Play or add a track to populate this session.")
                 } else {
-                    LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        itemsIndexed(queue) { idx, item ->
-                            val isCurrent = idx == queueIndex
-                            val isPlaying = isCurrent && playbackState == PlaybackState.PLAYING
-                            QueueRow(
-                                item = item,
-                                index = idx,
-                                isCurrent = isCurrent,
-                                isPlaying = isPlaying,
-                                onPlay = { player.playQueueIndex(idx) },
-                                onRemove = { player.removeFromQueue(idx) }
-                            )
+                    queue.take(8).forEachIndexed { index, item ->
+                        QueueSongRow(
+                            item = item,
+                            index = index,
+                            isCurrent = index == queueIndex,
+                            isPlaying = index == queueIndex && playbackState == PlaybackState.PLAYING,
+                            onPlay = { onPlayQueueIndex(index) },
+                            onRemove = { onRemove(index) },
+                        )
+                    }
+                }
+            }
+
+            ReferencePanel(
+                title = "Queue Controls",
+                subtitle = null,
+                modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(418f)).width(metrics.px(474f)).height(metrics.px(78f)),
+            ) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.px(8f))) {
+                    QueueControl(Icons.Default.GraphicEq, "Crossfade", "Not exposed", IrisSoft, Modifier.weight(1f))
+                    QueueControl(Icons.Default.AutoAwesome, "Autoplay", "Discovery", CoolBlue, Modifier.weight(1f))
+                    QueueControl(Icons.Default.Tune, "Mix Mood", "Queue-based", SuccessGreen, Modifier.weight(1f))
+                    QueueControl(Icons.Default.AllInclusive, "Repeat", repeatModeLabel, Iris, Modifier.weight(1f))
+                }
+            }
+
+            ReferencePanel(
+                title = "Session History",
+                subtitle = if (sessions.isEmpty()) "No persisted sessions" else "${sessions.size} persisted sessions",
+                modifier = Modifier.offset(x = metrics.px(506f), y = metrics.px(65f)).width(metrics.px(213f)).height(metrics.px(246f)),
+                seeAll = {
+                    Text("See all", color = IrisSoft, fontSize = 8.5.sp, modifier = Modifier.clickable(onClick = onSeeAllHistory))
+                },
+            ) {
+                sessions.take(4).forEach { session ->
+                    SessionCard(session)
+                }
+                if (sessions.isEmpty()) {
+                    QueueEmpty("No session history", "Play a track for at least one session to build persisted history.")
+                }
+            }
+
+            ReferencePanel(
+                title = "Recently Played",
+                subtitle = "Derived from current queue",
+                modifier = Modifier.offset(x = metrics.px(506f), y = metrics.px(329f)).width(metrics.px(213f)).height(metrics.px(166f)),
+            ) {
+                history.drop(1).take(3).forEach {
+                    CompactSongCard(it, "From persisted playback history", onClick = { onPlayHistoryItem(it) })
+                }
+                if (history.drop(1).isEmpty()) {
+                    QueueEmpty("No recent tracks", "Recent tracks persist after playback.")
+                }
+            }
+
+            ReferencePanel(
+                title = "After This Queue Ends",
+                subtitle = "Real discovery recommendations",
+                modifier = Modifier.offset(x = metrics.px(728f), y = metrics.px(65f)).width(metrics.px(217f)).height(metrics.px(422f)),
+                trailingIcon = Icons.Default.AutoAwesome,
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.px(7f))) {
+                    if (recommendations.isEmpty()) {
+                        QueueEmpty("No recommendations loaded", "Open Home/Search once discovery finishes loading.")
+                    } else {
+                        recommendations.take(7).forEach { item ->
+                            RecommendationRow(item, onAdd = { onAddRecommendation(item) })
                         }
                     }
                 }
-
-                Spacer(Modifier.height(24.dp))
-                Text("Queue Controls", style = MaterialTheme.typography.titleMedium, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(12.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    QueueControlCard(Modifier.weight(1f), Icons.Default.GraphicEq, "Crossfade", "5 seconds", Iris)
-                    QueueControlCard(Modifier.weight(1f), Icons.Default.Bolt, "Autoplay", "Suggested", CoolBlue)
-                    QueueControlCard(Modifier.weight(1f), Icons.Default.Tune, "Mix Mood", "Balanced", SuccessGreen)
-                    QueueControlCard(Modifier.weight(1f), Icons.Default.AllInclusive, "Gapless Playback", "Enabled", IrisSoft)
-                }
-            }
-
-            // Column 2: Session History & Recently Played
-            Column(modifier = Modifier.weight(0.7f).fillMaxHeight()) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Session History", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                    Text("See all", style = MaterialTheme.typography.labelMedium, color = IrisSoft, modifier = Modifier.clickable { })
-                }
-                Spacer(Modifier.height(16.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SessionHistoryCard("After Hours", "Playlist · 18 songs", "Played just now")
-                    SessionHistoryCard("Midnight Drive", "Playlist · 24 songs", "Played 1h ago")
-                    SessionHistoryCard("Afrobeats Heat", "Playlist · 35 songs", "Played 3h ago")
-                    SessionHistoryCard("Chill Mornings", "Playlist · 22 songs", "Played yesterday")
-                }
-                
-                Spacer(Modifier.height(32.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Recently Played", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                    Text("See all", style = MaterialTheme.typography.labelMedium, color = IrisSoft, modifier = Modifier.clickable { })
-                }
-                Spacer(Modifier.height(16.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    SessionHistoryCard("Timeless", "Album · 15 songs", null)
-                    SessionHistoryCard("Mr Money With The Vibe", "Album · 12 songs", null)
-                    SessionHistoryCard("Peace Be Unto You (PBUY)", "Album · 10 songs", null)
-                }
-            }
-
-            // Column 3: After This Queue Ends
-            OmniSurface(modifier = Modifier.weight(0.7f).fillMaxHeight(), color = Surface1, border = true) {
-                Column(modifier = Modifier.padding(20.dp).fillMaxHeight()) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("After This Queue Ends", style = MaterialTheme.typography.titleLarge, color = TextPrimary, fontWeight = FontWeight.SemiBold)
-                            Spacer(Modifier.height(4.dp))
-                            Text("Smart recommendations based on your queue and listening history.", style = MaterialTheme.typography.bodySmall, color = TextSecondary, lineHeight = 16.sp)
-                        }
-                        Icon(Icons.Default.AutoAwesome, null, tint = IrisSoft, modifier = Modifier.size(24.dp))
-                    }
-                    Spacer(Modifier.height(20.dp))
-                    
-                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        RecommendationRow("SOWETO", "Victony")
-                        RecommendationRow("5AM", "Kizz Daniel")
-                        RecommendationRow("Rush", "Ayra Starr")
-                        RecommendationRow("Unavailable", "Davido")
-                        RecommendationRow("City Boys", "Adekunle Gold")
-                        RecommendationRow("Jealous", "Fireboy DML")
-                        RecommendationRow("Lonely at the Top", "Asake")
-                        RecommendationRow("I Need You", "Omah Lay")
-                    }
-                    
-                    Spacer(Modifier.height(20.dp))
-                    Box(modifier = Modifier.fillMaxWidth().height(44.dp).clip(Shapes.medium).background(OmniGradients.primaryAction).clickable { }, contentAlignment = Alignment.Center) {
-                        Text("Add All to Queue", color = Color.White, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.height(12.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Refresh, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text("Refresh Recommendations", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-                    }
+                Spacer(Modifier.height(metrics.px(10f)))
+                QueuePrimaryButton("Add All to Queue", enabled = recommendations.isNotEmpty(), onClick = onAddAllRecommendations)
+                Spacer(Modifier.height(metrics.px(8f)))
+                Row(
+                    Modifier.fillMaxWidth().height(metrics.px(25f)).clip(RoundedCornerShape(metrics.px(7f))).clickable(onClick = onRefreshRecommendations),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Default.Refresh, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(11f)))
+                    Spacer(Modifier.width(metrics.px(6f)))
+                    Text("Refresh Recommendations", color = TextSecondary, fontSize = 8.5.sp)
                 }
             }
         }
@@ -177,137 +307,225 @@ fun QueueView(player: PlayerViewModel) {
 }
 
 @Composable
-private fun QueueHeaderAction(icon: ImageVector, label: String, onClick: () -> Unit) {
-    Row(modifier = Modifier.clickable(onClick = onClick), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(label, style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-    }
-}
-
-@Composable
-private fun QueueControlCard(modifier: Modifier, icon: ImageVector, title: String, subtitle: String, color: Color) {
-    OmniSurface(modifier = modifier, color = Surface2, border = true) {
-        Column(modifier = Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
-            Spacer(Modifier.height(8.dp))
-            Text(title, style = MaterialTheme.typography.labelMedium, color = TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-    }
-}
-
-@Composable
-private fun SessionHistoryCard(title: String, subtitle: String, time: String?) {
-    OmniSurface(modifier = Modifier.fillMaxWidth(), color = Surface2, border = true) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(48.dp).clip(Shapes.artworkSmall).background(Surface3))
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, color = TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (time != null) {
-                    Text(time, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+private fun ReferencePanel(
+    title: String,
+    subtitle: String?,
+    modifier: Modifier,
+    header: @Composable RowScope.() -> Unit = {},
+    seeAll: (@Composable () -> Unit)? = null,
+    trailingIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(metrics.px(9f)))
+            .background(OmniReferenceColors.SurfaceBase.copy(alpha = 0.78f))
+            .border(1.dp, BorderLow.copy(alpha = 0.64f), RoundedCornerShape(metrics.px(9f)))
+            .padding(metrics.px(12f)),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f)) {
+                Text(title, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                if (subtitle != null) {
+                    Text(subtitle, color = TextSecondary, fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            OmniIconButton(icon = Icons.Default.PlayArrow, contentDescription = "Play", onClick = {}, size = 32.dp, background = Surface3)
+            Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(8f)), verticalAlignment = Alignment.CenterVertically) {
+                header()
+                seeAll?.invoke()
+                trailingIcon?.let { Icon(it, null, tint = IrisSoft, modifier = Modifier.size(metrics.px(15f))) }
+            }
         }
+        Spacer(Modifier.height(metrics.px(12f)))
+        content()
     }
 }
 
 @Composable
-private fun RecommendationRow(title: String, artist: String) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.size(40.dp).clip(Shapes.artworkSmall).background(Surface3))
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, color = TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(artist, style = MaterialTheme.typography.bodySmall, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        Text("Add", style = MaterialTheme.typography.labelMedium, color = TextSecondary, modifier = Modifier.padding(horizontal = 8.dp))
-        Icon(Icons.Default.MoreHoriz, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
+private fun QueueHeaderAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Row(
+        modifier = Modifier.height(metrics.px(18f)).clip(RoundedCornerShape(metrics.px(5f))).clickable(onClick = onClick).padding(horizontal = metrics.px(4f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(10f)))
+        Spacer(Modifier.width(metrics.px(4f)))
+        Text(label, color = TextSecondary, fontSize = 7.7.sp, maxLines = 1)
     }
 }
 
 @Composable
-private fun QueueRow(
+private fun QueueSongRow(
     item: SongItem,
     index: Int,
     isCurrent: Boolean,
     isPlaying: Boolean,
     onPlay: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isHovered by interactionSource.collectIsHoveredAsState()
-
-    val bg = when {
-        isCurrent -> Iris.copy(alpha = 0.1f)
-        isHovered -> BgCardHover
-        else -> Color.Transparent
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth()
-            .then(if (isCurrent) Modifier.border(1.dp, Iris.copy(alpha = 0.3f), Shapes.small) else Modifier)
-            .clip(Shapes.small)
-            .background(bg)
-            .hoverable(interactionSource)
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onPlay)
-            .pressBounce(interactionSource),
-        shape = Shapes.small,
-        color = Color.Transparent
+    val metrics = LocalHomeReferenceMetrics.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(metrics.px(33f))
+            .clip(RoundedCornerShape(metrics.px(7f)))
+            .background(if (isCurrent) OmniReferenceColors.SurfaceSelected.copy(alpha = 0.82f) else Color.Transparent)
+            .clickable(onClick = onPlay)
+            .padding(horizontal = metrics.px(7f)),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier.padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text((index + 1).toString(), style = MaterialTheme.typography.bodyMedium, color = if (isCurrent) IrisSoft else TextDim, modifier = Modifier.width(24.dp), textAlign = TextAlign.Center)
-            Spacer(Modifier.width(8.dp))
-            Box(
-                modifier = Modifier.size(40.dp).clip(Shapes.artworkSmall).background(BgCard),
-                contentAlignment = Alignment.Center
-            ) {
-                AsyncImage(
-                    model = item.thumbnail.toHighResThumbnail(),
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-                if (isCurrent) {
-                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.5f)), contentAlignment = Alignment.Center) {
-                        PlayingIndicatorBox(isActive = true, playWhenReady = isPlaying, color = Iris)
-                    }
-                }
-            }
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    item.title,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = if (isCurrent) IrisSoft else TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                val artists = item.artists.joinToString(", ") { it.name }
-                if (artists.isNotEmpty()) {
-                    Text(artists, style = MaterialTheme.typography.bodyMedium, color = TextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-            
-            Text(item.title, style = MaterialTheme.typography.bodyMedium, color = TextSecondary, modifier = Modifier.weight(0.8f).padding(horizontal = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            
-            item.duration?.let { dur ->
-                Text("${dur / 60}:${(dur % 60).toString().padStart(2, '0')}", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-            }
-            Spacer(Modifier.width(12.dp))
-            IconButton(
-                onClick = onRemove,
-                modifier = Modifier.size(32.dp)
-            ) {
-                Icon(Icons.Default.MoreHoriz, null, tint = TextSecondary, modifier = Modifier.size(16.dp))
-            }
+        Icon(Icons.Default.DragIndicator, null, tint = TextMuted, modifier = Modifier.size(metrics.px(10f)))
+        Text("${index + 1}", color = if (isCurrent) IrisSoft else TextMuted, fontSize = 8.sp, modifier = Modifier.width(metrics.px(20f)), textAlign = TextAlign.Center)
+        Artwork(item.thumbnail, metrics.px(24f))
+        Spacer(Modifier.width(metrics.px(8f)))
+        Column(Modifier.weight(1.25f)) {
+            Text(item.title, color = if (isCurrent) IrisSoft else TextPrimary, fontSize = 8.8.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.artists.joinToString(", ") { it.name }, color = TextSecondary, fontSize = 7.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(item.album?.name ?: "Single", color = TextSecondary, fontSize = 7.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(0.82f))
+        Text(formatDuration(item.duration ?: 0), color = TextSecondary, fontSize = 7.5.sp, modifier = Modifier.width(metrics.px(32f)), textAlign = TextAlign.End)
+        Icon(if (isPlaying) Icons.Default.PlayArrow else Icons.Default.MoreHoriz, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onRemove))
+    }
+}
+
+@Composable
+private fun QueueControl(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, value: String, tint: Color, modifier: Modifier) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Row(
+        modifier = modifier
+            .fillMaxHeight()
+            .clip(RoundedCornerShape(metrics.px(7f)))
+            .background(OmniReferenceColors.SurfaceRaised.copy(alpha = 0.65f))
+            .border(1.dp, BorderLow.copy(alpha = 0.45f), RoundedCornerShape(metrics.px(7f)))
+            .padding(horizontal = metrics.px(8f), vertical = metrics.px(5f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = tint, modifier = Modifier.size(metrics.px(14f)))
+        Spacer(Modifier.width(metrics.px(6f)))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
+            Text(title, color = TextPrimary, fontSize = 7.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(value, color = TextSecondary, fontSize = 6.6.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
 
+@Composable
+private fun CompactSongCard(item: SongItem, meta: String, onClick: () -> Unit) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Row(
+        modifier = Modifier.fillMaxWidth().height(metrics.px(38f)).clip(RoundedCornerShape(metrics.px(7f))).background(OmniReferenceColors.SurfaceRaised.copy(alpha = 0.54f)).clickable(onClick = onClick).padding(metrics.px(7f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Artwork(item.thumbnail, metrics.px(24f))
+        Spacer(Modifier.width(metrics.px(8f)))
+        Column(Modifier.weight(1f)) {
+            Text(item.title, color = TextPrimary, fontSize = 8.4.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(meta, color = TextSecondary, fontSize = 7.2.sp, maxLines = 1)
+        }
+        Icon(Icons.Default.PlayArrow, null, tint = IrisSoft, modifier = Modifier.size(metrics.px(12f)))
+    }
+    Spacer(Modifier.height(metrics.px(7f)))
+}
+
+@Composable
+private fun SessionCard(session: PlaybackSession) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(metrics.px(38f))
+            .clip(RoundedCornerShape(metrics.px(7f)))
+            .background(OmniReferenceColors.SurfaceRaised.copy(alpha = 0.54f))
+            .padding(metrics.px(7f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(metrics.px(24f)).clip(CircleShape).background(IrisSoft.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Default.GraphicEq, null, tint = IrisSoft, modifier = Modifier.size(metrics.px(12f)))
+        }
+        Spacer(Modifier.width(metrics.px(8f)))
+        Column(Modifier.weight(1f)) {
+            Text("${session.playCount} plays · ${session.uniqueTrackCount} tracks", color = TextPrimary, fontSize = 8.4.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text("${formatMillis(session.totalListeningMs)} listened", color = TextSecondary, fontSize = 7.2.sp, maxLines = 1)
+        }
+    }
+    Spacer(Modifier.height(metrics.px(7f)))
+}
+
+@Composable
+private fun RecommendationRow(item: SongItem, onAdd: () -> Unit) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Row(Modifier.fillMaxWidth().height(metrics.px(31f)), verticalAlignment = Alignment.CenterVertically) {
+        Artwork(item.thumbnail, metrics.px(24f))
+        Spacer(Modifier.width(metrics.px(8f)))
+        Column(Modifier.weight(1f)) {
+            Text(item.title, color = TextPrimary, fontSize = 8.3.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.artists.joinToString(", ") { it.name }, color = TextSecondary, fontSize = 7.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Row(
+            Modifier.height(metrics.px(20f)).clip(RoundedCornerShape(metrics.px(6f))).background(OmniReferenceColors.SurfaceSelected.copy(alpha = 0.54f)).clickable(onClick = onAdd).padding(horizontal = metrics.px(7f)),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Default.Add, null, tint = IrisSoft, modifier = Modifier.size(metrics.px(9f)))
+            Spacer(Modifier.width(metrics.px(3f)))
+            Text("Add", color = IrisSoft, fontSize = 7.4.sp)
+        }
+    }
+}
+
+@Composable
+private fun QueuePrimaryButton(text: String, enabled: Boolean, onClick: () -> Unit) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(metrics.px(28f))
+            .clip(RoundedCornerShape(metrics.px(8f)))
+            .then(if (enabled) Modifier.background(brush = OmniGradients.primaryAction) else Modifier.background(Surface3))
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(text, color = TextPrimary, fontSize = 8.6.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun QueueEmpty(title: String, subtitle: String) {
+    Box(Modifier.fillMaxWidth().height(LocalHomeReferenceMetrics.current.px(58f)), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(title, color = TextPrimary, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
+            Text(subtitle, color = TextSecondary, fontSize = 7.5.sp, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun Artwork(url: String?, size: androidx.compose.ui.unit.Dp) {
+    Box(Modifier.size(size).clip(RoundedCornerShape(LocalHomeReferenceMetrics.current.px(5f))).background(Surface3), contentAlignment = Alignment.Center) {
+        if (!url.isNullOrBlank()) {
+            AsyncImage(
+                model = url.toHighResThumbnail(),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            Icon(Icons.Default.GraphicEq, null, tint = TextMuted, modifier = Modifier.size(size * 0.48f))
+        }
+    }
+}
+
+private fun formatDuration(seconds: Int): String {
+    if (seconds <= 0) return "--:--"
+    val mins = seconds / 60
+    val secs = seconds % 60
+    return "$mins:${secs.toString().padStart(2, '0')}"
+}
+
+private fun formatMillis(ms: Long): String {
+    if (ms <= 0L) return "0:00"
+    val totalSeconds = ms / 1000L
+    val mins = totalSeconds / 60L
+    val secs = totalSeconds % 60L
+    return "$mins:${secs.toString().padStart(2, '0')}"
+}

@@ -1,0 +1,77 @@
+package com.omnitune.app.platform
+
+import java.io.File
+import java.net.URI
+import java.time.Instant
+
+object NativeRuntime {
+    data class VlcRuntimeSelection(
+        val source: String,
+        val directory: File,
+        val pluginsDirectory: File,
+    )
+
+    fun configureNativeAudioRuntime(): VlcRuntimeSelection? {
+        val selected = resolveVlcRuntime()
+        if (selected != null) {
+            System.setProperty("jna.library.path", selected.directory.absolutePath)
+            System.setProperty("VLC_PLUGIN_PATH", selected.pluginsDirectory.absolutePath)
+            log("Using VLC runtime from ${selected.source}: ${selected.directory.absolutePath}")
+        } else {
+            log("No VLC runtime found. Checked packaged native/vlc, VLC_HOME, and the standard Windows VLC install path.")
+        }
+        return selected
+    }
+
+    fun resolveVlcRuntime(): VlcRuntimeSelection? {
+        val appDir = resolveApplicationDirectory()
+        val candidates = buildList {
+            add("packaged" to File(appDir, "native/vlc"))
+            appDir.parentFile?.let { add("packaged-parent" to File(it, "native/vlc")) }
+            add("working-directory" to File(System.getProperty("user.dir"), "native/vlc"))
+            add("working-directory-app" to File(System.getProperty("user.dir"), "app/native/vlc"))
+            System.getenv("VLC_HOME")?.takeIf { it.isNotBlank() }?.let { add("VLC_HOME" to File(it)) }
+            add("system-vlc" to File("C:/Program Files/VideoLAN/VLC"))
+        }
+
+        return candidates
+            .mapNotNull { (source, dir) ->
+                val plugins = File(dir, "plugins")
+                if (File(dir, "libvlc.dll").isFile && File(dir, "libvlccore.dll").isFile && plugins.isDirectory) {
+                    VlcRuntimeSelection(source, dir, plugins)
+                } else {
+                    null
+                }
+            }
+            .firstOrNull()
+    }
+
+    fun resolveApplicationDirectory(): File {
+        val codeSource = NativeRuntime::class.java.protectionDomain.codeSource?.location
+        val location = runCatching { codeSource?.toURI()?.let(::File) }.getOrNull()
+        val base = when {
+            location == null -> File(System.getProperty("user.dir"))
+            location.isFile -> location.parentFile
+            else -> location
+        }
+        return generateSequence(base) { it.parentFile }
+            .firstOrNull { File(it, "native/vlc").exists() || File(it, "app").exists() || File(it, "runtime").exists() }
+            ?: base
+    }
+
+    fun log(message: String) {
+        runCatching {
+            val logDir = File(defaultLocalAppDataDir(), "logs").apply { mkdirs() }
+            File(logDir, "startup.log").appendText("${Instant.now()} $message${System.lineSeparator()}")
+        }
+    }
+
+    internal fun defaultLocalAppDataDir(): File {
+        val localAppData = System.getenv("LOCALAPPDATA")?.takeIf { it.isNotBlank() }
+        return if (localAppData != null) {
+            File(localAppData, "OmniTune")
+        } else {
+            File(System.getProperty("user.home"), "AppData/Local/OmniTune")
+        }
+    }
+}

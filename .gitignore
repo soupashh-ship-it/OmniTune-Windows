@@ -1,19 +1,45 @@
+# Gradle / Kotlin
 .gradle/
+.kotlin/
 build/
-composeApp/build/
-innertube/build/
-kugou/build/
-lrclib/build/
-lastfm/build/
-simpmusic/build/
-betterlyrics/build/
-kizzy/build/
-canvas/build/
-local.properties
+**/build/
+out/
+
+# Local IDE state
 .idea/
+.vscode/
 *.iml
+
+# Local machine configuration and secrets
+local.properties
+.env
+.env.*
+
+# Logs, crashes, and temporary files
+*.log
+hs_err_pid*
+*.tmp
+*.temp
+
+# Windows/macOS filesystem noise
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Android/packaging leftovers from shared modules
 *.apk
 *.ap_
 *.aab
+
+# Native desktop release artifacts should be attached to GitHub Releases, not committed.
+*.msi
+*.exe
+*.dmg
+*.deb
+*.rpm
+*.zip
+*.tar
+*.tar.gz
+
+# Runtime QA download output contains generated media and local paths.
+docs/qa/runtime-download-artifacts/

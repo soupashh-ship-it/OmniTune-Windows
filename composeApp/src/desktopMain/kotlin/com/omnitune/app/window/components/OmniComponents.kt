@@ -9,14 +9,10 @@ import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import com.omnitune.app.window.OmniReferenceColors
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.QueueMusic
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -24,8 +20,13 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -49,6 +50,47 @@ import coil3.compose.AsyncImage
 import com.omnitune.app.window.*
 import com.omnitune.innertube.models.SongItem
 import com.omnitune.innertube.toHighResThumbnail
+fun Modifier.omniReferenceCard(): Modifier {
+    val shape = RoundedCornerShape(12.dp)
+    return this
+        .background(
+            color = OmniReferenceColors.SurfaceBase,
+            shape = shape
+        )
+        .border(
+            width = 1.dp,
+            color = OmniReferenceColors.SurfaceBorder.copy(alpha = 0.72f),
+            shape = shape
+        )
+}
+
+fun Modifier.omniReferenceElevatedCard(): Modifier {
+    val shape = RoundedCornerShape(12.dp)
+    return this
+        .background(
+            color = OmniReferenceColors.SurfaceRaised,
+            shape = shape
+        )
+        .border(
+            width = 1.dp,
+            color = OmniReferenceColors.SurfaceBorder,
+            shape = shape
+        )
+}
+
+fun Modifier.omniReferenceSelectedCard(): Modifier {
+    val shape = RoundedCornerShape(10.dp)
+    return this
+        .background(
+            color = OmniReferenceColors.SurfaceSelected,
+            shape = shape
+        )
+        .border(
+            width = 1.dp,
+            color = androidx.compose.ui.graphics.Color(0xFF252C58).copy(alpha = 0.60f),
+            shape = shape
+        )
+}
 
 // ---------------------------------------------------------------------------
 // Surfaces
@@ -218,17 +260,16 @@ fun OmniSearchField(
         value = value,
         onValueChange = onValueChange,
         modifier = modifier
-            .fillMaxWidth()
-            .height(36.dp)
-            .clip(CircleShape)
-            .background(Surface1)
-            .border(1.dp, borderColor, CircleShape)
+            .height(29.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFF0B0F1E))
+            .border(1.dp, if (isFocused) Iris.copy(alpha = 0.55f) else Color(0xFF121623), RoundedCornerShape(10.dp))
             .onFocusChanged { isFocused = it.isFocused }
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onKeyEvent { ev ->
                 if (ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {
                     when (ev.key) {
-                        Key.Enter -> { onEnter?.invoke(); true }
+                        Key.Enter, Key.NumPadEnter -> { onEnter?.invoke(); true }
                         Key.Escape -> { onEscape?.invoke(); true }
                         else -> false
                     }
@@ -243,11 +284,11 @@ fun OmniSearchField(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                if (leadingIcon != null) leadingIcon() else Icon(Icons.Default.Search, null, tint = TextSecondary, modifier = Modifier.size(20.dp))
+                if (leadingIcon != null) leadingIcon() else Icon(Icons.Default.Search, null, tint = TextSecondary, modifier = Modifier.size(15.dp))
                 Spacer(Modifier.width(10.dp))
                 Box(Modifier.weight(1f)) {
                     if (value.isEmpty()) {
-                        Text(placeholder, color = TextMuted, style = MaterialTheme.typography.bodyLarge)
+                        Text(placeholder, color = Color(0xFF72758F), fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                     }
                     inner()
                 }
@@ -256,11 +297,13 @@ fun OmniSearchField(
                     Spacer(Modifier.width(8.dp))
                     Box(
                         modifier = Modifier
+                            .height(22.dp)
                             .clip(CircleShape)
-                            .background(Iris.copy(alpha = 0.15f))
-                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                            .background(Color(0xFF171B4D))
+                            .padding(horizontal = 8.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(hint, color = IrisSoft, style = MaterialTheme.typography.labelMedium)
+                        Text(hint, color = Color(0xFF9A94FF), style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }

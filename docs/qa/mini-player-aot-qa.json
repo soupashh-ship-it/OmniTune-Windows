@@ -1,0 +1,9 @@
+{
+  "result": true,
+  "nativeIsAlwaysOnTopBefore": false,
+  "nativeIsAlwaysOnTopAfterOff": false,
+  "realStackingTest": "NATIVE_PROPERTY_PROVEN_STACK_ORDER_NOT_AUTOMATED",
+  "nativeIsAlwaysOnTopAfterOn": true,
+  "restartPersistenceValue": true,
+  "existingWindowOpenDuringToggle": true
+}

@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.*
@@ -32,6 +33,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -55,116 +57,31 @@ fun OmniBottomPlayer(
     val shuffle by player.shuffleMode.collectAsState()
     val repeatMode by player.repeatMode.collectAsState()
     val liked by player.likedSongs.collectAsState()
+    val metrics = LocalHomeReferenceMetrics.current
 
-    val artworkSize = 50.dp
+    val artworkSize = metrics.px(49f)
 
-    val playerBrush = Brush.horizontalGradient(
-        colorStops = arrayOf(
-            0.00f to Color(0xFF0A0D1A),
-            0.22f to Color(0xFF0B0E1D),
-            0.42f to Color(0xFF110E24),
-            0.53f to Color(0xFF17102D),
-            0.66f to Color(0xFF110F26),
-            0.82f to Color(0xFF0B0E1D),
-            1.00f to Color(0xFF090C18),
-        )
-    )
-
-    val shape = RoundedCornerShape(12.dp)
-
-    Box(
-        modifier = modifier
-            .clip(shape)
-            .background(playerBrush)
-            .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.045f),
-                shape = shape,
-            )
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+    TargetBottomPlayerSurface(modifier = modifier) {
+        Box(
+            modifier = Modifier.fillMaxSize()
         ) {
-            // ── LEFT: track info (24%) ───────────────────────────────────────
-            Row(
-                modifier = Modifier.weight(0.24f).padding(end = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (currentSong != null) {
-                    AsyncImage(
-                        model = currentSong.thumbnail?.toHighResThumbnail(),
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(artworkSize)
-                            .clip(RoundedCornerShape(6.dp))
-                            .clickable { player.navigateTo(com.omnitune.app.player.NavScreen.NowPlaying) },
-                        contentScale = ContentScale.Crop,
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column(
-                        Modifier.weight(1f)
-                            .clickable { player.navigateTo(com.omnitune.app.player.NavScreen.NowPlaying) }
-                    ) {
-                        Text(
-                            currentSong.title,
-                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-                            color = Color(0xFFF4F3FA),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            currentSong.artists?.joinToString(", ") { it.name ?: "" } ?: "",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color(0xFFA9AEC2),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    val favOn = liked.contains(currentSong.id)
-                    TransportIcon(
-                        if (favOn) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                        tint = if (favOn) Color(0xFF7C6DFF) else Color(0xFFA9AEC2),
-                        onClick = { player.toggleLike(currentSong.id) },
-                        size = 18.dp
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    TransportIcon(Icons.Default.MoreHoriz, tint = Color(0xFFA9AEC2), onClick = {}, size = 18.dp)
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(artworkSize)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color.White.copy(alpha = 0.05f))
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Box(
-                            modifier = Modifier.width(100.dp).height(12.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color.White.copy(alpha = 0.05f))
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Box(
-                            modifier = Modifier.width(60.dp).height(8.dp)
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(Color.White.copy(alpha = 0.05f))
-                        )
-                    }
-                }
-            }
+            PlayerLeftZone(
+                currentSong = currentSong,
+                liked = liked,
+                player = player,
+                artworkSize = artworkSize,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = metrics.px(13f))
+                    .width(metrics.px(330f)),
+            )
 
-            // ── CENTER + RIGHT: reference 607×41 control band (76%) ─────────
             PlayerControlBand(
                 isPlaying = playbackState == PlaybackState.PLAYING,
                 positionMs = position.timeMs,
                 durationMs = position.lengthMs,
                 shuffleEnabled = shuffle,
                 repeatMode = repeatMode,
-                volume = volume,
                 currentSong = currentSong,
                 onShuffleClick = { player.toggleShuffle() },
                 onPreviousClick = { player.previousTrack() },
@@ -174,11 +91,135 @@ fun OmniBottomPlayer(
                 onSeekFraction = { f ->
                     if (position.lengthMs > 0) player.seek((f * position.lengthMs).toLong())
                 },
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .width(metrics.px(420f)),
+            )
+
+            PlayerRightZone(
+                volume = volume,
                 onVolumeChange = { player.setVolume(it) },
                 onQueueClick = { player.navigateTo(com.omnitune.app.player.NavScreen.Queue) },
-                modifier = Modifier.weight(0.76f)
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = metrics.px(16f)),
             )
         }
+    }
+}
+
+@Composable
+private fun PlayerLeftZone(
+    currentSong: SongItem?,
+    liked: Set<String>,
+    player: PlayerViewModel,
+    artworkSize: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (currentSong != null) {
+            AsyncImage(
+                model = currentSong.thumbnail?.toHighResThumbnail(),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(artworkSize)
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { player.navigateTo(com.omnitune.app.player.NavScreen.NowPlaying) },
+                contentScale = ContentScale.Crop,
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(
+                Modifier
+                    .weight(1f)
+                    .clickable { player.navigateTo(com.omnitune.app.player.NavScreen.NowPlaying) }
+            ) {
+                Text(
+                    currentSong.title,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                    color = Color(0xFFF4F3FA),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    currentSong.artists?.joinToString(", ") { it.name ?: "" } ?: "",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color(0xFFA9AEC2),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            val favOn = liked.contains(currentSong.id)
+            TransportIcon(
+                if (favOn) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                tint = if (favOn) Color(0xFF7C6DFF) else Color(0xFFA9AEC2),
+                onClick = { player.toggleLike(currentSong.id) },
+                size = 18.dp
+            )
+            Spacer(Modifier.width(4.dp))
+            TransportIcon(Icons.Default.MoreHoriz, tint = Color(0xFFA9AEC2), onClick = { player.navigateTo(com.omnitune.app.player.NavScreen.Queue) }, size = 18.dp)
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(artworkSize)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color.White.copy(alpha = 0.05f))
+            )
+            Spacer(Modifier.width(12.dp))
+            Column {
+                Box(
+                    modifier = Modifier.width(100.dp).height(12.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.White.copy(alpha = 0.05f))
+                )
+                Spacer(Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier.width(60.dp).height(8.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.White.copy(alpha = 0.05f))
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PlayerRightZone(
+    volume: Int,
+    onVolumeChange: (Int) -> Unit,
+    onQueueClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val iconMuted = Color(0xFF6D748D)
+
+    Row(
+        modifier = modifier.height(28.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        PlayerUtilityIcon(
+            icon = Icons.AutoMirrored.Filled.QueueMusic,
+            tint = iconMuted,
+            onClick = onQueueClick,
+            size = 16.dp,
+        )
+        Icon(
+            if (volume == 0) Icons.AutoMirrored.Filled.VolumeOff
+            else Icons.AutoMirrored.Filled.VolumeUp,
+            contentDescription = "Volume",
+            tint = iconMuted,
+            modifier = Modifier.size(16.dp)
+        )
+        PlayerThinSlider(
+            fraction = (volume / 100f).coerceIn(0f, 1f),
+            onFractionChange = { onVolumeChange((it * 100).toInt()) },
+            modifier = Modifier.width(80.dp),
+        )
     }
 }
 
@@ -192,7 +233,6 @@ private fun PlayerControlBand(
     durationMs: Long,
     shuffleEnabled: Boolean,
     repeatMode: com.omnitune.app.player.RepeatMode,
-    volume: Int,
     currentSong: SongItem?,
     onShuffleClick: () -> Unit,
     onPreviousClick: () -> Unit,
@@ -200,121 +240,71 @@ private fun PlayerControlBand(
     onNextClick: () -> Unit,
     onRepeatClick: () -> Unit,
     onSeekFraction: (Float) -> Unit,
-    onVolumeChange: (Int) -> Unit,
-    onQueueClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val enabled = currentSong != null
     val iconMuted = Color(0xFF6D748D)
     val iconActive = Color(0xFF7C6DFF)
     val iconBright = Color(0xFFAEB4C8)
+    val metrics = LocalHomeReferenceMetrics.current
 
-    BoxWithConstraints(
-        modifier = modifier.fillMaxWidth().height(72.dp)
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
-        val bw = maxWidth
-
-        // ── TRANSPORT ROW ────────────────────────────────────────────────────
-        // Centered horizontally. Reference x-center of play button ≈ 0.346 of
-        // the 607px crop. The crop itself starts at ~24% of full width, so
-        // the play button sits at ~0.24 + 0.76*0.346 ≈ 0.503 of full width —
-        // i.e., the true horizontal center. We just center this Row.
         Row(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 10.dp)
-                .height(34.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(20.dp),
         ) {
-            // Shuffle
             PlayerSmallIcon(
                 icon = Icons.Filled.Shuffle,
                 tint = if (shuffleEnabled) iconActive else iconMuted,
                 enabled = enabled,
                 onClick = onShuffleClick,
-                size = 16.dp,
+                size = 15.dp,
             )
-            // Previous
             PlayerSmallIcon(
                 icon = Icons.Filled.SkipPrevious,
                 tint = if (enabled) iconBright else iconMuted.copy(alpha = 0.4f),
                 enabled = enabled,
                 onClick = onPreviousClick,
-                size = 20.dp,
+                size = 19.dp,
             )
-            // Play/Pause — large white circle
             PlayerPlayPauseButton(
                 isPlaying = isPlaying,
                 enabled = enabled,
                 onClick = onPlayPauseClick,
             )
-            // Next
             PlayerSmallIcon(
                 icon = Icons.Filled.SkipNext,
                 tint = if (enabled) iconBright else iconMuted.copy(alpha = 0.4f),
                 enabled = enabled,
                 onClick = onNextClick,
-                size = 20.dp,
+                size = 19.dp,
             )
-            // Repeat
             PlayerSmallIcon(
                 icon = if (repeatMode == com.omnitune.app.player.RepeatMode.ONE)
                     Icons.Filled.RepeatOne else Icons.Filled.Repeat,
                 tint = if (repeatMode != com.omnitune.app.player.RepeatMode.OFF) iconActive else iconMuted,
                 enabled = enabled,
                 onClick = onRepeatClick,
-                size = 16.dp,
+                size = 15.dp,
             )
         }
 
-        // ── RIGHT UTILITIES ──────────────────────────────────────────────────
-        // Reference: first utility at ~0.774 of band width, volume icon ~0.820,
-        // slider 0.853–0.982. In our 76%-wide band these are close to the end.
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 14.dp, end = 4.dp)
-                .height(28.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            PlayerUtilityIcon(
-                icon = Icons.AutoMirrored.Filled.QueueMusic,
-                tint = iconMuted,
-                onClick = onQueueClick,
-                size = 16.dp,
-            )
-            // Volume icon
-            Icon(
-                if (volume == 0) Icons.AutoMirrored.Filled.VolumeOff
-                else Icons.AutoMirrored.Filled.VolumeUp,
-                contentDescription = "Volume",
-                tint = iconMuted,
-                modifier = Modifier.size(16.dp)
-            )
-            // Volume slider — thin, blue-iris fill, ~78dp wide
-            PlayerThinSlider(
-                fraction = (volume / 100f).coerceIn(0f, 1f),
-                onFractionChange = { onVolumeChange((it * 100).toInt()) },
-                modifier = Modifier.width(80.dp),
-            )
-        }
+        Spacer(Modifier.height(5.dp))
 
-        // ── TIMELINE ROW ─────────────────────────────────────────────────────
-        // Sits in the lower band. Spans from left edge to just before right
-        // utilities. Reference: track from ~x=27 to ~x=400 in the 607px crop.
-        // That is 0.044→0.659 of crop width. Since crop = 76% of full player,
-        // we use padding to leave room at the right for the utility cluster.
         Row(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .fillMaxWidth()
-                .padding(bottom = 8.dp, start = 0.dp, end = (bw * 0.28f)),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TimeLabel(positionMs)
-            Spacer(Modifier.width(8.dp))
+            TimeLabel(
+                ms = positionMs,
+                modifier = Modifier.width(metrics.px(26f)),
+                textAlign = TextAlign.End,
+            )
+            Spacer(Modifier.width(metrics.px(10f)))
             PlayerThinSeekBar(
                 positionMs = positionMs,
                 durationMs = durationMs,
@@ -322,8 +312,12 @@ private fun PlayerControlBand(
                 enabled = enabled,
                 modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.width(8.dp))
-            TimeLabel(durationMs)
+            Spacer(Modifier.width(metrics.px(10f)))
+            TimeLabel(
+                ms = durationMs,
+                modifier = Modifier.width(metrics.px(26f)),
+                textAlign = TextAlign.Start,
+            )
         }
     }
 }
@@ -340,14 +334,15 @@ private fun PlayerPlayPauseButton(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
+    val metrics = LocalHomeReferenceMetrics.current
     Box(
         modifier = Modifier
-            .size(44.dp)
+            .size(metrics.px(31f))
             .clip(CircleShape)
             .background(
-                if (!enabled) Color.White.copy(alpha = 0.12f)
+                if (!enabled) com.omnitune.app.window.OmniReferenceColors.PlayerPrimaryControl.copy(alpha = 0.4f)
                 else if (isHovered) Color.White
-                else Color(0xFFECECF4)
+                else com.omnitune.app.window.OmniReferenceColors.PlayerPrimaryControl
             )
             .clickable(
                 interactionSource = interactionSource,
@@ -361,8 +356,8 @@ private fun PlayerPlayPauseButton(
         Icon(
             imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
             contentDescription = "Play/Pause",
-            tint = Color(0xFF0D0F1E),
-            modifier = Modifier.size(24.dp)
+            tint = com.omnitune.app.window.OmniReferenceColors.PlayerPrimaryControlIcon,
+            modifier = Modifier.size(metrics.px(18f))
         )
     }
 }
@@ -376,20 +371,26 @@ private fun PlayerSmallIcon(
     size: androidx.compose.ui.unit.Dp,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val isHovered by interactionSource.collectIsHoveredAsState()
+    val metrics = LocalHomeReferenceMetrics.current
     Box(
         modifier = Modifier
-            .size(size + 14.dp)
+            .size(metrics.px(28f))
             .clip(CircleShape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
                 enabled = enabled,
                 onClick = onClick
-            )
-            .pressBounce(interactionSource),
+            ),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, null, tint = tint, modifier = Modifier.size(size))
+        Icon(
+            icon,
+            null,
+            tint = if (isHovered && enabled) Color.White else tint,
+            modifier = Modifier.size(size)
+        )
     }
 }
 
@@ -532,7 +533,11 @@ private fun PlayerThinSlider(
 }
 
 @Composable
-private fun TimeLabel(ms: Long) {
+private fun TimeLabel(
+    ms: Long,
+    modifier: Modifier = Modifier,
+    textAlign: TextAlign = TextAlign.Start,
+) {
     val totalSec = ms / 1000
     val m = totalSec / 60
     val s = totalSec % 60
@@ -542,6 +547,8 @@ private fun TimeLabel(ms: Long) {
         fontSize = 10.sp,
         maxLines = 1,
         fontWeight = FontWeight.Normal,
+        textAlign = textAlign,
+        modifier = modifier,
     )
 }
 
@@ -568,5 +575,117 @@ private fun TransportIcon(
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, null, tint = if (enabled) tint else tint.copy(alpha = 0.35f), modifier = Modifier.size(size))
+    }
+}
+
+
+@Composable
+fun TargetBottomPlayerSurface(
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val shape = RoundedCornerShape(16.dp)
+
+    Box(
+        modifier = modifier.border(
+            width = 1.dp,
+            color = Color(0xFF181C32).copy(alpha = 0.90f),
+            shape = shape
+        )
+    ) {
+        androidx.compose.foundation.Canvas(
+            modifier = Modifier.matchParentSize()
+        ) {
+            val cornerRadius = androidx.compose.ui.geometry.CornerRadius(
+                16.dp.toPx(),
+                16.dp.toPx()
+            )
+
+            // BASE
+            drawRoundRect(
+                color = Color(0xFF0C1021),
+                cornerRadius = cornerRadius
+            )
+
+            // VERY WEAK FAR-LEFT BLUE DEPTH
+            val leftBlueCenter = Offset(
+                x = size.width * 0.08f,
+                y = size.height * 0.52f
+            )
+
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colorStops = arrayOf(
+                        0.00f to Color(0xFF12345A).copy(alpha = 0.09f),
+                        1.00f to Color.Transparent
+                    ),
+                    center = leftBlueCenter,
+                    radius = size.width * 0.16f
+                ),
+                center = leftBlueCenter,
+                radius = size.width * 0.16f
+            )
+
+            // RESTRAINED LEFT-MIDDLE MAGENTA/VIOLET
+            val leftVioletCenter = Offset(
+                x = size.width * 0.34f,
+                y = size.height * 0.53f
+            )
+
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colorStops = arrayOf(
+                        0.00f to Color(0xFF5A1B50).copy(alpha = 0.15f),
+                        0.42f to Color(0xFF38143C).copy(alpha = 0.09f),
+                        1.00f to Color.Transparent
+                    ),
+                    center = leftVioletCenter,
+                    radius = size.width * 0.24f
+                ),
+                center = leftVioletCenter,
+                radius = size.width * 0.24f
+            )
+
+            // TARGET RIGHT-SIDE VIOLET AROUND 75–80%
+            val rightVioletCenter = Offset(
+                x = size.width * 0.78f,
+                y = size.height * 0.54f
+            )
+
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colorStops = arrayOf(
+                        0.00f to Color(0xFF432162).copy(alpha = 0.16f),
+                        0.45f to Color(0xFF281944).copy(alpha = 0.09f),
+                        1.00f to Color.Transparent
+                    ),
+                    center = rightVioletCenter,
+                    radius = size.width * 0.21f
+                ),
+                center = rightVioletCenter,
+                radius = size.width * 0.21f
+            )
+
+            // FAR-RIGHT SUBTLE VIOLET DEPTH
+            val farRightCenter = Offset(
+                x = size.width * 0.96f,
+                y = size.height * 0.58f
+            )
+
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colorStops = arrayOf(
+                        0.00f to Color(0xFF302058).copy(alpha = 0.11f),
+                        1.00f to Color.Transparent
+                    ),
+                    center = farRightCenter,
+                    radius = size.width * 0.15f
+                ),
+                center = farRightCenter,
+                radius = size.width * 0.15f
+            )
+        }
+
+        content()
     }
 }
