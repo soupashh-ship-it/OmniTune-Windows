@@ -38,6 +38,8 @@ import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -93,11 +95,13 @@ fun LibraryView(player: PlayerViewModel) {
     val discoveryTrending by player.discoveryTrending.collectAsState()
     val discoveryNew by player.discoveryNew.collectAsState()
     val savedQueuePlaylists by player.savedQueuePlaylists.collectAsState()
+    val pinnedCollectionIds by player.pinnedLibraryCollections.collectAsState()
 
     var tab by remember { mutableStateOf(LibraryTab.Songs) }
     var sort by remember { mutableStateOf(LibrarySort.RecentlyAdded) }
     var gridView by remember { mutableStateOf(true) }
     var showAllRecent by remember { mutableStateOf(false) }
+    var editingPins by remember { mutableStateOf(false) }
 
     val likedSongs = remember(likedIds, queue, discoveryTrending) {
         (queue + discoveryTrending).filter { likedIds.contains(it.id) }.distinctBy { it.id }
@@ -153,6 +157,8 @@ fun LibraryView(player: PlayerViewModel) {
         albums = albums,
         artists = artists,
         playlists = playlists,
+        pinnedCollectionIds = pinnedCollectionIds,
+        editingPins = editingPins,
         currentSong = currentSong,
         playbackState = playbackState,
         onTab = { tab = it },
@@ -164,7 +170,8 @@ fun LibraryView(player: PlayerViewModel) {
             }
         },
         onGridView = { gridView = it },
-        onEditPins = {},
+        onEditPins = { editingPins = !editingPins },
+        onTogglePin = { player.togglePinnedLibraryCollection(it) },
         onSeeAllRecent = { showAllRecent = !showAllRecent },
         onPlayItem = { item ->
             when (item) {
@@ -176,7 +183,10 @@ fun LibraryView(player: PlayerViewModel) {
         },
         onPlaySong = { song, index -> player.playSong(song, index) },
         onAdd = { song -> player.addToQueue(song) },
+        onPlayNext = { song -> player.playNext(song) },
         onLike = { song -> player.toggleLike(song.id) },
+        onNavigateToQueue = { player.navigateTo(com.omnitune.app.player.NavScreen.Queue) },
+        onNavigateToDownloads = { player.navigateTo(com.omnitune.app.player.NavScreen.Downloads) },
     )
 }
 
@@ -191,17 +201,23 @@ private fun LibraryReferenceContent(
     albums: List<AlbumItem>,
     artists: List<LibraryArtist>,
     playlists: List<PlaylistItem>,
+    pinnedCollectionIds: Set<String>,
+    editingPins: Boolean,
     currentSong: SongItem?,
     playbackState: PlaybackState,
     onTab: (LibraryTab) -> Unit,
     onSort: () -> Unit,
     onGridView: (Boolean) -> Unit,
     onEditPins: () -> Unit,
+    onTogglePin: (String) -> Unit,
     onSeeAllRecent: () -> Unit,
     onPlayItem: (YTItem) -> Unit,
     onPlaySong: (SongItem, Int) -> Unit,
     onAdd: (SongItem) -> Unit,
+    onPlayNext: (SongItem) -> Unit,
     onLike: (SongItem) -> Unit,
+    onNavigateToQueue: () -> Unit,
+    onNavigateToDownloads: () -> Unit,
 ) {
     val metrics = LocalHomeReferenceMetrics.current
     val scroll = rememberScrollState()
@@ -223,14 +239,14 @@ private fun LibraryReferenceContent(
                 fontSize = 21.sp,
                 lineHeight = 25.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.offset(x = left, y = metrics.px(22f)),
+                modifier = Modifier.offset(x = left, y = metrics.px(16f)),
             )
 
             LibraryTabs(
                 activeTab = activeTab,
                 onTab = onTab,
                 modifier = Modifier
-                    .offset(x = left, y = metrics.px(54f))
+                    .offset(x = left, y = metrics.px(50f))
                     .width(metrics.px(398f))
                     .height(metrics.px(30f)),
             )
@@ -239,14 +255,14 @@ private fun LibraryReferenceContent(
                 sort = sort,
                 onClick = onSort,
                 modifier = Modifier
-                    .offset(x = metrics.px(725f), y = metrics.px(54f))
+                    .offset(x = metrics.px(725f), y = metrics.px(50f))
                     .width(metrics.px(129f))
                     .height(metrics.px(30f)),
             )
 
             Row(
                 modifier = Modifier
-                    .offset(x = metrics.px(866f), y = metrics.px(54f))
+                    .offset(x = metrics.px(866f), y = metrics.px(50f))
                     .width(metrics.px(64f))
                     .height(metrics.px(30f)),
                 horizontalArrangement = Arrangement.spacedBy(metrics.px(4f)),
@@ -257,28 +273,36 @@ private fun LibraryReferenceContent(
 
             SectionRowHeader(
                 title = "Pinned Collections",
-                action = "Edit Pins",
+                action = if (editingPins) "Done" else "Edit Pins",
                 onAction = onEditPins,
-                modifier = Modifier.offset(x = left, y = metrics.px(104f)).width(metrics.px(909f)),
+                modifier = Modifier.offset(x = left, y = metrics.px(98f)).width(metrics.px(909f)),
             )
 
             Row(
                 modifier = Modifier
-                    .offset(x = left, y = metrics.px(128f))
+                    .offset(x = left, y = metrics.px(122f))
                     .width(metrics.px(915f))
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(metrics.px(15f)),
             ) {
-                val pinned = listOf(
-                    PinnedCollection("Favorites", "$likedCount songs", Icons.Default.Favorite, librarySongs.firstOrNull()?.thumbnail),
-                    PinnedCollection("Queue", "${librarySongs.size} songs", Icons.Default.QueueMusic, librarySongs.getOrNull(1)?.thumbnail),
-                    PinnedCollection("Albums", "${albums.size} saved", Icons.Default.Album, albums.firstOrNull()?.thumbnail),
-                    PinnedCollection("Artists", "${artists.size} followed", Icons.Default.Person, artists.firstOrNull()?.artwork),
-                    PinnedCollection("Playlists", "${playlists.size} saved", Icons.Default.GraphicEq, playlists.firstOrNull()?.thumbnail),
-                    PinnedCollection("Downloaded", "0 songs", Icons.Default.Download, null),
+                val availablePinned = listOf(
+                    PinnedCollection("favorites", "Favorites", "$likedCount songs", Icons.Default.Favorite, librarySongs.firstOrNull()?.thumbnail) { onTab(LibraryTab.Favorites) },
+                    PinnedCollection("queue", "Queue", "${librarySongs.size} songs", Icons.Default.QueueMusic, librarySongs.getOrNull(1)?.thumbnail) { onNavigateToQueue() },
+                    PinnedCollection("albums", "Albums", "${albums.size} saved", Icons.Default.Album, albums.firstOrNull()?.thumbnail) { onTab(LibraryTab.Albums) },
+                    PinnedCollection("artists", "Artists", "${artists.size} artists", Icons.Default.Person, artists.firstOrNull()?.artwork) { onTab(LibraryTab.Artists) },
+                    PinnedCollection("playlists", "Playlists", "${playlists.size} saved", Icons.Default.GraphicEq, playlists.firstOrNull()?.thumbnail) { onTab(LibraryTab.Playlists) },
+                    PinnedCollection("downloads", "Downloaded", "Open downloads", Icons.Default.Download, null) { onNavigateToDownloads() },
                 )
+                val pinned = if (editingPins) availablePinned else availablePinned.filter { it.id in pinnedCollectionIds }
                 pinned.forEach { pinnedItem ->
-                    PinnedCollectionCard(pinnedItem, Modifier.width(metrics.px(141f)).height(metrics.px(102f)))
+                    PinnedCollectionCard(
+                        item = pinnedItem,
+                        pinned = pinnedItem.id in pinnedCollectionIds,
+                        editing = editingPins,
+                        modifier = Modifier.width(metrics.px(141f)).height(metrics.px(102f)),
+                    ) {
+                        if (editingPins) onTogglePin(pinnedItem.id) else pinnedItem.onClick()
+                    }
                 }
             }
 
@@ -286,12 +310,12 @@ private fun LibraryReferenceContent(
                 title = "Recent Additions",
                 action = "See all",
                 onAction = onSeeAllRecent,
-                modifier = Modifier.offset(x = left, y = metrics.px(248f)).width(metrics.px(909f)),
+                modifier = Modifier.offset(x = left, y = metrics.px(238f)).width(metrics.px(909f)),
             )
 
             Row(
                 modifier = Modifier
-                    .offset(x = left, y = metrics.px(278f))
+                    .offset(x = left, y = metrics.px(268f))
                     .width(metrics.px(913f))
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(metrics.px(14f)),
@@ -310,19 +334,19 @@ private fun LibraryReferenceContent(
                 color = TextPrimary,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.offset(x = left, y = metrics.px(400f)),
+                modifier = Modifier.offset(x = left, y = metrics.px(380f)),
             )
 
             LibraryTableHeader(
                 modifier = Modifier
-                    .offset(x = left, y = metrics.px(432f))
+                    .offset(x = left, y = metrics.px(412f))
                     .width(metrics.px(909f))
                     .height(metrics.px(20f)),
             )
 
             Column(
                 modifier = Modifier
-                    .offset(x = left, y = metrics.px(458f))
+                    .offset(x = left, y = metrics.px(438f))
                     .width(metrics.px(909f)),
                 verticalArrangement = Arrangement.spacedBy(metrics.px(3f)),
             ) {
@@ -339,6 +363,7 @@ private fun LibraryReferenceContent(
                             onPlay = { onPlaySong(song, index) },
                             onAdd = { onAdd(song) },
                             onLike = { onLike(song) },
+                            onMorePlayNext = { onPlayNext(song) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(metrics.px(38f)),
@@ -351,12 +376,13 @@ private fun LibraryReferenceContent(
 }
 
 private data class PinnedCollection(
+    val id: String,
     val title: String,
     val meta: String,
     val icon: ImageVector,
     val artwork: String?,
+    val onClick: () -> Unit,
 )
-
 private val LibraryTab.label: String
     get() = when (this) {
         LibraryTab.Songs -> "Songs"
@@ -457,11 +483,12 @@ private fun SectionRowHeader(title: String, action: String, onAction: () -> Unit
 }
 
 @Composable
-private fun PinnedCollectionCard(item: PinnedCollection, modifier: Modifier = Modifier) {
+private fun PinnedCollectionCard(item: PinnedCollection, pinned: Boolean, editing: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val metrics = LocalHomeReferenceMetrics.current
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(metrics.px(8f)))
+            .clickable(onClick = onClick)
             .background(Surface1)
             .border(1.dp, BorderLow.copy(alpha = 0.72f), RoundedCornerShape(metrics.px(8f))),
     ) {
@@ -481,7 +508,24 @@ private fun PinnedCollectionCard(item: PinnedCollection, modifier: Modifier = Mo
             Icon(item.icon, null, tint = IrisSoft, modifier = Modifier.align(Alignment.Center).size(metrics.px(32f)))
         }
         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 1f to Color(0xD8060919))))
-        Icon(Icons.Default.PushPin, null, tint = Color.White.copy(alpha = 0.92f), modifier = Modifier.align(Alignment.BottomEnd).padding(metrics.px(10f)).size(metrics.px(12f)))
+        Icon(
+            Icons.Default.PushPin,
+            null,
+            tint = if (pinned) Color.White.copy(alpha = 0.92f) else TextMuted,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(metrics.px(10f)).size(metrics.px(12f))
+        )
+        if (editing) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(metrics.px(8f))
+                    .clip(RoundedCornerShape(metrics.px(5f)))
+                    .background(if (pinned) OmniReferenceColors.Accent else Surface2)
+                    .padding(horizontal = metrics.px(6f), vertical = metrics.px(2f)),
+            ) {
+                Text(if (pinned) "Pinned" else "Add", color = Color.White, fontSize = 7.5.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
         Row(
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -563,9 +607,11 @@ private fun LibrarySongTableRow(
     onPlay: () -> Unit,
     onAdd: () -> Unit,
     onLike: () -> Unit,
+    onMorePlayNext: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val metrics = LocalHomeReferenceMetrics.current
+    var menuExpanded by remember { mutableStateOf(false) }
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(metrics.px(6f)))
@@ -596,7 +642,27 @@ private fun LibrarySongTableRow(
         Spacer(Modifier.width(metrics.px(14f)))
         Icon(Icons.Default.Add, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)).clickable(onClick = onAdd))
         Spacer(Modifier.width(metrics.px(14f)))
-        Icon(Icons.Default.MoreHoriz, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)))
+        Box {
+            Icon(Icons.Default.MoreHoriz, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)).clickable { menuExpanded = true })
+            DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                DropdownMenuItem(text = { Text("Play") }, onClick = {
+                    menuExpanded = false
+                    onPlay()
+                })
+                DropdownMenuItem(text = { Text("Play next") }, onClick = {
+                    menuExpanded = false
+                    onMorePlayNext()
+                })
+                DropdownMenuItem(text = { Text("Add to queue") }, onClick = {
+                    menuExpanded = false
+                    onAdd()
+                })
+                DropdownMenuItem(text = { Text("Like / unlike") }, onClick = {
+                    menuExpanded = false
+                    onLike()
+                })
+            }
+        }
     }
 }
 

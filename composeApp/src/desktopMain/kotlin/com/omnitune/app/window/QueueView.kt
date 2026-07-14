@@ -208,7 +208,7 @@ private fun QueueReferenceContent(
             ReferencePanel(
                 title = "Up Next",
                 subtitle = "${remaining.size} remaining · ${formatDuration(totalSeconds)} total",
-                modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(65f)).width(metrics.px(474f)).height(metrics.px(334f)),
+                modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(65f)).width(metrics.px(474f)).height(metrics.px(346f)),
                 header = {
                     QueueHeaderAction(Icons.Default.Delete, "Clear", onClear)
                     QueueHeaderAction(Icons.Default.PlaylistAdd, "Save as Playlist", onSave)
@@ -235,7 +235,7 @@ private fun QueueReferenceContent(
             ReferencePanel(
                 title = "Queue Controls",
                 subtitle = null,
-                modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(418f)).width(metrics.px(474f)).height(metrics.px(78f)),
+                modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(418f)).width(metrics.px(474f)).height(metrics.px(79f)),
             ) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.px(8f))) {
                     QueueControl(Icons.Default.GraphicEq, "Crossfade", "Not exposed", IrisSoft, Modifier.weight(1f))
@@ -248,7 +248,7 @@ private fun QueueReferenceContent(
             ReferencePanel(
                 title = "Session History",
                 subtitle = if (sessions.isEmpty()) "No persisted sessions" else "${sessions.size} persisted sessions",
-                modifier = Modifier.offset(x = metrics.px(506f), y = metrics.px(65f)).width(metrics.px(213f)).height(metrics.px(246f)),
+                modifier = Modifier.offset(x = metrics.px(506f), y = metrics.px(65f)).width(metrics.px(213f)).height(metrics.px(257f)),
                 seeAll = {
                     Text("See all", color = IrisSoft, fontSize = 8.5.sp, modifier = Modifier.clickable(onClick = onSeeAllHistory))
                 },
@@ -264,7 +264,7 @@ private fun QueueReferenceContent(
             ReferencePanel(
                 title = "Recently Played",
                 subtitle = "Derived from current queue",
-                modifier = Modifier.offset(x = metrics.px(506f), y = metrics.px(329f)).width(metrics.px(213f)).height(metrics.px(166f)),
+                modifier = Modifier.offset(x = metrics.px(506f), y = metrics.px(329f)).width(metrics.px(213f)).height(metrics.px(172f)),
             ) {
                 history.drop(1).take(3).forEach {
                     CompactSongCard(it, "From persisted playback history", onClick = { onPlayHistoryItem(it) })
@@ -277,7 +277,7 @@ private fun QueueReferenceContent(
             ReferencePanel(
                 title = "After This Queue Ends",
                 subtitle = "Real discovery recommendations",
-                modifier = Modifier.offset(x = metrics.px(728f), y = metrics.px(65f)).width(metrics.px(217f)).height(metrics.px(422f)),
+                modifier = Modifier.offset(x = metrics.px(728f), y = metrics.px(65f)).width(metrics.px(217f)).height(metrics.px(438f)),
                 trailingIcon = Icons.Default.AutoAwesome,
             ) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.px(7f))) {

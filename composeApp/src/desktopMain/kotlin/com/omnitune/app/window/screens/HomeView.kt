@@ -1075,8 +1075,12 @@ private fun ContinueListeningRow(item: YTItem, isActive: Boolean, isPlaying: Boo
 private fun QuickPicksCard(item: YTItem, player: PlayerViewModel) {
     val interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
+    val motionPolicy = LocalOmniMotionPolicy.current
 
-    val scale by animateFloatAsState(if (isHovered) 1.015f else 1f, tween(160))
+    val scale by animateFloatAsState(
+        if (motionPolicy.decorativeMotionEnabled && isHovered) 1.015f else 1f,
+        tween(motionPolicy.shortDurationMs)
+    )
     val subtitle = when (item) {
         is SongItem -> item.artists?.joinToString(", ") { it.name ?: "" } ?: ""
         is AlbumItem -> item.artists?.joinToString(", ") { it.name ?: "" } ?: ""

@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,6 +38,7 @@ fun PlayingIndicator(
     barWidth: Dp = 4.dp,
     cornerRadius: Dp = 4.dp,
 ) {
+    val motionPolicy = LocalOmniMotionPolicy.current
     val animatables =
         remember {
             List(bars) {
@@ -44,7 +46,13 @@ fun PlayingIndicator(
             }
         }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(motionPolicy.decorativeMotionEnabled) {
+        if (!motionPolicy.decorativeMotionEnabled) {
+            animatables.forEachIndexed { index, animatable ->
+                animatable.snapTo(0.35f + (index % 3) * 0.18f)
+            }
+            return@LaunchedEffect
+        }
         delay(300)
         animatables.forEach { animatable ->
             launch {
@@ -86,10 +94,11 @@ fun PlayingIndicatorBox(
     playWhenReady: Boolean,
     color: Color = Color.White,
 ) {
+    val motionPolicy = LocalOmniMotionPolicy.current
     AnimatedVisibility(
         visible = isActive,
-        enter = fadeIn(tween(500)),
-        exit = fadeOut(tween(500)),
+        enter = fadeIn(tween(motionPolicy.shortDurationMs)),
+        exit = fadeOut(tween(motionPolicy.shortDurationMs)),
     ) {
         Box(
             contentAlignment = Alignment.Center,

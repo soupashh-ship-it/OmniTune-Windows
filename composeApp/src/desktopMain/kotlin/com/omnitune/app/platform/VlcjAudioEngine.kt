@@ -41,6 +41,9 @@ class VlcjAudioEngine(
     var onTrackFinished: (() -> Unit)? = null
 
     private var pollJob: Job? = null
+    @Volatile
+    private var isReleased = false
+    private var isErrorState = false
 
     init {
         factory = MediaPlayerFactory(
@@ -52,20 +55,41 @@ class VlcjAudioEngine(
         player = factory.mediaPlayers().newMediaPlayer()
         setupEventListeners()
         startPositionPoller()
+        
+        Runtime.getRuntime().addShutdownHook(Thread {
+            releaseSync()
+        })
+    }
+
+    private fun releaseSync() {
+        if (isReleased) return
+        isReleased = true
+        try {
+            pollJob?.cancel()
+            runCatching { player.controls().stop() }
+            player.release()
+            factory.release()
+            _playbackState.value = PlaybackState.STOPPED
+            vlcDispatcher.close()
+        } catch (e: Exception) {
+            OmniLogger.error("VlcjAudioEngine", "Failed to release VLC resources cleanly.", e)
+        }
     }
 
     private fun startPositionPoller() {
         pollJob?.cancel()
         pollJob = scope.launch(Dispatchers.Default) {
-            while (isActive) {
+            while (isActive && !isReleased) {
                 val state = _playbackState.value
                 if (state == PlaybackState.PLAYING || state == PlaybackState.PAUSED) {
-                    val status = player.status()
-                    _position.value = PlayerPosition(
-                        timeMs = status.time(),
-                        lengthMs = status.length(),
-                        position = status.position()
-                    )
+                    runCatching {
+                        val status = player.status()
+                        _position.value = PlayerPosition(
+                            timeMs = status.time(),
+                            lengthMs = status.length(),
+                            position = status.position()
+                        )
+                    }
                 }
                 delay(100)
             }
@@ -75,8 +99,8 @@ class VlcjAudioEngine(
     private fun setupEventListeners() {
         player.events().addMediaPlayerEventListener(object : MediaPlayerEventAdapter() {
             override fun playing(mp: MediaPlayer) {
+                isErrorState = false
                 _playbackState.value = PlaybackState.PLAYING
-                mp.submit { mp.audio().setVolume(100) }
             }
 
             override fun paused(mp: MediaPlayer) {
@@ -89,10 +113,13 @@ class VlcjAudioEngine(
 
             override fun finished(mp: MediaPlayer) {
                 _playbackState.value = PlaybackState.STOPPED
-                onTrackFinished?.invoke()
+                if (!isErrorState) {
+                    onTrackFinished?.invoke()
+                }
             }
 
             override fun error(mp: MediaPlayer) {
+                isErrorState = true
                 _playbackState.value = PlaybackState.ERROR
                 _error.value = "Playback error occurred"
             }
@@ -118,39 +145,52 @@ class VlcjAudioEngine(
     }
 
     fun play(url: String) {
+        if (isReleased) return
         scope.launch(vlcDispatcher) {
+            if (isReleased) return@launch
+            isErrorState = false
             _error.value = null
             player.media().play(url)
         }
     }
 
     fun pause() {
+        if (isReleased) return
         scope.launch(vlcDispatcher) {
+            if (isReleased) return@launch
             player.controls().pause()
         }
     }
 
     fun resume() {
+        if (isReleased) return
         scope.launch(vlcDispatcher) {
+            if (isReleased) return@launch
             player.controls().play()
         }
     }
 
     fun stop() {
+        if (isReleased) return
         scope.launch(vlcDispatcher) {
+            if (isReleased) return@launch
             player.controls().stop()
             _playbackState.value = PlaybackState.STOPPED
         }
     }
 
     fun seek(timeMs: Long) {
+        if (isReleased) return
         scope.launch(vlcDispatcher) {
+            if (isReleased) return@launch
             player.controls().setTime(timeMs.coerceAtLeast(0))
         }
     }
 
     fun seekRelative(deltaMs: Long) {
+        if (isReleased) return
         scope.launch(vlcDispatcher) {
+            if (isReleased) return@launch
             val current = player.status().time()
             if (current >= 0) {
                 player.controls().setTime((current + deltaMs).coerceAtLeast(0))
@@ -159,22 +199,27 @@ class VlcjAudioEngine(
     }
 
     fun setVolume(vol: Int) {
+        if (isReleased) return
         scope.launch(vlcDispatcher) {
+            if (isReleased) return@launch
             player.audio().setVolume(vol.coerceIn(0, 200))
         }
     }
 
     fun setRate(rate: Float) {
+        if (isReleased) return
         scope.launch(vlcDispatcher) {
+            if (isReleased) return@launch
             player.controls().setRate(rate)
         }
     }
 
     fun release() {
-        scope.launch(vlcDispatcher) {
-            player.release()
-            factory.release()
-            vlcDispatcher.close()
+        if (isReleased) return
+        runBlocking {
+            withContext(vlcDispatcher) {
+                releaseSync()
+            }
         }
     }
 }

@@ -75,7 +75,7 @@ fun SettingsView() {
                 SettingsLine("Recent searches", "${settings.recentSearches.size} stored")
             }
 
-            SettingsCard("Audio", Icons.Default.VolumeUp, Modifier.offset(x = metrics.px(335f), y = metrics.px(69f)).width(metrics.px(296f)).height(metrics.px(170f))) {
+            SettingsCard("Audio", Icons.Default.VolumeUp, Modifier.offset(x = metrics.px(332f), y = metrics.px(69f)).width(metrics.px(296f)).height(metrics.px(170f))) {
                 Text("Default volume: $volume%", color = TextSecondary, fontSize = 9.sp)
                 Slider(
                     value = volume.toFloat(),
@@ -90,7 +90,7 @@ fun SettingsView() {
                 SettingsLine("Quality", "Provider stream quality; no lossless claim")
             }
 
-            SettingsCard("Playback", Icons.Default.GraphicEq, Modifier.offset(x = metrics.px(646f), y = metrics.px(69f)).width(metrics.px(296f)).height(metrics.px(170f))) {
+            SettingsCard("Playback", Icons.Default.GraphicEq, Modifier.offset(x = metrics.px(638f), y = metrics.px(69f)).width(metrics.px(296f)).height(metrics.px(170f))) {
                 SettingsSwitch("Shuffle default", "Persist shuffle mode", shuffle) {
                     shuffle = it
                     settings.shuffleEnabled = it
@@ -131,25 +131,25 @@ fun SettingsView() {
                 }
             }
 
-            SettingsCard("Downloads", Icons.Default.Storage, Modifier.offset(x = metrics.px(335f), y = metrics.px(247f)).width(metrics.px(296f)).height(metrics.px(176f))) {
+            SettingsCard("Downloads", Icons.Default.Storage, Modifier.offset(x = metrics.px(332f), y = metrics.px(247f)).width(metrics.px(296f)).height(metrics.px(176f))) {
                 SettingsLine("Offline engine", "Persistent local downloads enabled")
                 SettingsLine("Quality", settings.downloadQualityMode.readableLabel())
                 SettingsLine("Download folder", platform.downloadsDir.absolutePath)
                 SettingsLine("Files present", "${platform.downloadsDir.listFiles()?.size ?: 0}")
             }
 
-            SettingsCard("Notifications", null, Modifier.offset(x = metrics.px(646f), y = metrics.px(247f)).width(metrics.px(296f)).height(metrics.px(176f))) {
+            SettingsCard("Notifications", null, Modifier.offset(x = metrics.px(638f), y = metrics.px(247f)).width(metrics.px(296f)).height(metrics.px(176f))) {
                 SettingsLine("New music", "No notification provider configured")
                 SettingsLine("Product updates", "Shown only inside app surfaces")
                 SettingsLine("System tray", "Available from desktop shell")
             }
 
-            SettingsCard("Keyboard Shortcuts", Icons.Default.Keyboard, Modifier.offset(x = metrics.px(24f), y = metrics.px(433f)).width(metrics.px(296f)).height(metrics.px(82f))) {
+            SettingsCard("Keyboard Shortcuts", Icons.Default.Keyboard, Modifier.offset(x = metrics.px(24f), y = metrics.px(428f)).width(metrics.px(296f)).height(metrics.px(72f))) {
                 SettingsLine("Ctrl + K", "Focus global search")
                 SettingsLine("Space / ← / →", "Play-pause and seek")
             }
 
-            SettingsCard("About", null, Modifier.offset(x = metrics.px(335f), y = metrics.px(433f)).width(metrics.px(607f)).height(metrics.px(82f))) {
+            SettingsCard("About", null, Modifier.offset(x = metrics.px(332f), y = metrics.px(428f)).width(metrics.px(602f)).height(metrics.px(72f))) {
                 SettingsLine("OmniTune for Windows", "Desktop Compose build")
                 SettingsLine("Data directory", platform.appDataDir.absolutePath)
             }

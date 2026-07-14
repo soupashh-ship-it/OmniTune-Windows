@@ -45,6 +45,7 @@ class SettingsRepositoryTest {
         repo.reduceMotionEnabled = true
         repo.miniPlayerAlwaysOnTop = false
         repo.downloadQualityMode = DownloadQualityMode.PREFER_HIGH
+        repo.pinnedLibraryCollectionIds = setOf("favorites", "downloads")
         repo.flush()
 
         val restored = SettingsRepository(repoPrefs(repo))
@@ -53,6 +54,7 @@ class SettingsRepositoryTest {
         assertTrue(restored.reduceMotionEnabled)
         assertFalse(restored.miniPlayerAlwaysOnTop)
         assertEquals(DownloadQualityMode.PREFER_HIGH, restored.downloadQualityMode)
+        assertEquals(setOf("favorites", "downloads"), restored.pinnedLibraryCollectionIds)
     }
 
     @Test
@@ -124,6 +126,18 @@ class SettingsRepositoryTest {
         val restored = SettingsRepository(repoPrefs(repo)).savedQueuePlaylists.first()
         assertEquals("QA Queue", restored.name)
         assertEquals(queue.map { it.id }, restored.songs.map { it.id })
+    }
+
+    @Test
+    fun saveSongsAsPlaylistUsesSamePersistentLibraryStore() = isolatedRepository { repo ->
+        val songs = listOf(song("alpha"), song("beta"))
+
+        val saved = repo.saveSongsAsPlaylist("Saved Provider Playlist", songs)
+        val restored = SettingsRepository(repoPrefs(repo)).savedQueuePlaylists.single()
+
+        assertEquals(saved.id, restored.id)
+        assertEquals("Saved Provider Playlist", restored.name)
+        assertEquals(songs.map { it.id }, restored.songs.map { it.id })
     }
 
     private fun song(id: String): SongItem =

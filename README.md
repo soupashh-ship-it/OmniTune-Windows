@@ -48,7 +48,7 @@ This repository is the Windows desktop project. It is separate from the Android 
 
 OmniTune Windows is under active development and is not yet a 1.0 release. Core desktop playback, search, queue, settings, download management, and the current visual system are implemented. Final release hardening, installer validation, broader Windows compatibility testing, and distribution signing are still in progress.
 
-The current desktop package version in Gradle is `0.1.1`.
+The current desktop package version in Gradle is `0.1.2`.
 
 ## Technology Stack
 
@@ -66,9 +66,9 @@ The current desktop package version in Gradle is `0.1.1`.
 
 A Windows installer release candidate is available on GitHub Releases:
 
-- [OmniTune Windows 0.1.1 RC 1](https://github.com/soupashh-ship-it/OmniTune-Windows/releases/tag/v0.1.1-rc.1)
+- [OmniTune Windows 0.1.2 RC 1](https://github.com/soupashh-ship-it/OmniTune-Windows/releases/tag/v0.1.2-rc.1)
 
-Download `OmniTune-Setup-0.1.1-windows-x64.exe` from that release for installer testing. The installer is unsigned, so Windows SmartScreen may warn until a signing certificate and reputation are established.
+Download `OmniTune-Setup-0.1.2-windows-x64.exe` from that release for installer testing. The installer is unsigned, so Windows SmartScreen may warn until a signing certificate and reputation are established.
 
 For local release builds, use the validated release wrapper on Windows:
 

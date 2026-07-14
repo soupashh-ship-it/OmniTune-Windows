@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -45,6 +46,7 @@ import com.omnitune.app.platform.PlayerPosition
 import com.omnitune.app.window.components.OmniProgressSlider
 import com.omnitune.app.window.components.OmniShimmerBlock
 import com.omnitune.app.window.components.OmniVolumeControl
+import com.omnitune.innertube.models.AlbumItem
 import com.omnitune.innertube.models.SongItem
 import com.omnitune.innertube.toHighResThumbnail
 import kotlinx.coroutines.delay
@@ -66,6 +68,7 @@ fun NowPlayingView(
     val shuffle by player.shuffleMode.collectAsState()
     val queue by player.queue.collectAsState()
     val queueIndex by player.queueIndex.collectAsState()
+    val related by player.discoveryRelated.collectAsState()
 
     // Seek drag state — UI owns the scrub position during drag; engine is not queried
     var sliderPos by remember { mutableStateOf(0f) }
@@ -101,15 +104,16 @@ fun NowPlayingView(
         )
 
         // Main layout: Player (left) + Lyrics (right)
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 40.dp, vertical = 32.dp),
-            horizontalArrangement = Arrangement.spacedBy(32.dp),
+        val metrics = LocalHomeReferenceMetrics.current
+        Box(
+            modifier = Modifier.fillMaxSize()
         ) {
             // ─── LEFT: Player ────────────────────────────────────────────────────
             PlayerRegion(
-                modifier = Modifier.weight(0.55f).fillMaxHeight(),
+                modifier = Modifier
+                    .offset(x = metrics.px(24f), y = metrics.px(8f))
+                    .width(metrics.px(424f))
+                    .fillMaxHeight(),
                 player = player,
                 currentSong = currentSong,
                 playbackState = playbackState,
@@ -129,13 +133,17 @@ fun NowPlayingView(
 
             // ─── RIGHT: Lyrics panel ─────────────────────────────────────────────
             LyricsRegion(
-                modifier = Modifier.weight(0.45f).fillMaxHeight(),
+                modifier = Modifier
+                    .offset(x = metrics.px(491f), y = metrics.px(6f))
+                    .width(metrics.px(453f))
+                    .height(metrics.px(513f)),
                 lyricsResult = lyricsResult,
                 displayTimeMs = displayTimeMs,
                 player = player,
                 queue = queue,
                 currentSong = currentSong,
                 queueIndex = queueIndex,
+                related = related,
             )
         }
     }
@@ -165,19 +173,23 @@ private fun PlayerRegion(
     val likedIds by player.likedSongs.collectAsState()
     val isLiked = currentSong.id in likedIds
 
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        // NOW PLAYING label
-        NowPlayingIndicator(isPlaying = playbackState == PlaybackState.PLAYING)
+    val metrics = LocalHomeReferenceMetrics.current
+    val motionPolicy = LocalOmniMotionPolicy.current
 
-        Spacer(Modifier.height(16.dp))
+    Box(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .offset(y = metrics.px(0f))
+                .fillMaxWidth(),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            NowPlayingIndicator(isPlaying = playbackState == PlaybackState.PLAYING)
+        }
 
         // Artwork — primary visual anchor
         val artScale by animateFloatAsState(
-            targetValue = if (playbackState == PlaybackState.PLAYING) 1f else 0.94f,
-            animationSpec = spring(
+            targetValue = if (motionPolicy.reduced || playbackState == PlaybackState.PLAYING) 1f else 0.94f,
+            animationSpec = if (motionPolicy.reduced) tween(motionPolicy.shortDurationMs) else spring(
                 dampingRatio = Spring.DampingRatioNoBouncy,
                 stiffness = Spring.StiffnessMediumLow,
             ),
@@ -185,12 +197,12 @@ private fun PlayerRegion(
         )
         Box(
             modifier = Modifier
-                .widthIn(max = 320.dp)
-                .fillMaxWidth(0.72f)
-                .aspectRatio(1f)
+                .offset(y = metrics.px(39f))
+                .fillMaxWidth()
+                .height(metrics.px(313f))
                 .scale(artScale)
                 .shadow(
-                    elevation = 24.dp,
+                    elevation = metrics.px(16f),
                     shape = Shapes.artworkLarge,
                     ambientColor = Color.Black.copy(alpha = 0.35f),
                     spotColor = Iris.copy(alpha = 0.18f),
@@ -205,71 +217,92 @@ private fun PlayerRegion(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
             )
-        }
 
-        Spacer(Modifier.height(24.dp))
-
-        // Track title + artist + actions row
-        Text(
-            currentSong.title,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            currentSong.artists.joinToString(", ") { it.name },
-            style = MaterialTheme.typography.titleMedium,
-            color = TextSecondary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        // Meta-action row: Favorite | Add | Overflow
-        Row(
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            NpIconButton(icon = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder, tooltip = "Like") {
+            NpIconButton(
+                icon = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                tooltip = if (isLiked) "Unlike" else "Like",
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = metrics.px(13f), end = metrics.px(13f)),
+                tint = if (isLiked) Color(0xFFFF4F7A) else TextPrimary,
+                background = Surface2.copy(alpha = 0.62f),
+            ) {
                 player.toggleLike(currentSong.id)
                 actionMessage = if (isLiked) "Removed from liked songs." else "Added to liked songs."
             }
-            Spacer(Modifier.width(8.dp))
-            NpIconButton(icon = Icons.Default.AddCircleOutline, tooltip = "Play next") {
-                player.playNext(currentSong)
-                actionMessage = "Added to play next."
-            }
-            Spacer(Modifier.width(8.dp))
-            NpIconButton(icon = Icons.Default.MoreHoriz, tooltip = "More options") {
-                player.navigateTo(com.omnitune.app.player.NavScreen.Queue)
-                actionMessage = "Opened Queue & Session."
-            }
-        }
-        actionMessage?.let {
-            Spacer(Modifier.height(6.dp))
-            Text(it, color = TextSecondary, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
         }
 
-        Spacer(Modifier.weight(1f))
+        // Title and actions
+        Row(
+            modifier = Modifier
+                .offset(y = metrics.px(360f))
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                Text(
+                    currentSong.title,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    currentSong.artists.joinToString(", ") { it.name },
+                    style = MaterialTheme.typography.titleMedium,
+                    color = TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                NpIconButton(icon = Icons.Default.AddCircleOutline, tooltip = "Play next") {
+                    player.playNext(currentSong)
+                    actionMessage = "Added to play next."
+                }
+                NpIconButton(icon = Icons.Default.MoreHoriz, tooltip = "More options") {
+                    player.navigateTo(com.omnitune.app.player.NavScreen.Queue)
+                    actionMessage = "Opened Queue & Session."
+                }
+            }
+        }
+
+
+        actionMessage?.let {
+            Text(
+                it,
+                color = TextSecondary,
+                fontSize = 11.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Start,
+                modifier = Modifier
+                    .offset(y = metrics.px(404f))
+                    .fillMaxWidth(),
+            )
+        }
 
         // Progress-derived visualization. This is intentionally not audio-reactive.
         PlaybackProgressVisualizer(
             progress = displayPos,
-            modifier = Modifier.fillMaxWidth().height(28.dp).padding(horizontal = 4.dp),
+            modifier = Modifier
+                .offset(y = metrics.px(404f))
+                .fillMaxWidth()
+                .height(metrics.px(28f)),
         )
-
-        Spacer(Modifier.height(8.dp))
 
         // Timeline: position + slider + duration
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .offset(y = metrics.px(444f))
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -295,11 +328,11 @@ private fun PlayerRegion(
             )
         }
 
-        Spacer(Modifier.height(20.dp))
-
         // Transport controls: Shuffle | Prev | Play/Pause | Next | Repeat
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .offset(y = metrics.px(463f))
+                .fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -397,20 +430,6 @@ private fun PlayerRegion(
                 }
             }
         }
-
-        Spacer(Modifier.height(20.dp))
-
-        // Volume row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.AutoMirrored.Filled.VolumeUp, "Volume", tint = TextMuted, modifier = Modifier.size(18.dp))
-            OmniVolumeControl(volume = volume, onVolumeChange = { player.setVolume(it) })
-            Text("${volume}%", style = MaterialTheme.typography.bodySmall, color = TextMuted, modifier = Modifier.width(36.dp), textAlign = TextAlign.End)
-        }
-
-        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -427,26 +446,30 @@ private fun LyricsRegion(
     queue: List<SongItem>,
     currentSong: SongItem?,
     queueIndex: Int,
+    related: List<com.omnitune.innertube.models.YTItem>,
 ) {
     var tab by remember { mutableStateOf(0) }
 
-    Column(modifier = modifier) {
-        // Tab header
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Box(
+        modifier = modifier
+            .clip(Shapes.large)
+            .background(Surface1.copy(alpha = 0.65f))
+            .border(1.dp, BorderLow, Shapes.large)
+    ) {
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             PanelTab("LYRICS", tab == 0) { tab = 0 }
             PanelTab("RELATED", tab == 1) { tab = 1 }
         }
 
-        Spacer(Modifier.height(12.dp))
-
-        // Panel body
         Box(
             Modifier
                 .fillMaxSize()
-                .clip(Shapes.large)
-                .background(Surface1.copy(alpha = 0.65f))
-                .border(1.dp, BorderLow, Shapes.large)
-                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .padding(start = 20.dp, end = 20.dp, top = 64.dp, bottom = 16.dp)
         ) {
             when (tab) {
                 0 -> LyricsPanel(
@@ -454,7 +477,7 @@ private fun LyricsRegion(
                     displayTimeMs = displayTimeMs,
                     player = player,
                 )
-                1 -> QueuePanel(queue = queue, currentSong = currentSong, queueIndex = queueIndex, player = player)
+                1 -> RelatedPanel(related = related, player = player)
             }
         }
     }
@@ -575,13 +598,21 @@ private fun SyncedLyricsDisplay(
     }
 
     // Auto-scroll to active line when not user-scrolling
-    LaunchedEffect(currentLine, userIsScrolling) {
+    val motionPolicy = LocalOmniMotionPolicy.current
+    LaunchedEffect(currentLine, userIsScrolling, motionPolicy) {
         if (!userIsScrolling && currentLine >= 0 && lines.isNotEmpty()) {
             val targetIndex = (currentLine + 1).coerceAtMost(lines.lastIndex)
-            listState.animateScrollToItem(
-                index = targetIndex.coerceAtLeast(0),
-                scrollOffset = -180,
-            )
+            if (!motionPolicy.reduced) {
+                listState.animateScrollToItem(
+                    index = targetIndex.coerceAtLeast(0),
+                    scrollOffset = -180,
+                )
+            } else {
+                listState.scrollToItem(
+                    index = targetIndex.coerceAtLeast(0),
+                    scrollOffset = -180,
+                )
+            }
         }
     }
 
@@ -602,7 +633,7 @@ private fun SyncedLyricsDisplay(
                         isPast -> 0.35f
                         else -> 0.50f
                     },
-                    animationSpec = tween(300),
+                    animationSpec = tween(motionPolicy.standardDurationMs),
                     label = "lyricAlpha$i",
                 )
 
@@ -632,8 +663,8 @@ private fun SyncedLyricsDisplay(
         // Return to current lyric button — shown only while user has scrolled away
         AnimatedVisibility(
             visible = userIsScrolling,
-            enter = fadeIn(tween(200)),
-            exit = fadeOut(tween(300)),
+            enter = fadeIn(tween(motionPolicy.shortDurationMs)),
+            exit = fadeOut(tween(motionPolicy.shortDurationMs)),
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
         ) {
             val interaction = remember { MutableInteractionSource() }
@@ -715,44 +746,56 @@ private fun LyricsLoadingState() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun QueuePanel(
-    queue: List<SongItem>,
-    currentSong: SongItem?,
-    queueIndex: Int,
+private fun RelatedPanel(
+    related: List<com.omnitune.innertube.models.YTItem>,
     player: PlayerViewModel,
 ) {
-    if (queue.isEmpty()) {
+    if (related.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Queue is empty", color = TextMuted, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+            Text("Related content is not available yet for this track.", color = TextMuted, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
         }
         return
     }
-    val currentId = currentSong?.id
-    LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        itemsIndexed(queue) { i, s ->
-            val active = s.id == currentId
+    LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(related) { item ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(Shapes.small)
-                    .background(if (active) Iris.copy(alpha = 0.1f) else Color.Transparent)
-                    .clickable { player.playQueueIndex(i) }
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                    .clickable {
+                        when (item) {
+                            is SongItem -> player.playSong(item)
+                            is AlbumItem -> player.openAlbum(item.browseId)
+                            is com.omnitune.innertube.models.ArtistItem -> player.openArtist(item.id)
+                            is com.omnitune.innertube.models.PlaylistItem -> player.openPlaylist(item.id)
+                        }
+                    }
+                    .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 AsyncImage(
-                    model = s.thumbnail.toHighResThumbnail(),
+                    model = when (item) {
+                        is SongItem -> item.thumbnail.toHighResThumbnail()
+                        is AlbumItem -> item.thumbnail.toHighResThumbnail()
+                        is com.omnitune.innertube.models.ArtistItem -> item.thumbnail?.toHighResThumbnail()
+                        is com.omnitune.innertube.models.PlaylistItem -> item.thumbnail?.toHighResThumbnail()
+                        else -> null
+                    },
                     contentDescription = null,
-                    modifier = Modifier.size(36.dp).clip(Shapes.artworkSmall),
+                    modifier = Modifier.size(48.dp).clip(Shapes.artworkSmall),
                     contentScale = ContentScale.Crop,
                 )
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(s.title, color = if (active) IrisSoft else TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleSmall)
-                    Text(s.artists.joinToString { it.name }, color = TextSecondary, maxLines = 1, style = MaterialTheme.typography.bodySmall)
-                }
-                if (active) {
-                    Icon(Icons.Default.PlayArrow, null, tint = IrisSoft, modifier = Modifier.size(16.dp))
+                    Text(item.title, color = TextPrimary, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    val subtitle = when (item) {
+                        is SongItem -> item.artists.joinToString { it.name }
+                        is AlbumItem -> item.artists?.joinToString { it.name } ?: "Album"
+                        is com.omnitune.innertube.models.ArtistItem -> "Artist"
+                        is com.omnitune.innertube.models.PlaylistItem -> item.author?.name ?: "Playlist"
+                        else -> ""
+                    }
+                    Text(subtitle, color = TextSecondary, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -765,13 +808,17 @@ private fun QueuePanel(
 
 @Composable
 private fun NowPlayingIndicator(isPlaying: Boolean) {
+    val motionPolicy = LocalOmniMotionPolicy.current
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
         // Animated mini equalizer bars — decorative visualizer (NOT real waveform data)
-        if (isPlaying) {
+        if (isPlaying && motionPolicy.decorativeMotionEnabled) {
             AnimatedEqBars()
+            Spacer(Modifier.width(8.dp))
+        } else if (isPlaying) {
+            StaticEqBars()
             Spacer(Modifier.width(8.dp))
         }
         Text(
@@ -780,6 +827,25 @@ private fun NowPlayingIndicator(isPlaying: Boolean) {
             color = IrisSoft,
             fontWeight = FontWeight.Medium,
         )
+    }
+}
+
+@Composable
+private fun StaticEqBars() {
+    Row(
+        modifier = Modifier.height(14.dp),
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        listOf(9f, 12f, 7f, 10f, 6f).forEach { height ->
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(height.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(IrisSoft),
+            )
+        }
     }
 }
 
@@ -861,18 +927,27 @@ private fun PanelTab(label: String, active: Boolean, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     Box(
         modifier = Modifier
-            .clip(Shapes.pill)
-            .background(if (active) Iris.copy(alpha = 0.18f) else Surface2)
-            .border(1.dp, if (active) Iris.copy(alpha = 0.4f) else BorderLow, Shapes.pill)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .width(116.dp)
+            .height(34.dp),
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             label,
-            color = if (active) IrisSoft else TextSecondary,
+            color = if (active) TextPrimary else TextSecondary,
             style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.Medium,
+            fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
         )
+        if (active) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .width(94.dp)
+                    .height(2.dp)
+                    .clip(CircleShape)
+                    .background(OmniGradients.irisToLavender)
+            )
+        }
     }
 }
 
@@ -892,17 +967,25 @@ private fun TransportButton(icon: ImageVector, size: Dp, onClick: () -> Unit) {
 }
 
 @Composable
-private fun NpIconButton(icon: ImageVector, tooltip: String, onClick: () -> Unit) {
+private fun NpIconButton(
+    icon: ImageVector,
+    tooltip: String,
+    modifier: Modifier = Modifier,
+    tint: Color = TextSecondary,
+    background: Color = Color.Transparent,
+    onClick: () -> Unit,
+) {
     val interaction = remember { MutableInteractionSource() }
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(36.dp)
             .clip(CircleShape)
+            .background(background)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
             .pressBounce(interaction),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, tooltip, tint = TextSecondary, modifier = Modifier.size(22.dp))
+        Icon(icon, tooltip, tint = tint, modifier = Modifier.size(22.dp))
     }
 }
 

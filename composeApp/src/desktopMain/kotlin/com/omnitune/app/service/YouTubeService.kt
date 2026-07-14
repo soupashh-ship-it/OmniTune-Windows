@@ -9,6 +9,9 @@ import com.omnitune.innertube.models.YTItem
 import com.omnitune.innertube.models.AlbumItem
 import com.omnitune.innertube.models.BrowseEndpoint
 import com.omnitune.innertube.models.SongItem
+import com.omnitune.innertube.models.WatchEndpoint
+import com.omnitune.innertube.pages.NextResult
+import com.omnitune.innertube.pages.ChartsPage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
@@ -103,6 +106,16 @@ class YouTubeService {
     suspend fun related(endpoint: BrowseEndpoint): RelatedPage = withContext(Dispatchers.IO) {
         ensureInitialized()
         YouTube.related(endpoint).getOrThrow()
+    }
+
+    suspend fun next(endpoint: WatchEndpoint, continuation: String? = null): NextResult = withContext(Dispatchers.IO) {
+        ensureInitialized()
+        YouTube.next(endpoint, continuation).getOrThrow()
+    }
+
+    suspend fun getChartsPage(continuation: String? = null): ChartsPage = withContext(Dispatchers.IO) {
+        ensureInitialized()
+        YouTube.getChartsPage(continuation).getOrThrow()
     }
 
     suspend fun queue(videoIds: List<String>? = null, playlistId: String? = null): List<SongItem> = withContext(Dispatchers.IO) {

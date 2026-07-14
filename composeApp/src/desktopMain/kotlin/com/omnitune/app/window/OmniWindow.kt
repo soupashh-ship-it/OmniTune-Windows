@@ -29,7 +29,11 @@ import com.omnitune.app.window.screens.*
 import com.omnitune.innertube.models.AlbumItem
 import com.omnitune.innertube.models.ArtistItem
 import com.omnitune.innertube.models.PlaylistItem
+import com.omnitune.innertube.models.SongItem
 import org.koin.compose.koinInject
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.window.WindowScope
 import androidx.compose.ui.window.WindowPlacement
@@ -58,6 +62,9 @@ fun WindowScope.OmniWindow(
     val liked by player.likedSongs.collectAsState()
     val discoveryNew by player.discoveryNew.collectAsState()
     val discoveryTrending by player.discoveryTrending.collectAsState()
+    val searchResults by player.searchResults.collectAsState()
+    val searchLoading by player.searchLoading.collectAsState()
+    val searchError by player.searchError.collectAsState()
     val settings: SettingsRepository = koinInject()
     val reducedMotion by settings.reduceMotionFlow.collectAsState()
     val themeMode by settings.appearanceThemeFlow.collectAsState()
@@ -66,13 +73,18 @@ fun WindowScope.OmniWindow(
     var query by remember { mutableStateOf("") }
     val searchFocus = remember { FocusRequester() }
     val qaRoute = remember { System.getenv("OMNITUNE_QA_ROUTE")?.trim()?.lowercase().orEmpty() }
+    val qaSearchQuery = remember { System.getenv("OMNITUNE_QA_SEARCH_QUERY")?.trim().orEmpty() }
     var qaRouteApplied by remember(qaRoute) { mutableStateOf(false) }
+    var qaSearchStarted by remember(qaSearchQuery) { mutableStateOf(false) }
+    var qaSearchReported by remember(qaSearchQuery) { mutableStateOf(false) }
 
     LaunchedEffect(qaRoute, discoveryNew, discoveryTrending, currentSong) {
         if (qaRoute.isBlank() || qaRouteApplied) return@LaunchedEffect
 
         when (qaRoute) {
             "home" -> player.navigateTo(NavScreen.Home).also { qaRouteApplied = true }
+            "browse" -> player.navigateTo(NavScreen.Browse).also { qaRouteApplied = true }
+            "radio" -> player.navigateTo(NavScreen.Radio).also { qaRouteApplied = true }
             "library" -> player.navigateTo(NavScreen.Library).also { qaRouteApplied = true }
             "search" -> player.navigateTo(NavScreen.Search).also { qaRouteApplied = true }
             "queue" -> player.navigateTo(NavScreen.Queue).also { qaRouteApplied = true }
@@ -114,6 +126,52 @@ fun WindowScope.OmniWindow(
         }
     }
 
+    LaunchedEffect(qaSearchQuery) {
+        if (qaSearchQuery.isBlank() || qaSearchStarted) return@LaunchedEffect
+        query = qaSearchQuery
+        player.navigateTo(NavScreen.Search)
+        player.search(qaSearchQuery)
+        qaSearchStarted = true
+    }
+
+    LaunchedEffect(qaSearchStarted, searchLoading, searchResults, searchError) {
+        if (!qaSearchStarted || qaSearchReported || searchLoading) return@LaunchedEffect
+        if (searchResults.isEmpty() && searchError == null) return@LaunchedEffect
+
+        val projectRoot = File(System.getProperty("user.dir")).let {
+            if (it.name == "composeApp") it.parentFile else it
+        }
+        val reportFile = File(projectRoot, "docs/qa/search-runtime-qa.json")
+        reportFile.parentFile.mkdirs()
+        val songs = searchResults.filterIsInstance<SongItem>()
+        val artists = searchResults.filterIsInstance<ArtistItem>()
+        val albums = searchResults.filterIsInstance<AlbumItem>()
+        val playlists = searchResults.filterIsInstance<PlaylistItem>()
+        reportFile.writeText(
+            JSONObject()
+                .put("query", qaSearchQuery)
+                .put("totalResults", searchResults.size)
+                .put("songResults", songs.size)
+                .put("artistResults", artists.size)
+                .put("albumResults", albums.size)
+                .put("playlistResults", playlists.size)
+                .put("error", searchError ?: JSONObject.NULL)
+                .put("firstResults", JSONArray().also { array ->
+                    searchResults.take(10).forEach { item ->
+                        array.put(
+                            JSONObject()
+                                .put("type", item::class.simpleName)
+                                .put("id", item.id)
+                                .put("title", item.title)
+                        )
+                    }
+                })
+                .put("result", searchResults.isNotEmpty() && searchError == null)
+                .toString(2)
+        )
+        qaSearchReported = true
+    }
+
     OmniTuneTheme(reducedMotion = reducedMotion, theme = effectiveTheme) {
         val isMaximized = windowState.placement == WindowPlacement.Maximized
         val windowShape = if (isMaximized) RectangleShape else RoundedCornerShape(16.dp)
@@ -131,6 +189,7 @@ fun WindowScope.OmniWindow(
                     if (event.type == KeyEventType.KeyUp) {
                         when (event.key) {
                             Key.Spacebar -> { player.togglePlayPause(); true }
+                            Key.MediaPlayPause -> { player.togglePlayPause(); true }
                             Key.DirectionLeft -> { player.seekRelative(-5000); true }
                             Key.DirectionRight -> { player.seekRelative(5000); true }
                             Key.N -> { player.nextTrack(); true }
@@ -139,6 +198,12 @@ fun WindowScope.OmniWindow(
                                 if (event.isCtrlPressed) {
                                     player.navigateTo(NavScreen.Search)
                                     searchFocus.requestFocus()
+                                    true
+                                } else false
+                            }
+                            Key.Comma -> {
+                                if (event.isCtrlPressed) {
+                                    player.navigateTo(NavScreen.Settings)
                                     true
                                 } else false
                             }
@@ -176,7 +241,7 @@ fun WindowScope.OmniWindow(
                             .padding(bottom = playerHeight + playerBottomInset + metrics.px(8f))
                     )
 
-                    WindowDraggableArea(
+                    Box(
                         modifier = Modifier
                             .offset(x = sidebarWidth)
                             .width(mainWidth)
@@ -201,6 +266,31 @@ fun WindowScope.OmniWindow(
                             },
                             onOpenSettings = { player.navigateTo(NavScreen.Settings) }
                         )
+
+                        val leftDragX = metrics.px(96f)
+                        val leftDragWidth = metrics.px(88f)
+                        val rightDragX = metrics.px(730f)
+                        val rightDragWidth = (mainWidth - rightDragX - metrics.px(240f)).coerceAtLeast(0.dp)
+
+                        WindowDraggableArea(
+                            modifier = Modifier
+                                .offset(x = leftDragX)
+                                .width(leftDragWidth)
+                                .fillMaxHeight()
+                        ) {
+                            Box(Modifier.fillMaxSize())
+                        }
+
+                        if (rightDragWidth > 0.dp) {
+                            WindowDraggableArea(
+                                modifier = Modifier
+                                    .offset(x = rightDragX)
+                                    .width(rightDragWidth)
+                                    .fillMaxHeight()
+                            ) {
+                                Box(Modifier.fillMaxSize())
+                            }
+                        }
                     }
 
                     Box(

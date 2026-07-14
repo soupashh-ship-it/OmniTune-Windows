@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.omnitune.app.window
 
 import androidx.compose.foundation.background
@@ -207,6 +209,7 @@ private fun PlayerRightZone(
             tint = iconMuted,
             onClick = onQueueClick,
             size = 16.dp,
+            tooltip = "Queue & Session"
         )
         Icon(
             if (volume == 0) Icons.AutoMirrored.Filled.VolumeOff
@@ -263,6 +266,7 @@ private fun PlayerControlBand(
                 enabled = enabled,
                 onClick = onShuffleClick,
                 size = 15.dp,
+                tooltip = "Shuffle"
             )
             PlayerSmallIcon(
                 icon = Icons.Filled.SkipPrevious,
@@ -270,11 +274,13 @@ private fun PlayerControlBand(
                 enabled = enabled,
                 onClick = onPreviousClick,
                 size = 19.dp,
+                tooltip = "Previous"
             )
             PlayerPlayPauseButton(
                 isPlaying = isPlaying,
                 enabled = enabled,
                 onClick = onPlayPauseClick,
+                tooltip = "Play / Pause"
             )
             PlayerSmallIcon(
                 icon = Icons.Filled.SkipNext,
@@ -282,6 +288,7 @@ private fun PlayerControlBand(
                 enabled = enabled,
                 onClick = onNextClick,
                 size = 19.dp,
+                tooltip = "Next"
             )
             PlayerSmallIcon(
                 icon = if (repeatMode == com.omnitune.app.player.RepeatMode.ONE)
@@ -290,6 +297,7 @@ private fun PlayerControlBand(
                 enabled = enabled,
                 onClick = onRepeatClick,
                 size = 15.dp,
+                tooltip = "Repeat"
             )
         }
 
@@ -331,35 +339,48 @@ private fun PlayerPlayPauseButton(
     isPlaying: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
+    tooltip: String? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val metrics = LocalHomeReferenceMetrics.current
-    Box(
-        modifier = Modifier
-            .size(metrics.px(31f))
-            .clip(CircleShape)
-            .background(
-                if (!enabled) com.omnitune.app.window.OmniReferenceColors.PlayerPrimaryControl.copy(alpha = 0.4f)
-                else if (isHovered) Color.White
-                else com.omnitune.app.window.OmniReferenceColors.PlayerPrimaryControl
+    val box = @Composable {
+        Box(
+            modifier = Modifier
+                .size(metrics.px(31f))
+                .clip(CircleShape)
+                .background(
+                    if (!enabled) com.omnitune.app.window.OmniReferenceColors.PlayerPrimaryControl.copy(alpha = 0.4f)
+                    else if (isHovered) Color.White
+                    else com.omnitune.app.window.OmniReferenceColors.PlayerPrimaryControl
+                )
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    enabled = enabled,
+                    onClick = onClick
+                )
+                .pressBounce(interactionSource),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                contentDescription = "Play/Pause",
+                tint = com.omnitune.app.window.OmniReferenceColors.PlayerPrimaryControlIcon,
+                modifier = Modifier.size(metrics.px(18f))
             )
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                enabled = enabled,
-                onClick = onClick
-            )
-            .pressBounce(interactionSource),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = if (isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-            contentDescription = "Play/Pause",
-            tint = com.omnitune.app.window.OmniReferenceColors.PlayerPrimaryControlIcon,
-            modifier = Modifier.size(metrics.px(18f))
-        )
+        }
     }
+    if (tooltip != null) {
+        androidx.compose.foundation.TooltipArea(
+            tooltip = {
+                Box(modifier = Modifier.background(Color(0xE60A0C16), RoundedCornerShape(4.dp)).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(4.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                    Text(tooltip, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                }
+            },
+            delayMillis = 400
+        ) { box() }
+    } else box()
 }
 
 @Composable
@@ -369,29 +390,42 @@ private fun PlayerSmallIcon(
     enabled: Boolean,
     onClick: () -> Unit,
     size: androidx.compose.ui.unit.Dp,
+    tooltip: String? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
     val metrics = LocalHomeReferenceMetrics.current
-    Box(
-        modifier = Modifier
-            .size(metrics.px(28f))
-            .clip(CircleShape)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                enabled = enabled,
-                onClick = onClick
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            icon,
-            null,
-            tint = if (isHovered && enabled) Color.White else tint,
-            modifier = Modifier.size(size)
-        )
+    val box = @Composable {
+        Box(
+            modifier = Modifier
+                .size(metrics.px(28f))
+                .clip(CircleShape)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    enabled = enabled,
+                    onClick = onClick
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon,
+                null,
+                tint = if (isHovered && enabled) Color.White else tint,
+                modifier = Modifier.size(size)
+            )
+        }
     }
+    if (tooltip != null) {
+        androidx.compose.foundation.TooltipArea(
+            tooltip = {
+                Box(modifier = Modifier.background(Color(0xE60A0C16), RoundedCornerShape(4.dp)).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(4.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                    Text(tooltip, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                }
+            },
+            delayMillis = 400
+        ) { box() }
+    } else box()
 }
 
 @Composable
@@ -400,22 +434,35 @@ private fun PlayerUtilityIcon(
     tint: Color,
     onClick: () -> Unit,
     size: androidx.compose.ui.unit.Dp,
+    tooltip: String? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
-    Box(
-        modifier = Modifier
-            .size(size + 10.dp)
-            .clip(CircleShape)
-            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            icon, null,
-            tint = if (isHovered) Color(0xFFAEB4C8) else tint,
-            modifier = Modifier.size(size)
-        )
+    val box = @Composable {
+        Box(
+            modifier = Modifier
+                .size(size + 10.dp)
+                .clip(CircleShape)
+                .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon, null,
+                tint = if (isHovered) Color(0xFFAEB4C8) else tint,
+                modifier = Modifier.size(size)
+            )
+        }
     }
+    if (tooltip != null) {
+        androidx.compose.foundation.TooltipArea(
+            tooltip = {
+                Box(modifier = Modifier.background(Color(0xE60A0C16), RoundedCornerShape(4.dp)).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(4.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                    Text(tooltip, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                }
+            },
+            delayMillis = 400
+        ) { box() }
+    } else box()
 }
 
 @Composable
@@ -559,22 +606,45 @@ private fun TransportIcon(
     onClick: () -> Unit,
     enabled: Boolean = true,
     size: androidx.compose.ui.unit.Dp = 22.dp,
+    tooltip: String? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
-    Box(
-        modifier = Modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                enabled = enabled,
-                onClick = onClick
-            )
-            .pressBounce(interactionSource),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, null, tint = if (enabled) tint else tint.copy(alpha = 0.35f), modifier = Modifier.size(size))
+    val box = @Composable {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    enabled = enabled,
+                    onClick = onClick
+                )
+                .pressBounce(interactionSource),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, null, tint = if (enabled) tint else tint.copy(alpha = 0.35f), modifier = Modifier.size(size))
+        }
+    }
+
+    if (tooltip != null) {
+        androidx.compose.foundation.TooltipArea(
+            tooltip = {
+                Box(
+                    modifier = Modifier
+                        .background(Color(0xE60A0C16), RoundedCornerShape(4.dp))
+                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(tooltip, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                }
+            },
+            delayMillis = 400
+        ) {
+            box()
+        }
+    } else {
+        box()
     }
 }
 

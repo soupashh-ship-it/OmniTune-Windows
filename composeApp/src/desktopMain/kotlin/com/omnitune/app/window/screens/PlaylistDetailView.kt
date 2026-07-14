@@ -30,6 +30,8 @@ import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -136,6 +138,11 @@ fun PlaylistDetailView(player: PlayerViewModel) {
             onAddSong = { player.addToQueue(it) },
             onPlayNext = { player.playNext(it) },
             onDownloadPlaylist = { player.downloadSongs((localPlaylist ?: page!!).songs) },
+            onSavePlaylist = {
+                val loaded = localPlaylist ?: page!!
+                player.saveSongsAsPlaylist(loaded.playlist.title, loaded.songs)
+            },
+            onOpenPlaylists = { player.navigateTo(com.omnitune.app.player.NavScreen.Playlists) },
             onOpenRelated = { player.openPlaylist(it.id) },
             onPlayRelated = { player.playPlaylist(it.id) },
         )
@@ -155,6 +162,8 @@ private fun PlaylistDetailReferenceContent(
     onAddSong: (SongItem) -> Unit,
     onPlayNext: (SongItem) -> Unit,
     onDownloadPlaylist: () -> Unit,
+    onSavePlaylist: () -> Result<String>,
+    onOpenPlaylists: () -> Unit,
     onOpenRelated: (PlaylistItem) -> Unit,
     onPlayRelated: (PlaylistItem) -> Unit,
 ) {
@@ -163,6 +172,8 @@ private fun PlaylistDetailReferenceContent(
     val playlist = page.playlist
     val songs = page.songs
     val duration = songs.sumOf { it.duration ?: 0 }
+    var actionMessage by remember(playlist.id) { mutableStateOf<String?>(null) }
+    var playlistMenuExpanded by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize().verticalScroll(scroll)) {
         Box(Modifier.fillMaxWidth().height(metrics.px(560f))) {
@@ -179,8 +190,9 @@ private fun PlaylistDetailReferenceContent(
                 model = playlist.thumbnail?.toHighResThumbnail(),
                 contentDescription = playlist.title,
                 modifier = Modifier
-                    .offset(x = metrics.px(22f), y = metrics.px(40f))
-                    .size(metrics.px(220f))
+                    .offset(x = metrics.px(24f), y = metrics.px(36f))
+                    .width(metrics.px(221f))
+                    .height(metrics.px(224f))
                     .clip(RoundedCornerShape(metrics.px(10f)))
                     .background(Surface1)
                     .border(1.dp, BorderLow.copy(alpha = 0.65f), RoundedCornerShape(metrics.px(10f))),
@@ -189,7 +201,7 @@ private fun PlaylistDetailReferenceContent(
 
             Column(
                 modifier = Modifier
-                    .offset(x = metrics.px(265f), y = metrics.px(55f))
+                    .offset(x = metrics.px(260f), y = metrics.px(46f))
                     .width(metrics.px(430f))
             ) {
                 Text("PLAYLIST", color = TextSecondary, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
@@ -209,22 +221,52 @@ private fun PlaylistDetailReferenceContent(
                 Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(9f)), verticalAlignment = Alignment.CenterVertically) {
                     ReferencePrimaryButton("Play", Icons.Default.PlayArrow, onPlayPlaylist, Modifier.width(metrics.px(82f)).height(metrics.px(30f)))
                     ReferenceSecondaryButton("Shuffle", Icons.Default.Shuffle, onShuffle, Modifier.width(metrics.px(90f)).height(metrics.px(30f)))
-                    RoundAction(Icons.Default.FavoriteBorder) {}
-                    RoundAction(Icons.Default.Download, onDownloadPlaylist)
-                    RoundAction(Icons.Default.MoreHoriz) {}
+                    RoundAction(Icons.Default.FavoriteBorder) {
+                        onSavePlaylist()
+                            .onSuccess { actionMessage = "Saved playlist: $it" }
+                            .onFailure { actionMessage = it.message ?: "Could not save playlist." }
+                    }
+                    RoundAction(Icons.Default.Download) {
+                        onDownloadPlaylist()
+                        actionMessage = "Download queued for ${songs.size} loaded tracks."
+                    }
+                    Box {
+                        RoundAction(Icons.Default.MoreHoriz) { playlistMenuExpanded = true }
+                        DropdownMenu(expanded = playlistMenuExpanded, onDismissRequest = { playlistMenuExpanded = false }) {
+                            DropdownMenuItem(text = { Text("Add all to queue") }, onClick = {
+                                playlistMenuExpanded = false
+                                songs.forEach(onAddSong)
+                                actionMessage = "Added ${songs.size} tracks to queue."
+                            })
+                            DropdownMenuItem(text = { Text("Save to Library") }, onClick = {
+                                playlistMenuExpanded = false
+                                onSavePlaylist()
+                                    .onSuccess { actionMessage = "Saved playlist: $it" }
+                                    .onFailure { actionMessage = it.message ?: "Could not save playlist." }
+                            })
+                            DropdownMenuItem(text = { Text("Open Playlists") }, onClick = {
+                                playlistMenuExpanded = false
+                                onOpenPlaylists()
+                            })
+                        }
+                    }
+                }
+                actionMessage?.let {
+                    Spacer(Modifier.height(metrics.px(8f)))
+                    Text(it, color = IrisSoft, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
 
             PlaylistTrackHeader(
                 modifier = Modifier
-                    .offset(x = metrics.px(22f), y = metrics.px(280f))
+                    .offset(x = metrics.px(24f), y = metrics.px(285f))
                     .width(metrics.px(676f))
                     .height(metrics.px(20f)),
             )
 
             Column(
                 modifier = Modifier
-                    .offset(x = metrics.px(22f), y = metrics.px(306f))
+                    .offset(x = metrics.px(24f), y = metrics.px(311f))
                     .width(metrics.px(676f)),
                 verticalArrangement = Arrangement.spacedBy(metrics.px(3f)),
             ) {
@@ -249,10 +291,11 @@ private fun PlaylistDetailReferenceContent(
                 related = relatedPlaylists,
                 onOpen = onOpenRelated,
                 onPlay = onPlayRelated,
+                onSeeAll = onOpenPlaylists,
                 modifier = Modifier
-                    .offset(x = metrics.px(730f), y = metrics.px(55f))
-                    .width(metrics.px(210f))
-                    .height(metrics.px(452f)),
+                    .offset(x = metrics.px(730f), y = metrics.px(39f))
+                    .width(metrics.px(208f))
+                    .height(metrics.px(482f)),
             )
         }
     }
@@ -315,13 +358,14 @@ private fun RelatedPlaylistRail(
     related: List<PlaylistItem>,
     onOpen: (PlaylistItem) -> Unit,
     onPlay: (PlaylistItem) -> Unit,
+    onSeeAll: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val metrics = LocalHomeReferenceMetrics.current
     Column(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(title, color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Text("See all", color = IrisSoft, fontSize = 8.5.sp)
+            Text("See all", color = IrisSoft, fontSize = 8.5.sp, modifier = Modifier.clickable(onClick = onSeeAll))
         }
         Spacer(Modifier.height(metrics.px(12f)))
         Column(

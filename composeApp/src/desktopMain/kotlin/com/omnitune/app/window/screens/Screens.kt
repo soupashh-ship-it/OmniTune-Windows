@@ -44,24 +44,42 @@ private fun firstSong(items: List<YTItem>): SongItem? =
 
 
 @Composable
-private fun SectionCarousel(title: String, items: List<YTItem>, player: PlayerViewModel, currentSong: SongItem?, playbackState: PlaybackState, liked: Set<String>) {
+private fun SectionCarousel(title: String, items: List<YTItem>, player: PlayerViewModel, currentSong: SongItem?, playbackState: PlaybackState, liked: Set<String>, onItemClick: ((YTItem) -> Unit)? = null) {
     Column {
         OmniSectionHeader(title, modifier = Modifier.padding(bottom = 12.dp))
         LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
-            items(items) { item -> CarouselCard(item, player, currentSong, playbackState, liked) }
+            items(items) { item -> CarouselCard(item, player, currentSong, playbackState, liked, onItemClick) }
         }
     }
 }
 
 @Composable
-private fun CarouselCard(item: YTItem, player: PlayerViewModel, currentSong: SongItem?, playbackState: PlaybackState, liked: Set<String>) {
+private fun CarouselCard(item: YTItem, player: PlayerViewModel, currentSong: SongItem?, playbackState: PlaybackState, liked: Set<String>, onItemClick: ((YTItem) -> Unit)? = null) {
     val w = 170.dp
-    when (item) {
-        is SongItem -> CompactSongCard(item, player, currentSong, playbackState, Modifier.width(w))
-        is AlbumItem -> OmniMediaCard(item.title, item.artists?.firstOrNull()?.name, item.thumbnail, Modifier.width(w), onPlay = { player.openAlbum(item.browseId) }, onClick = { player.openAlbum(item.browseId) })
-        is ArtistItem -> OmniMediaCard(item.title, "Artist", item.thumbnail, Modifier.width(w), onPlay = { player.openArtist(item.id) }, onClick = { player.openArtist(item.id) })
-        is PlaylistItem -> OmniMediaCard(item.title, item.author?.name, item.thumbnail, Modifier.width(w), onClick = { player.openPlaylist(item.id) }, onPlay = { player.playPlaylist(item.id) })
-        else -> OmniMediaCard(item.title, "", item.thumbnail, Modifier.width(w))
+    if (onItemClick != null) {
+        val (subtitle, thumb) = when (item) {
+            is SongItem -> (item.artists.firstOrNull()?.name ?: "") to item.thumbnail
+            is AlbumItem -> (item.artists?.firstOrNull()?.name ?: "") to item.thumbnail
+            is ArtistItem -> "Artist" to item.thumbnail
+            is PlaylistItem -> (item.author?.name ?: "") to item.thumbnail
+            else -> "" to ""
+        }
+        OmniMediaCard(
+            item.title,
+            subtitle,
+            thumb,
+            Modifier.width(w),
+            onPlay = { onItemClick(item) },
+            onClick = { onItemClick(item) }
+        )
+    } else {
+        when (item) {
+            is SongItem -> CompactSongCard(item, player, currentSong, playbackState, Modifier.width(w))
+            is AlbumItem -> OmniMediaCard(item.title, item.artists?.firstOrNull()?.name, item.thumbnail, Modifier.width(w), onPlay = { player.openAlbum(item.browseId) }, onClick = { player.openAlbum(item.browseId) })
+            is ArtistItem -> OmniMediaCard(item.title, "Artist", item.thumbnail, Modifier.width(w), onPlay = { player.openArtist(item.id) }, onClick = { player.openArtist(item.id) })
+            is PlaylistItem -> OmniMediaCard(item.title, item.author?.name, item.thumbnail, Modifier.width(w), onClick = { player.openPlaylist(item.id) }, onPlay = { player.playPlaylist(item.id) })
+            else -> OmniMediaCard(item.title, "", "", Modifier.width(w))
+        }
     }
 }
 
@@ -101,21 +119,159 @@ private fun HomeShimmer() {
 
 @Composable
 fun BrowseView(player: PlayerViewModel) {
-    var genres by remember { mutableStateOf<List<MoodAndGenres.Item>?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
     val service = koinInject<YouTubeService>()
     val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) { scope.launch { runCatching { service.moodAndGenres().flatMap { it.items } }.onSuccess { genres = it }.onFailure { error = it.message } } }
+    var explorePage by remember { mutableStateOf<ExplorePage?>(null) }
+    var chartsPage by remember { mutableStateOf<ChartsPage?>(null) }
+    var selectedGenre by remember { mutableStateOf<MoodAndGenres.Item?>(null) }
+    var genrePage by remember { mutableStateOf<BrowseResult?>(null) }
+    var genreLoading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var genreError by remember { mutableStateOf<String?>(null) }
+
+    val currentSong by player.currentSong.collectAsState()
+    val playbackState by player.playbackState.collectAsState()
+    val liked by player.likedSongs.collectAsState()
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            runCatching {
+                val explore = service.explore()
+                val charts = service.getChartsPage()
+                explore to charts
+            }.onSuccess { (explore, charts) ->
+                explorePage = explore
+                chartsPage = charts
+            }.onFailure {
+                error = it.message
+            }
+        }
+    }
 
     Column(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp)) {
-        OmniSectionHeader("Browse", modifier = Modifier.padding(bottom = 16.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            OmniSectionHeader(selectedGenre?.title ?: "Browse")
+            if (selectedGenre != null) {
+                OmniSurface(
+                    modifier = Modifier
+                        .clip(Shapes.pill)
+                        .clickable {
+                            selectedGenre = null
+                            genrePage = null
+                            genreError = null
+                            genreLoading = false
+                        }
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                ) {
+                    Text("Back to Browse", color = TextPrimary, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
         when {
-            error != null -> OmniEmptyState("Couldn't load categories", error)
-            genres == null -> HomeShimmer()
-            else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {
-                items(genres!!) { g ->
-                    OmniSurface(modifier = Modifier.fillMaxWidth().clickable { g.endpoint.browseId?.let { player.openAlbum(it) } }.padding(vertical = 10.dp, horizontal = 16.dp)) {
-                        Text(g.title, style = MaterialTheme.typography.titleMedium, color = TextPrimary)
+            error != null -> OmniEmptyState("Couldn't load browse", error ?: "")
+            explorePage == null || chartsPage == null -> HomeShimmer()
+            selectedGenre != null -> {
+                LaunchedEffect(selectedGenre) {
+                    val genre = selectedGenre ?: return@LaunchedEffect
+                    genreLoading = true
+                    genreError = null
+                    genrePage = null
+                    runCatching {
+                        service.browse(genre.endpoint.browseId, genre.endpoint.params)
+                            .filterExplicit()
+                            .filterVideo()
+                    }.onSuccess {
+                        genrePage = it
+                    }.onFailure {
+                        genreError = it.message ?: "Genre failed to load"
+                    }
+                    genreLoading = false
+                }
+
+                when {
+                    genreLoading -> HomeShimmer()
+                    genreError != null -> OmniEmptyState("Couldn't load ${selectedGenre!!.title}", genreError ?: "")
+                    genrePage?.items.isNullOrEmpty() -> OmniEmptyState("No browse results", "The provider returned no playable items for this section.")
+                    else -> {
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
+                            genrePage!!.items
+                                .filter { it.items.isNotEmpty() }
+                                .forEach { section ->
+                                    item {
+                                        SectionCarousel(
+                                            title = section.title ?: genrePage!!.title ?: selectedGenre!!.title,
+                                            items = section.items.distinctBy { it.id },
+                                            player = player,
+                                            currentSong = currentSong,
+                                            playbackState = playbackState,
+                                            liked = liked,
+                                        )
+                                    }
+                                }
+                        }
+                    }
+                }
+            }
+            else -> {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
+                    item {
+                        OmniSurface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(118.dp)
+                                .clip(Shapes.large)
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(Iris.copy(alpha = 0.20f), Surface1.copy(alpha = 0.72f), CoolBlue.copy(alpha = 0.12f))
+                                    )
+                                )
+                                .padding(24.dp)
+                        ) {
+                            Column(verticalArrangement = Arrangement.Center) {
+                                Text("Explore music from the active provider", color = TextPrimary, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(6.dp))
+                                Text("Genres, new releases, charts and playlists are loaded live. Failed shelves do not hide working ones.", color = TextSecondary, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                    item {
+                        val mg = explorePage!!.moodAndGenres
+                        if (mg.isNotEmpty()) {
+                            Text("Mood & Genres", style = MaterialTheme.typography.titleMedium, color = TextPrimary, modifier = Modifier.padding(bottom = Spacing.small))
+                            LazyRow(horizontalArrangement = Arrangement.spacedBy(Spacing.small)) {
+                                items(mg) { g ->
+                                    OmniSurface(modifier = Modifier.clickable { selectedGenre = g }.padding(vertical = 10.dp, horizontal = 16.dp)) {
+                                        Text(g.title, style = MaterialTheme.typography.titleSmall, color = TextPrimary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        if (explorePage!!.newReleaseAlbums.isNotEmpty()) {
+                            SectionCarousel(
+                                title = "New Releases",
+                                items = explorePage!!.newReleaseAlbums,
+                                player = player,
+                                currentSong = currentSong,
+                                playbackState = playbackState,
+                                liked = liked
+                            )
+                        }
+                    }
+                    items(chartsPage!!.sections) { section ->
+                        SectionCarousel(
+                            title = section.title,
+                            items = section.items,
+                            player = player,
+                            currentSong = currentSong,
+                            playbackState = playbackState,
+                            liked = liked
+                        )
                     }
                 }
             }
@@ -125,22 +281,99 @@ fun BrowseView(player: PlayerViewModel) {
 
 @Composable
 fun RadioView(player: PlayerViewModel) {
-    var albums by remember { mutableStateOf<List<AlbumItem>?>(null) }
+    var explorePage by remember { mutableStateOf<ExplorePage?>(null) }
+    var chartsPage by remember { mutableStateOf<ChartsPage?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val service = koinInject<YouTubeService>()
     val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) { scope.launch { runCatching { service.newReleaseAlbums() }.onSuccess { albums = it }.onFailure { error = it.message } } }
+    
+    val currentSong by player.currentSong.collectAsState()
+    val playbackState by player.playbackState.collectAsState()
+    val liked by player.likedSongs.collectAsState()
+    val queue by player.queue.collectAsState()
+    val playbackHistory by player.playbackHistory.collectAsState()
+    val discoveryTrending by player.discoveryTrending.collectAsState()
+
+    LaunchedEffect(Unit) { 
+        scope.launch { 
+            runCatching { service.explore() to service.getChartsPage() }
+                .onSuccess {
+                    explorePage = it.first
+                    chartsPage = it.second
+                }
+                .onFailure { error = it.message } 
+        } 
+    }
 
     Column(Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 24.dp)) {
-        OmniSectionHeader("Radio", modifier = Modifier.padding(bottom = 16.dp))
+        OmniSectionHeader("Radio Hub", modifier = Modifier.padding(bottom = 8.dp))
+        Text(
+            "Start radio from real playable tracks and provider radio endpoints. OmniTune avoids fake stations.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextSecondary,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
         when {
-            error != null -> OmniEmptyState("Radio unavailable", "Tune in later.")
-            albums == null -> HomeShimmer()
-            else -> LazyVerticalGridCells(albums!!, player)
+            error != null -> OmniEmptyState("Radio unavailable", error ?: "")
+            explorePage == null || chartsPage == null -> HomeShimmer()
+            else -> {
+                val historySongs = playbackHistory.map { it.song }
+                val chartSongs = chartsPage!!.sections.flatMap { it.items }.filterIsInstance<SongItem>()
+                val radioSeeds = (listOfNotNull(currentSong) + queue + historySongs + discoveryTrending + chartSongs)
+                    .distinctBy { it.id }
+                    .take(24)
+                val endpointItems = (chartsPage!!.sections.flatMap { it.items } + explorePage!!.newReleaseAlbums)
+                    .distinctBy { it.id }
+                    .filter {
+                        (it is ArtistItem && it.radioEndpoint != null) ||
+                            (it is PlaylistItem && it.radioEndpoint != null)
+                    }
+
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
+                    item {
+                        if (radioSeeds.isNotEmpty()) {
+                            SectionCarousel(
+                                title = "Start from a track",
+                                items = radioSeeds,
+                                player = player,
+                                currentSong = currentSong,
+                                playbackState = playbackState,
+                                liked = liked,
+                                onItemClick = { item ->
+                                    if (item is SongItem) player.startRadio(item.id, "song")
+                                }
+                            )
+                        }
+                    }
+                    item {
+                        if (endpointItems.isNotEmpty()) {
+                            SectionCarousel(
+                                title = "Provider radio endpoints",
+                                items = endpointItems,
+                                player = player,
+                                currentSong = currentSong,
+                                playbackState = playbackState,
+                                liked = liked,
+                                onItemClick = { item ->
+                                    when (item) {
+                                        is ArtistItem -> item.radioEndpoint?.let(player::startRadio)
+                                        is PlaylistItem -> item.radioEndpoint?.let(player::startRadio)
+                                        else -> Unit
+                                    }
+                                }
+                            )
+                        }
+                    }
+                    item {
+                        if (radioSeeds.isEmpty() && endpointItems.isEmpty()) {
+                            OmniEmptyState("No radio seeds yet", "Play music or load provider charts to create real radio queues.")
+                        }
+                    }
+                }
+            }
         }
     }
 }
-
 @Composable
 private fun LazyVerticalGridCells(items: List<AlbumItem>, player: PlayerViewModel) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.small)) {

@@ -36,6 +36,10 @@ fun main() {
         KoinApplication(application = {
             modules(initKoin())
         }) {
+            val platformContext: com.omnitune.app.platform.PlatformContext = koinInject()
+            LaunchedEffect(Unit) {
+                com.omnitune.app.platform.OmniLogger.init(platformContext)
+            }
             val audioEngine: VlcjAudioEngine = koinInject()
             val settings: SettingsRepository = koinInject()
             val player: PlayerViewModel = koinInject()

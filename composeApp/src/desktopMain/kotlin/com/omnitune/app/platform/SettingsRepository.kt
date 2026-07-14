@@ -41,7 +41,28 @@ data class PlaybackSession(
 
 class SettingsRepository(
     private val prefs: Preferences = Preferences.userNodeForPackage(SettingsRepository::class.java),
+    private val platformContext: PlatformContext? = null,
 ) {
+    private fun writeJsonFile(name: String, content: String) {
+        platformContext?.appDataDir?.let { dir ->
+            runCatching { java.io.File(dir, name).writeText(content) }
+        }
+    }
+
+    private fun writeJsonStore(name: String, fallbackPreferenceKey: String, content: String) {
+        writeJsonFile(name, content)
+        if (platformContext == null) {
+            prefs.put(fallbackPreferenceKey, content)
+        }
+    }
+    
+    private fun readJsonFile(name: String): String? {
+        return platformContext?.appDataDir?.let { dir ->
+            val file = java.io.File(dir, name)
+            if (file.exists()) runCatching { file.readText() }.getOrNull() else null
+        }
+    }
+
     private val _miniPlayerAlwaysOnTopFlow = MutableStateFlow(prefs.getBoolean("miniPlayerAlwaysOnTop", true))
     val miniPlayerAlwaysOnTopFlow: StateFlow<Boolean> = _miniPlayerAlwaysOnTopFlow.asStateFlow()
     private val _appearanceThemeFlow = MutableStateFlow(prefs.get("appearanceTheme", "nocturne") ?: "nocturne")
@@ -94,6 +115,21 @@ class SettingsRepository(
     var likedSongIds: Set<String>
         get() = (prefs.get("likedSongIds", "") ?: "").split(",").filter { it.isNotBlank() }.toSet()
         set(value) { prefs.put("likedSongIds", value.joinToString(",")) }
+
+    var pinnedLibraryCollectionIds: Set<String>
+        get() {
+            val stored = prefs.get("pinnedLibraryCollectionIds.v1", null)
+            if (stored.isNullOrBlank()) {
+                return setOf("favorites", "queue", "albums", "artists", "playlists", "downloads")
+            }
+            return stored.split(",").map { it.trim() }.filter { it.isNotBlank() }.toSet()
+        }
+        set(value) {
+            val sanitized = value
+                .filter { it in setOf("favorites", "queue", "albums", "artists", "playlists", "downloads") }
+                .ifEmpty { listOf("favorites") }
+            prefs.put("pinnedLibraryCollectionIds.v1", sanitized.joinToString(","))
+        }
 
     var shuffleEnabled: Boolean
         get() = prefs.getBoolean("shuffleEnabled", false)
@@ -160,13 +196,18 @@ class SettingsRepository(
                         })
                 )
             }
-            prefs.put("savedQueuePlaylists.v1", array.toString())
+            val json = array.toString()
+            writeJsonStore("savedQueuePlaylists.json", "savedQueuePlaylists.v1", json)
         }
 
     fun saveQueueAsPlaylist(name: String, songs: List<SongItem>): SavedQueuePlaylist {
+        return saveSongsAsPlaylist(name, songs)
+    }
+
+    fun saveSongsAsPlaylist(name: String, songs: List<SongItem>): SavedQueuePlaylist {
         val trimmed = name.trim()
         require(trimmed.isNotBlank()) { "Playlist name cannot be empty." }
-        require(songs.isNotEmpty()) { "Queue is empty." }
+        require(songs.isNotEmpty()) { "Playlist has no loaded songs." }
 
         val now = System.currentTimeMillis()
         val playlist = SavedQueuePlaylist(
@@ -200,8 +241,9 @@ class SettingsRepository(
                             .put("sessionId", entry.sessionId)
                             .put("song", entry.song.toJson())
                     )
-                }
-            prefs.put("playbackHistory.v1", array.toString())
+            }
+            val json = array.toString()
+            writeJsonStore("playbackHistory.json", "playbackHistory.v1", json)
         }
 
     var playbackSessions: List<PlaybackSession>
@@ -222,8 +264,9 @@ class SettingsRepository(
                             .put("playCount", session.playCount)
                             .put("uniqueTrackCount", session.uniqueTrackCount)
                     )
-                }
-            prefs.put("playbackSessions.v1", array.toString())
+            }
+            val json = array.toString()
+            writeJsonStore("playbackSessions.json", "playbackSessions.v1", json)
         }
 
     fun isMeaningfulListen(accumulatedPlayedMs: Long, durationMs: Long): Boolean {
@@ -307,7 +350,8 @@ class SettingsRepository(
     }
 
     private fun readPlaylistList(): List<SavedQueuePlaylist> = runCatching {
-        val array = JSONArray(prefs.get("savedQueuePlaylists.v1", "[]"))
+        val stored = readJsonFile("savedQueuePlaylists.json") ?: prefs.get("savedQueuePlaylists.v1", "[]")
+        val array = JSONArray(stored)
         (0 until array.length()).mapNotNull { index ->
             val obj = array.optJSONObject(index) ?: return@mapNotNull null
             val songsJson = obj.optJSONArray("songs") ?: JSONArray()
@@ -321,7 +365,8 @@ class SettingsRepository(
     }.getOrDefault(emptyList())
 
     private fun readPlaybackHistory(): List<PlaybackHistoryEntry> = runCatching {
-        val array = JSONArray(prefs.get("playbackHistory.v1", "[]"))
+        val stored = readJsonFile("playbackHistory.json") ?: prefs.get("playbackHistory.v1", "[]")
+        val array = JSONArray(stored)
         (0 until array.length()).mapNotNull { index ->
             val obj = array.optJSONObject(index) ?: return@mapNotNull null
             val song = obj.optJSONObject("song")?.toSongItem() ?: return@mapNotNull null
@@ -340,7 +385,8 @@ class SettingsRepository(
     }.getOrDefault(emptyList())
 
     private fun readPlaybackSessions(): List<PlaybackSession> = runCatching {
-        val array = JSONArray(prefs.get("playbackSessions.v1", "[]"))
+        val stored = readJsonFile("playbackSessions.json") ?: prefs.get("playbackSessions.v1", "[]")
+        val array = JSONArray(stored)
         (0 until array.length()).mapNotNull { index ->
             val obj = array.optJSONObject(index) ?: return@mapNotNull null
             PlaybackSession(

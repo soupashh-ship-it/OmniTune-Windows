@@ -135,6 +135,16 @@ This pass was compile-, assemble-, and test-verified after code changes. A direc
 | External artist/album facts | Followers, socials, tours, credits | Truthful unavailable states only | n/a | Not applicable | INFORMATIONAL |
 | Smart Offline Mixes | Previously fake/offline-mix interaction | Removed as unsupported; truthful state remains | n/a | Compile verified | REMOVED AS UNSUPPORTED |
 
+## Continuation evidence — 2026-07-14
+
+| Screen | Control | Real backend/action | Persistent | Runtime tested | Status |
+|---|---|---|---|---|---|
+| Shell | Manual top-bar search click/type/Enter | Search field is no longer inside the full top-bar `WindowDraggableArea`; non-interactive gaps remain draggable, while the text input can receive pointer focus normally | Recent searches persist through `SettingsRepository` | Runtime search QA report `docs/qa/search-runtime-qa.json`; Home/Search captures after fix | PASS |
+| Search | Provider-backed query `Blinding Lights` | Same `PlayerViewModel.search()` path used by UI returned songs/artists/albums/playlists with no provider error | Recent searches persisted | `docs/qa/search-runtime-qa.json`: 71 total, 20 song, 11 artist, 20 album, 20 playlist results | PASS |
+| Persistence | JSON stores without `PlatformContext` | `savedQueuePlaylists`, `playbackHistory`, and `playbackSessions` now write Preferences fallback only when no app-data context exists; file-backed app runtime avoids Preferences size limits | File-backed JSON in app runtime; Preferences fallback in isolated tests | `:composeApp:desktopTest` PASS and `StressTest` PASS | PASS |
+| Playback | New-track volume | VLC no longer hard-resets volume to 100 on every `playing` event; `PlayerViewModel` reapplies current persisted volume after local/online playback starts | Volume setting persists | Compile + desktop tests PASS | PASS |
+| Playback | Native shutdown/release | VLC poller is cancelled, playback is stopped before release, released-state guards prevent post-release operations | n/a | Compile + desktop tests PASS | PASS |
+
 Final artifacts:
 
 - `docs/qa/runtime-download-qa.json`

@@ -31,7 +31,7 @@ OmniTune-<version>-windows-x64.msi
 The canonical app/package version is:
 
 ```properties
-omnitune.version=0.1.1
+omnitune.version=0.1.2
 ```
 
 in `gradle.properties`. `composeApp/build.gradle.kts` reads this value for the native installer version.

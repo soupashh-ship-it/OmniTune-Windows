@@ -322,7 +322,7 @@ class FileBackedOmniDownloadManager(
                 DownloadQualityMode.PREFER_HIGH -> formats.maxByOrNull { it.bitrate }
                 DownloadQualityMode.PROVIDER_DEFAULT -> formats.firstOrNull()
             } ?: continue
-            val url = resolveFormatUrl(selected) ?: continue
+            val url = resolveFormatUrl(selected, videoId, client) ?: continue
             return ResolvedFormat(
                 url = url,
                 mimeType = selected.mimeType,
@@ -334,33 +334,29 @@ class FileBackedOmniDownloadManager(
         return null
     }
 
-    private fun resolveFormatUrl(format: PlayerResponse.StreamingData.Format): String? {
-        format.url?.let { return it }
-        val cipherString = format.signatureCipher ?: format.cipher ?: return null
-        return runCatching {
-            val params = parseQueryString(cipherString)
-            val url = params["url"]
-            val sig = params["s"] ?: params["sig"]
-            val sp = params["sp"]
-            if (url != null && sig != null && sp != null) {
-                URLBuilder(url).apply { parameters[sp] = sig }.toString()
-            } else null
-        }.getOrNull()
+    private fun resolveFormatUrl(format: PlayerResponse.StreamingData.Format, videoId: String, client: YouTubeClient): String? {
+        return com.omnitune.innertube.pages.NewPipeUtils.getStreamUrl(format, videoId, client).getOrNull()
     }
 
     private fun restoreTasks(): List<DownloadTask> {
         val restored = runCatching {
             if (!indexFile.isFile) return@runCatching emptyList()
-            val array = JSONArray(indexFile.readText())
+            val raw = indexFile.readText()
+            val array = JSONArray(raw)
             (0 until array.length()).mapNotNull { array.optJSONObject(it)?.toTask() }
+        }.onFailure { error ->
+            OmniLogger.error("Downloads", "Failed to read downloads index; preserving corrupt file and starting with an empty download index.", error)
+            preserveCorruptIndex()
         }.getOrDefault(emptyList())
 
         return restored.map { task ->
             when (task.state) {
                 DownloadState.COMPLETED -> {
-                    val valid = task.localFilePath?.let { File(it).isFile && File(it).length() > 0L } == true
-                    if (valid) task.copy(bytesDownloaded = File(task.localFilePath!!).length())
-                    else task.copy(state = DownloadState.FAILED, errorMessage = "Downloaded file is missing or empty.")
+                    val file = task.localFilePath?.let { File(it) }
+                    val valid = file?.isFile == true && file.length() > 0L &&
+                            (task.totalBytes == null || file.length() == task.totalBytes)
+                    if (valid) task.copy(bytesDownloaded = file!!.length())
+                    else task.copy(state = DownloadState.FAILED, errorMessage = "Downloaded file is missing, empty, or corrupted.")
                 }
                 DownloadState.DOWNLOADING, DownloadState.RESOLVING, DownloadState.QUEUED -> task.copy(state = DownloadState.PAUSED)
                 else -> task
@@ -392,6 +388,19 @@ class FileBackedOmniDownloadManager(
         val array = JSONArray()
         _tasks.value.forEach { array.put(it.toJson()) }
         indexFile.writeText(array.toString())
+    }
+
+    private fun preserveCorruptIndex() {
+        runCatching {
+            if (!indexFile.isFile) return
+            val backup = File(
+                indexFile.parentFile,
+                "downloads-index.corrupt-${System.currentTimeMillis()}.json"
+            )
+            indexFile.copyTo(backup, overwrite = false)
+        }.onFailure {
+            OmniLogger.error("Downloads", "Failed to preserve corrupt downloads index backup.", it)
+        }
     }
 
     private fun partialPath(id: String): String = File(downloadDir, "$id.part").absolutePath

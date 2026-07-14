@@ -136,7 +136,7 @@ private fun AlbumReferenceContent(
                 model = album.thumbnail.toHighResThumbnail(),
                 contentDescription = album.title,
                 modifier = Modifier
-                    .offset(x = metrics.px(24f), y = metrics.px(24f))
+                    .offset(x = metrics.px(24f), y = metrics.px(27f))
                     .size(metrics.px(238f))
                     .clip(RoundedCornerShape(metrics.px(10f)))
                     .background(Surface1)
@@ -144,7 +144,7 @@ private fun AlbumReferenceContent(
                 contentScale = ContentScale.Crop,
             )
 
-            Column(Modifier.offset(x = metrics.px(288f), y = metrics.px(34f)).width(metrics.px(360f))) {
+            Column(Modifier.offset(x = metrics.px(281f), y = metrics.px(26f)).width(metrics.px(360f))) {
                 Text("ALBUM", color = TextSecondary, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(metrics.px(10f)))
                 Text(album.title, color = TextPrimary, fontSize = 31.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -185,7 +185,7 @@ private fun AlbumReferenceContent(
                 }
             }
 
-            Column(Modifier.offset(x = metrics.px(650f), y = metrics.px(24f)).width(metrics.px(285f))) {
+            Column(Modifier.offset(x = metrics.px(641f), y = metrics.px(19f)).width(metrics.px(285f))) {
                 AlbumSidePanel("Credits", metrics.px(188f)) {
                     albumArtists.take(4).forEach { artist -> CreditArtistRow(artist, album.thumbnail, onOpenArtist) }
                     if (albumArtists.isEmpty()) Text("Credits unavailable from provider.", color = TextSecondary, fontSize = 9.sp)

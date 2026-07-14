@@ -153,7 +153,7 @@ private fun ArtistReferenceContent(
                     alpha = 0.52f,
                 )
                 Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0xE8040819), 0.45f to Color(0x74040819), 1f to Color(0xDD040819))))
-                Column(Modifier.offset(x = metrics.px(48f), y = metrics.px(42f)).width(metrics.px(520f))) {
+                Column(Modifier.offset(x = metrics.px(46f), y = metrics.px(36f)).width(metrics.px(520f))) {
                     Text("ARTIST", color = IrisSoft, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(metrics.px(8f)))
                     Text(artist.title, color = TextPrimary, fontSize = 43.sp, lineHeight = 48.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -169,14 +169,14 @@ private fun ArtistReferenceContent(
                     sectionCount = page.sections.size,
                     songs = songs.size,
                     albums = albums.size,
-                    modifier = Modifier.offset(x = metrics.px(735f), y = metrics.px(60f)).width(metrics.px(190f)).height(metrics.px(135f)),
+                    modifier = Modifier.offset(x = metrics.px(730f), y = metrics.px(52f)).width(metrics.px(195f)).height(metrics.px(135f)),
                 )
             }
 
-            ArtistTabs(Modifier.offset(x = metrics.px(22f), y = metrics.px(207f)).width(metrics.px(395f)).height(metrics.px(31f)))
+            ArtistTabs(Modifier.offset(x = metrics.px(18f), y = metrics.px(191f)).width(metrics.px(395f)).height(metrics.px(31f)))
 
             Column(
-                modifier = Modifier.offset(x = metrics.px(22f), y = metrics.px(252f)).width(metrics.px(374f)),
+                modifier = Modifier.offset(x = metrics.px(18f), y = metrics.px(236f)).width(metrics.px(374f)),
             ) {
                 SectionTitle("Popular", "See all")
                 Spacer(Modifier.height(metrics.px(8f)))
@@ -194,7 +194,7 @@ private fun ArtistReferenceContent(
                 }
             }
 
-            Column(Modifier.offset(x = metrics.px(410f), y = metrics.px(252f)).width(metrics.px(290f))) {
+            Column(Modifier.offset(x = metrics.px(403f), y = metrics.px(236f)).width(metrics.px(290f))) {
                 SectionTitle("Latest Release", "See all")
                 Spacer(Modifier.height(metrics.px(8f)))
                 if (latest != null) {
@@ -214,7 +214,7 @@ private fun ArtistReferenceContent(
                 }
             }
 
-            Column(Modifier.offset(x = metrics.px(720f), y = metrics.px(252f)).width(metrics.px(220f))) {
+            Column(Modifier.offset(x = metrics.px(713f), y = metrics.px(236f)).width(metrics.px(220f))) {
                 InfoPanel("About ${artist.title}", page.description ?: "No biography is available from the provider for this artist.", metrics.px(188f))
                 Spacer(Modifier.height(metrics.px(12f)))
                 InfoPanel("On Tour", "No verified upcoming tour data is available in OmniTune.", metrics.px(95f))

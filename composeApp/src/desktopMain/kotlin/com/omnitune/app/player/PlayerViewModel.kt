@@ -17,6 +17,7 @@ import com.omnitune.innertube.models.SongItem
 import com.omnitune.innertube.models.YouTubeClient
 import com.omnitune.innertube.models.YTItem
 import com.omnitune.innertube.models.response.PlayerResponse
+import com.omnitune.innertube.models.WatchEndpoint
 import com.omnitune.lrclib.LrcLib
 import io.ktor.http.URLBuilder
 import io.ktor.http.parseQueryString
@@ -96,6 +97,7 @@ class PlayerViewModel(
 
     override val coroutineContext: CoroutineContext = SupervisorJob() + Dispatchers.IO
 
+    private var consecutiveErrors = 0
     private val _navScreen = MutableStateFlow(NavScreen.Home)
     val navScreen: StateFlow<NavScreen> = _navScreen.asStateFlow()
 
@@ -172,11 +174,17 @@ class PlayerViewModel(
     private val _liked = MutableStateFlow(settings.likedSongIds)
     val likedSongs: StateFlow<Set<String>> = _liked.asStateFlow()
 
+    private val _pinnedLibraryCollections = MutableStateFlow(settings.pinnedLibraryCollectionIds)
+    val pinnedLibraryCollections: StateFlow<Set<String>> = _pinnedLibraryCollections.asStateFlow()
+
     private val _recentSearches = MutableStateFlow(settings.recentSearches)
     val recentSearches: StateFlow<List<String>> = _recentSearches.asStateFlow()
 
     private val _savedQueuePlaylists = MutableStateFlow(settings.savedQueuePlaylists)
     val savedQueuePlaylists = _savedQueuePlaylists.asStateFlow()
+
+    private val _discoveryRelated = MutableStateFlow<List<com.omnitune.innertube.models.YTItem>>(emptyList())
+    val discoveryRelated: StateFlow<List<com.omnitune.innertube.models.YTItem>> = _discoveryRelated.asStateFlow()
 
     private val _playbackHistory = MutableStateFlow(settings.playbackHistory)
     val playbackHistory = _playbackHistory.asStateFlow()
@@ -203,6 +211,7 @@ class PlayerViewModel(
                 val now = System.currentTimeMillis()
                 when (state) {
                     PlaybackState.PLAYING -> {
+                        consecutiveErrors = 0
                         activeListen = if (listen.lastResumeAt == null) listen.copy(lastResumeAt = now) else listen
                     }
                     PlaybackState.PAUSED, PlaybackState.BUFFERING, PlaybackState.STOPPED -> {
@@ -211,6 +220,12 @@ class PlayerViewModel(
                     PlaybackState.ERROR, PlaybackState.IDLE -> {
                         activeListen = listen.accumulateUntil(now)
                         finalizeActiveListen(completed = false)
+                        if (state == PlaybackState.ERROR) {
+                            consecutiveErrors++
+                            if (consecutiveErrors < 3) {
+                                nextTrack()
+                            }
+                        }
                     }
                 }
             }
@@ -293,6 +308,21 @@ class PlayerViewModel(
         if (set.contains(id)) set.remove(id) else set.add(id)
         _liked.value = set
         settings.likedSongIds = set
+        settings.flush()
+    }
+
+    fun togglePinnedLibraryCollection(id: String) {
+        val allowed = setOf("favorites", "queue", "albums", "artists", "playlists", "downloads")
+        if (id !in allowed) return
+        val current = _pinnedLibraryCollections.value.toMutableSet()
+        if (current.contains(id)) {
+            if (current.size <= 1) return
+            current.remove(id)
+        } else {
+            current.add(id)
+        }
+        _pinnedLibraryCollections.value = current
+        settings.pinnedLibraryCollectionIds = current
         settings.flush()
     }
 
@@ -453,41 +483,30 @@ class PlayerViewModel(
         }
     }
 
-    private fun resolveFormatUrl(player: PlayerResponse): String? {
-        println("[PlayerVM] playabilityStatus: ${player.playabilityStatus.status} reason=${player.playabilityStatus.reason}")
+    private fun resolveFormatUrl(player: PlayerResponse, videoId: String, client: YouTubeClient): String? {
+        com.omnitune.app.platform.OmniLogger.info("PlayerVM", "playabilityStatus: ${player.playabilityStatus.status} reason=${player.playabilityStatus.reason}")
 
         if (player.streamingData == null) {
-            println("[PlayerVM] streamingData is null!")
+            com.omnitune.app.platform.OmniLogger.info("PlayerVM", "streamingData is null!")
             return null
         }
 
-        val format = player.streamingData?.adaptiveFormats
-            ?.firstOrNull { it.isAudio }
-            ?: player.streamingData?.formats?.firstOrNull()
+        val formats = (player.streamingData?.adaptiveFormats?.filter { it.isAudio } ?: emptyList()) +
+            (player.streamingData?.formats ?: emptyList())
 
-        if (format == null) {
-            println("[PlayerVM] no audio format found, adaptiveFormats=${player.streamingData?.adaptiveFormats?.size}, formats=${player.streamingData?.formats?.size}")
+        if (formats.isEmpty()) {
+            com.omnitune.app.platform.OmniLogger.info("PlayerVM", "no audio format found")
             return null
         }
 
-        format.url?.let { return it }
-
-        val cipherString = format.signatureCipher ?: format.cipher
-        if (cipherString != null) {
-            println("[PlayerVM] format has cipher, parsing...")
-            try {
-                val params = parseQueryString(cipherString)
-                val url = params["url"]
-                val sig = params["s"] ?: params["sig"]
-                val sp = params["sp"]
-                if (url != null && sig != null && sp != null) {
-                    val builder = URLBuilder(url)
-                    builder.parameters[sp] = sig
-                    return builder.toString()
-                }
-            } catch (_: Exception) {}
+        for (format in formats) {
+            val url = com.omnitune.innertube.pages.NewPipeUtils.getStreamUrl(format, videoId, client).getOrNull()
+            if (url != null) {
+                return url
+            }
         }
-        println("[PlayerVM] could not resolve URL for format: mimeType=${format.mimeType}, itag=${format.itag}")
+
+        com.omnitune.app.platform.OmniLogger.info("PlayerVM", "could not resolve URL for any format")
         return null
     }
 
@@ -564,9 +583,20 @@ class PlayerViewModel(
         lyricsJob?.cancel()
         _streamUrl.value = null
         startListenTracking(item)
+        _discoveryRelated.value = emptyList()
+        launch {
+            runCatching {
+                val nextRes = youTubeService.next(com.omnitune.innertube.models.WatchEndpoint(videoId = item.id, playlistId = _currentPlaylistId.value))
+                nextRes.relatedEndpoint?.let { relEndpoint ->
+                    val page = youTubeService.related(relEndpoint)
+                    _discoveryRelated.value = page.songs + page.albums + page.artists + page.playlists
+                }
+            }
+        }
         downloadManager.completedLocalFileFor(item.id)?.absolutePath?.let { localPath ->
             _streamUrl.value = localPath
             audioEngine.play(localPath)
+            audioEngine.setVolume(_volume.value)
             loadLyrics()
             return
         }
@@ -579,26 +609,31 @@ class PlayerViewModel(
         )
         var url: String? = null
         for (client in clients) {
-            println("[PlayerVM] trying client: ${client.clientName}")
+            com.omnitune.app.platform.OmniLogger.info("PlayerVM", "trying client: ${client.clientName}")
             val resolved = runCatching {
                 val player = youTubeService.getPlayer(item.id, client)
-                resolveFormatUrl(player)
+                resolveFormatUrl(player, item.id, client)
             }.getOrNull()
             if (resolved != null) {
-                println("[PlayerVM] resolved URL with ${client.clientName}")
+                com.omnitune.app.platform.OmniLogger.info("PlayerVM", "resolved URL with ${client.clientName}")
                 url = resolved
                 break
             }
         }
         if (url != null) {
-            println("[PlayerVM] playing URL: ${url!!.take(100)}...")
+            com.omnitune.app.platform.OmniLogger.info("PlayerVM", "playing URL: ${url!!.take(100)}...")
             _streamUrl.value = url
             audioEngine.play(url!!)
+            audioEngine.setVolume(_volume.value)
             loadLyrics()
         } else {
             finalizeActiveListen(completed = false)
             _lyricsResult.value = LyricsResult.NotFound
-            println("[PlayerVM] all clients failed to resolve URL")
+            com.omnitune.app.platform.OmniLogger.error("PlayerVM", "all clients failed to resolve URL")
+            consecutiveErrors++
+            if (consecutiveErrors < 3) {
+                nextTrack()
+            }
         }
     }
 
@@ -649,6 +684,12 @@ class PlayerViewModel(
 
     fun saveQueueAsPlaylist(name: String): Result<String> = runCatching {
         val saved = settings.saveQueueAsPlaylist(name, _queue.value)
+        _savedQueuePlaylists.value = settings.savedQueuePlaylists
+        saved.name
+    }
+
+    fun saveSongsAsPlaylist(name: String, songs: List<SongItem>): Result<String> = runCatching {
+        val saved = settings.saveSongsAsPlaylist(name, songs)
         _savedQueuePlaylists.value = settings.savedQueuePlaylists
         saved.name
     }
@@ -754,8 +795,48 @@ class PlayerViewModel(
         finalizeActiveListen(completed = false)
         _queue.value = emptyList()
         _queueIndex.value = -1
+
         _currentSong.value = null
         audioEngine.stop()
+    }
+
+    fun startRadio(seedId: String, type: String) {
+        val playlistId = when (type) {
+            "song" -> "RDAMVM$seedId"
+            "artist" -> "RDEM$seedId"
+            "album" -> "RDAMPL$seedId"
+            else -> "RDAMVM$seedId"
+        }
+        launch {
+            runCatching {
+                val result = youTubeService.next(WatchEndpoint(videoId = seedId, playlistId = playlistId))
+                val songs = result.items
+                if (songs.isNotEmpty()) {
+                    _queue.value = songs
+                    _queueIndex.value = 0
+                    doPlay(songs[0])
+                }
+            }.onFailure {
+                com.omnitune.app.platform.OmniLogger.error("PlayerVM", "Failed to start radio: ${it.message}", it)
+            }
+        }
+    }
+
+    fun startRadio(endpoint: WatchEndpoint) {
+        launch {
+            runCatching {
+                val result = youTubeService.next(endpoint)
+                result.items.distinctBy { it.id }
+            }.onSuccess { songs ->
+                if (songs.isNotEmpty()) {
+                    _queue.value = songs
+                    _queueIndex.value = 0
+                    doPlay(songs[0])
+                }
+            }.onFailure {
+                com.omnitune.app.platform.OmniLogger.error("PlayerVM", "Failed to start endpoint radio: ${it.message}", it)
+            }
+        }
     }
 
     fun togglePlayPause() {
