@@ -13,7 +13,7 @@ gradle.properties
 Current field:
 
 ```properties
-omnitune.version=0.1.2
+omnitune.version=0.1.3
 ```
 
 ## 2. Verify Source

@@ -31,16 +31,42 @@ class PlatformContext(
 
     private fun migrateLegacyAppDataIfNeeded(target: File) {
         if (target.exists()) return
-        val legacy = File(System.getProperty("user.home"), ".omnitune")
-        if (!legacy.isDirectory) return
+        val legacyHome = File(System.getProperty("user.home"), ".omnitune")
+        val legacyLocalAppData = System.getenv("LOCALAPPDATA")
+            ?.takeIf { it.isNotBlank() }
+            ?.let { File(it, "OmniTune") }
+
         runCatching {
-            legacy.copyRecursively(target, overwrite = false)
+            when {
+                legacyLocalAppData?.isDirectory == true -> copyKnownUserData(legacyLocalAppData, target)
+                legacyHome.isDirectory -> legacyHome.copyRecursively(target, overwrite = false)
+                else -> target.mkdirs()
+            }
         }.onFailure {
             target.mkdirs()
             File(target, "logs").mkdirs()
             File(target, "logs/startup.log").appendText(
-                "Legacy app-data migration from ${legacy.absolutePath} failed: ${it.message}${System.lineSeparator()}"
+                "Legacy app-data migration failed: ${it.message}${System.lineSeparator()}"
             )
+        }
+    }
+
+    private fun copyKnownUserData(source: File, target: File) {
+        target.mkdirs()
+        val dataFiles = setOf(
+            "downloads-index.json",
+            "savedQueuePlaylists.json",
+            "playbackHistory.json",
+            "playbackSessions.json",
+            "omnitune.db",
+        )
+        dataFiles.forEach { name ->
+            val file = File(source, name)
+            if (file.isFile) file.copyTo(File(target, name), overwrite = false)
+        }
+        listOf("downloads", "cache", "logs").forEach { name ->
+            val dir = File(source, name)
+            if (dir.isDirectory) dir.copyRecursively(File(target, name), overwrite = false)
         }
     }
 }

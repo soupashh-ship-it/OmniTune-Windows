@@ -31,6 +31,7 @@ object NativeRuntime {
         val candidates = buildList {
             add("packaged" to File(appDir, "native/vlc"))
             appDir.parentFile?.let { add("packaged-parent" to File(it, "native/vlc")) }
+            extractEmbeddedVlcRuntime()?.let { add("embedded-resource" to it) }
             if (!requireBundled) {
                 add("working-directory" to File(System.getProperty("user.dir"), "native/vlc"))
                 add("working-directory-app" to File(System.getProperty("user.dir"), "app/native/vlc"))
@@ -49,6 +50,44 @@ object NativeRuntime {
                 }
             }
             .firstOrNull()
+    }
+
+    private fun extractEmbeddedVlcRuntime(): File? {
+        val classLoader = NativeRuntime::class.java.classLoader
+        val manifestStream = classLoader.getResourceAsStream("native/vlc-manifest.txt") ?: return null
+        val entries = manifestStream.bufferedReader().useLines { lines ->
+            lines.map { it.trim() }
+                .filter { it.isNotBlank() && it.startsWith("native/vlc/") }
+                .toList()
+        }
+        if (entries.isEmpty()) return null
+
+        val targetRoot = File(defaultLocalAppDataDir(), "native/vlc-runtime")
+        val validExisting = File(targetRoot, "libvlc.dll").isFile &&
+            File(targetRoot, "libvlccore.dll").isFile &&
+            File(targetRoot, "plugins").isDirectory
+        if (validExisting) return targetRoot
+
+        runCatching {
+            targetRoot.mkdirs()
+            entries.forEach { resourcePath ->
+                val relativePath = resourcePath.removePrefix("native/vlc/")
+                val target = File(targetRoot, relativePath)
+                target.parentFile?.mkdirs()
+                classLoader.getResourceAsStream(resourcePath)?.use { input ->
+                    target.outputStream().use { output -> input.copyTo(output) }
+                } ?: error("Missing embedded VLC resource: $resourcePath")
+            }
+        }.onFailure {
+            log("Failed to extract embedded VLC runtime: ${it.message ?: it::class.java.name}")
+            return null
+        }
+
+        return targetRoot.takeIf {
+            File(it, "libvlc.dll").isFile &&
+                File(it, "libvlccore.dll").isFile &&
+                File(it, "plugins").isDirectory
+        }
     }
 
     fun resolveApplicationDirectory(): File {
@@ -74,9 +113,9 @@ object NativeRuntime {
     internal fun defaultLocalAppDataDir(): File {
         val localAppData = System.getenv("LOCALAPPDATA")?.takeIf { it.isNotBlank() }
         return if (localAppData != null) {
-            File(localAppData, "OmniTune")
+            File(localAppData, "OmniTuneData")
         } else {
-            File(System.getProperty("user.home"), "AppData/Local/OmniTune")
+            File(System.getProperty("user.home"), "AppData/Local/OmniTuneData")
         }
     }
 }

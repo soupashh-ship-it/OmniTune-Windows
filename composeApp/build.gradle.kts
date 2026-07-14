@@ -47,6 +47,20 @@ val prepareWindowsAppResources by tasks.registering(Copy::class) {
             require(it.isFile) { "THIRD_PARTY_NOTICES.txt is required for release packaging." }
         }
     }
+
+    doLast {
+        val outputDir = windowsAppResourcesDir.get().asFile
+        val nativeRoot = outputDir.resolve("native/vlc")
+        val manifest = outputDir.resolve("native/vlc-manifest.txt")
+        val entries = nativeRoot
+            .walkTopDown()
+            .filter { it.isFile }
+            .map { it.relativeTo(outputDir).invariantSeparatorsPath }
+            .sorted()
+            .toList()
+        manifest.parentFile.mkdirs()
+        manifest.writeText(entries.joinToString(separator = "\n", postfix = "\n"))
+    }
 }
 
 val copyWindowsAppResourcesToDistributable by tasks.registering(Copy::class) {
@@ -125,6 +139,8 @@ kotlin {
             implementation(project(":canvas"))
         }
 
+        desktopMain.resources.srcDir(windowsAppResourcesDir)
+
         val desktopTest by getting {
             dependencies {
                 implementation(kotlin("test"))
@@ -133,6 +149,10 @@ kotlin {
             }
         }
     }
+}
+
+tasks.named("desktopProcessResources") {
+    dependsOn(prepareWindowsAppResources)
 }
 
 compose.desktop {
@@ -145,6 +165,7 @@ compose.desktop {
 
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
+            appResourcesRootDir.set(windowsAppResourcesDir)
 
             packageName = "OmniTune"
             packageVersion = omniTuneVersion
@@ -183,5 +204,6 @@ tasks.matching {
         "packageReleaseMsi"
     )
 }.configureEach {
+    dependsOn(prepareWindowsAppResources)
     dependsOn(copyWindowsAppResourcesToDistributable)
 }

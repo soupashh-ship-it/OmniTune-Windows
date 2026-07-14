@@ -31,7 +31,7 @@ OmniTune-<version>-windows-x64.msi
 The canonical app/package version is:
 
 ```properties
-omnitune.version=0.1.2
+omnitune.version=0.1.3
 ```
 
 in `gradle.properties`. `composeApp/build.gradle.kts` reads this value for the native installer version.
@@ -62,7 +62,7 @@ The VLC files `COPYING.txt`, `AUTHORS.txt`, and `NEWS.txt` are copied with the b
 Runtime user data is stored outside the installation directory:
 
 ```text
-%LOCALAPPDATA%\OmniTune
+%LOCALAPPDATA%\OmniTuneData
 ```
 
 This includes settings, search/history/playlist persistence, download metadata, downloads, cache, and logs. A legacy `~\.omnitune` directory is copied once if the new app-data directory does not already exist.
