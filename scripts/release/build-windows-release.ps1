@@ -1,6 +1,7 @@
 param(
     [string] $Version = "",
-    [switch] $SkipTests
+    [switch] $SkipTests,
+    [switch] $Sign
 )
 
 $ErrorActionPreference = "Stop"
@@ -49,6 +50,33 @@ function Write-HashFiles {
     $sumLines | Set-Content -Encoding ascii -LiteralPath (Join-Path $releaseDir "SHA256SUMS.txt")
 }
 
+function Invoke-CodeSign {
+    param([string] $Path)
+
+    $signtool = if ($env:OMNITUNE_SIGNTOOL) { $env:OMNITUNE_SIGNTOOL } else { "signtool.exe" }
+    $certPath = $env:OMNITUNE_SIGN_CERT_PATH
+    $certPassword = $env:OMNITUNE_SIGN_CERT_PASSWORD
+    $timestampUrl = if ($env:OMNITUNE_TIMESTAMP_URL) { $env:OMNITUNE_TIMESTAMP_URL } else { "http://timestamp.digicert.com" }
+
+    if (-not $certPath) {
+        throw "Signing requested, but OMNITUNE_SIGN_CERT_PATH is not set."
+    }
+    if (-not (Test-Path -LiteralPath $certPath)) {
+        throw "Signing certificate not found: $certPath"
+    }
+
+    $args = @("sign", "/fd", "SHA256", "/td", "SHA256", "/tr", $timestampUrl, "/f", $certPath)
+    if ($certPassword) {
+        $args += @("/p", $certPassword)
+    }
+    $args += $Path
+
+    & $signtool @args
+    if ($LASTEXITCODE -ne 0) {
+        throw "Code signing failed for $Path"
+    }
+}
+
 $releaseVersion = if ($Version.Trim()) { $Version.Trim() } else { Read-OmniVersion }
 $architecture = if ([Environment]::Is64BitOperatingSystem) { "x64" } else { "x86" }
 $vlcHome = if ($env:VLC_HOME) { $env:VLC_HOME } else { "C:\Program Files\VideoLAN\VLC" }
@@ -76,6 +104,11 @@ $targetMsi = Join-Path $releaseDir "OmniTune-$releaseVersion-windows-$architectu
 
 Copy-Artifact -Source $sourceExe -Destination $targetExe
 Copy-Artifact -Source $sourceMsi -Destination $targetMsi
+
+if ($Sign) {
+    Invoke-CodeSign -Path $targetExe
+    Invoke-CodeSign -Path $targetMsi
+}
 
 $artifactFiles = @()
 $artifactFiles += Get-Item -LiteralPath $targetExe
@@ -110,7 +143,7 @@ $manifest = [ordered]@{
         libvlc = (Test-Path (Join-Path $appImage "native\vlc\libvlc.dll"))
         plugins = (Test-Path (Join-Path $appImage "native\vlc\plugins"))
     }
-    signed = $false
+    signed = [bool]$Sign
 }
 
 $manifest | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 -LiteralPath (Join-Path $releaseDir "release-manifest.json")

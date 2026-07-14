@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Brush
@@ -55,12 +56,12 @@ fun OmniMiniPlayer(
             } else {
                 Text("OmniTune", color = TextMuted, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             }
-            MiniBtn(Icons.Default.SkipPrevious, enabled = currentSong != null) { player.previousTrack() }
+            MiniBtn(Icons.Default.SkipPrevious, enabled = currentSong != null, tag = "omni.miniplayer.previous") { player.previousTrack() }
             val playSrc = remember { MutableInteractionSource() }
-            Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(if (currentSong != null) OmniGradients.irisToLavender else Brush.linearGradient(listOf(TextMuted.copy(alpha = 0.25f), TextMuted.copy(alpha = 0.25f)))).clickable(interactionSource = playSrc, indication = null, enabled = currentSong != null) { player.togglePlayPause() }, contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.size(36.dp).testTag("omni.miniplayer.playPause").clip(CircleShape).background(if (currentSong != null) OmniGradients.irisToLavender else Brush.linearGradient(listOf(TextMuted.copy(alpha = 0.25f), TextMuted.copy(alpha = 0.25f)))).clickable(interactionSource = playSrc, indication = null, enabled = currentSong != null) { player.togglePlayPause() }, contentAlignment = Alignment.Center) {
                 Icon(if (playbackState == PlaybackState.PLAYING) Icons.Default.Pause else Icons.Default.PlayArrow, "Play/Pause", tint = Color(0xFF05060A), modifier = Modifier.size(20.dp))
             }
-            MiniBtn(Icons.Default.SkipNext, enabled = currentSong != null) { player.nextTrack() }
+            MiniBtn(Icons.Default.SkipNext, enabled = currentSong != null, tag = "omni.miniplayer.next") { player.nextTrack() }
             Spacer(Modifier.width(8.dp))
             OmniVolumeControl(volume = volume, onVolumeChange = { player.setVolume(it) })
         }
@@ -68,9 +69,9 @@ fun OmniMiniPlayer(
 }
 
 @Composable
-private fun MiniBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, enabled: Boolean, onClick: () -> Unit) {
+internal fun MiniBtn(icon: androidx.compose.ui.graphics.vector.ImageVector, enabled: Boolean, tag: String? = null, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
-    Box(modifier = Modifier.size(34.dp).clip(CircleShape).clickable(interactionSource = src, indication = null, enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(modifier = Modifier.size(34.dp).then(if (tag != null) Modifier.testTag(tag) else Modifier).clip(CircleShape).clickable(interactionSource = src, indication = null, enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
         Icon(icon, null, tint = if (enabled) TextPrimary else TextMuted.copy(alpha = 0.35f), modifier = Modifier.size(20.dp))
     }
 }

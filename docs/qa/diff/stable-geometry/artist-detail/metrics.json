@@ -1,0 +1,41 @@
+{
+  "reference": "D:\\Ui images for Windows Omnitune\\ChatGPT Image Jul 10, 2026, 03_00_05 PM (5).png",
+  "actual": "docs\\qa\\premium-completion\\artist-detail-1672x941.png",
+  "dimensions_match": true,
+  "size": [
+    1672,
+    941
+  ],
+  "masked_regions": [
+    [
+      292,
+      78,
+      1015,
+      270
+    ],
+    [
+      335,
+      153,
+      650,
+      112
+    ],
+    [
+      1350,
+      190,
+      245,
+      112
+    ],
+    [
+      305,
+      470,
+      1290,
+      302
+    ]
+  ],
+  "measured_pixels": 882282,
+  "mean_absolute_rgb_error": 11.848033848588093,
+  "max_pixel_mean_error": 252.33333333333334,
+  "pct_pixels_over_10": 22.518763841946228,
+  "pct_pixels_over_20": 11.282560451193609,
+  "pct_pixels_over_40": 5.788625405482601
+}

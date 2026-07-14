@@ -72,6 +72,17 @@ Before uploading:
 
 The release wrapper writes `.sha256` files plus `SHA256SUMS.txt` under `build/release/windows/`.
 
+Optional signing is available only when a real certificate is supplied through local environment variables or CI secrets:
+
+```powershell
+$env:OMNITUNE_SIGNTOOL = "C:\Program Files (x86)\Windows Kits\10\bin\x64\signtool.exe"
+$env:OMNITUNE_SIGN_CERT_PATH = "C:\secure\OmniTune-CodeSigning.pfx"
+$env:OMNITUNE_SIGN_CERT_PASSWORD = "<secret>"
+.\scripts\release\build-windows-release.ps1 -Sign
+```
+
+Do not commit certificate material or passwords. If no certificate is available, publish as unsigned and explicitly mention possible SmartScreen warnings.
+
 ## 6. Tag
 
 Use a version tag only after the release commit is ready:

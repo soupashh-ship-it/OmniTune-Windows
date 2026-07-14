@@ -1,0 +1,112 @@
+[
+  {
+    "name": "account",
+    "reference": [
+      301,
+      173,
+      434,
+      249
+    ],
+    "actual": [
+      301,
+      173,
+      434,
+      249
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "audio",
+    "reference": [
+      750,
+      173,
+      433,
+      249
+    ],
+    "actual": [
+      750,
+      173,
+      433,
+      249
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "playback",
+    "reference": [
+      1199,
+      173,
+      432,
+      250
+    ],
+    "actual": [
+      1199,
+      173,
+      432,
+      250
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "shortcuts",
+    "reference": [
+      301,
+      707,
+      434,
+      120
+    ],
+    "actual": [
+      301,
+      707,
+      433,
+      120
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": -1,
+      "dh": 0,
+      "largest_abs_delta": 1
+    }
+  },
+  {
+    "name": "about",
+    "reference": [
+      750,
+      707,
+      881,
+      120
+    ],
+    "actual": [
+      750,
+      707,
+      881,
+      120
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  }
+]

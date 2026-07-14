@@ -77,7 +77,19 @@ Startup/native-runtime diagnostics are written to:
 
 ## Signing
 
-No signing certificate is configured in the repository. Produced installers are unsigned unless an external signing step is added by the release owner. Unsigned installers may trigger Windows SmartScreen reputation warnings.
+No signing certificate is configured in the repository. Produced installers are unsigned by default and may trigger Windows SmartScreen reputation warnings.
+
+The release wrapper has an opt-in signing path for release owners who have a real Windows code-signing certificate. Certificate files and passwords must never be committed.
+
+```powershell
+$env:OMNITUNE_SIGNTOOL = "C:\Program Files (x86)\Windows Kits\10\bin\x64\signtool.exe"
+$env:OMNITUNE_SIGN_CERT_PATH = "C:\secure\OmniTune-CodeSigning.pfx"
+$env:OMNITUNE_SIGN_CERT_PASSWORD = "<set from secret manager>"
+$env:OMNITUNE_TIMESTAMP_URL = "http://timestamp.digicert.com"
+.\scripts\release\build-windows-release.ps1 -Sign
+```
+
+If `-Sign` is omitted, the script builds unsigned installers and records `"signed": false` in `release-manifest.json`.
 
 ## Release packaging policy
 

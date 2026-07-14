@@ -344,11 +344,11 @@ private fun PlaylistTrackRow(
         Text(song.artists.joinToString(", ") { it.name }, color = TextSecondary, fontSize = 8.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1.3f))
         Text(song.album?.name ?: "Single", color = TextSecondary, fontSize = 8.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1.3f))
         Text(song.durationLabel(), color = TextSecondary, fontSize = 8.5.sp, modifier = Modifier.width(metrics.px(70f)))
-        Icon(Icons.Default.FavoriteBorder, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onLike))
+        Icon(Icons.Default.FavoriteBorder, contentDescription = "Like or unlike song", tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onLike))
         Spacer(Modifier.width(metrics.px(17f)))
-        Icon(Icons.Default.Add, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)).clickable(onClick = onAdd))
+        Icon(Icons.Default.Add, contentDescription = "Add to queue", tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)).clickable(onClick = onAdd))
         Spacer(Modifier.width(metrics.px(17f)))
-        Icon(Icons.Default.MoreHoriz, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)).clickable(onClick = onMore))
+        Icon(Icons.Default.MoreHoriz, contentDescription = "Song actions", tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)).clickable(onClick = onMore))
     }
 }
 
@@ -437,7 +437,7 @@ private fun ReferencePrimaryButton(text: String, icon: androidx.compose.ui.graph
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        Icon(icon, null, tint = Color.White, modifier = Modifier.size(LocalHomeReferenceMetrics.current.px(13f)))
+        Icon(icon, contentDescription = text, tint = Color.White, modifier = Modifier.size(LocalHomeReferenceMetrics.current.px(13f)))
         Spacer(Modifier.width(LocalHomeReferenceMetrics.current.px(6f)))
         Text(text, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
     }
@@ -454,7 +454,7 @@ private fun ReferenceSecondaryButton(text: String, icon: androidx.compose.ui.gra
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        Icon(icon, null, tint = TextPrimary, modifier = Modifier.size(LocalHomeReferenceMetrics.current.px(12f)))
+        Icon(icon, contentDescription = text, tint = TextPrimary, modifier = Modifier.size(LocalHomeReferenceMetrics.current.px(12f)))
         Spacer(Modifier.width(LocalHomeReferenceMetrics.current.px(6f)))
         Text(text, color = TextPrimary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
     }
@@ -472,7 +472,7 @@ private fun RoundAction(icon: androidx.compose.ui.graphics.vector.ImageVector, o
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)))
+        Icon(icon, contentDescription = "Playlist action", tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)))
     }
 }
 

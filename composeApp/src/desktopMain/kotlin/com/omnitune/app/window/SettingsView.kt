@@ -144,12 +144,12 @@ fun SettingsView() {
                 SettingsLine("System tray", "Available from desktop shell")
             }
 
-            SettingsCard("Keyboard Shortcuts", Icons.Default.Keyboard, Modifier.offset(x = metrics.px(24f), y = metrics.px(428f)).width(metrics.px(296f)).height(metrics.px(72f))) {
+            SettingsCard("Keyboard Shortcuts", Icons.Default.Keyboard, Modifier.offset(x = metrics.px(25f), y = metrics.px(433.5f)).width(metrics.px(296f)).height(metrics.px(82f))) {
                 SettingsLine("Ctrl + K", "Focus global search")
                 SettingsLine("Space / ← / →", "Play-pause and seek")
             }
 
-            SettingsCard("About", null, Modifier.offset(x = metrics.px(332f), y = metrics.px(428f)).width(metrics.px(602f)).height(metrics.px(72f))) {
+            SettingsCard("About", null, Modifier.offset(x = metrics.px(332f), y = metrics.px(433.5f)).width(metrics.px(602f)).height(metrics.px(82f))) {
                 SettingsLine("OmniTune for Windows", "Desktop Compose build")
                 SettingsLine("Data directory", platform.appDataDir.absolutePath)
             }

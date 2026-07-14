@@ -1,0 +1,54 @@
+{
+  "cases": [
+    {
+      "filter": "EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D",
+      "resultCount": 20,
+      "query": "Blinding Lights",
+      "label": "globally popular track",
+      "error": null,
+      "status": "OK"
+    },
+    {
+      "filter": "EgWKAQIgAWoKEAkQChAFEAMQBA%3D%3D",
+      "resultCount": 14,
+      "query": "Arijit Singh",
+      "label": "Indian artist",
+      "error": null,
+      "status": "OK"
+    },
+    {
+      "filter": "EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D",
+      "resultCount": 20,
+      "query": "Bohemian Rhapsody remastered queen",
+      "label": "long multi-word title",
+      "error": null,
+      "status": "OK"
+    },
+    {
+      "filter": "EgWKAQIYAWoKEAkQChAFEAMQBA%3D%3D",
+      "resultCount": 20,
+      "query": "Random Access Memories",
+      "label": "album query",
+      "error": null,
+      "status": "OK"
+    },
+    {
+      "filter": "EgeKAQQoADgBagwQDhAKEAMQBRAJEAQ%3D",
+      "resultCount": 20,
+      "query": "lofi beats playlist",
+      "label": "playlist query",
+      "error": null,
+      "status": "OK"
+    },
+    {
+      "filter": "EgWKAQIIAWoKEAkQBRAKEAMQBA%3D%3D",
+      "resultCount": 20,
+      "query": "नाटू नाटू",
+      "label": "unicode query",
+      "error": null,
+      "status": "OK"
+    }
+  ],
+  "nonEmptyCases": 6,
+  "totalCases": 6
+}

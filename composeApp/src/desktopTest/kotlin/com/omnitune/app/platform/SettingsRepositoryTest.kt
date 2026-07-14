@@ -2,6 +2,11 @@ package com.omnitune.app.platform
 
 import com.omnitune.innertube.models.Artist
 import com.omnitune.innertube.models.SongItem
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.io.IOException
+import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -140,6 +145,166 @@ class SettingsRepositoryTest {
         assertEquals(songs.map { it.id }, restored.songs.map { it.id })
     }
 
+    @Test
+    fun corruptJsonStoresFallBackToPreferencesAndArePreserved() {
+        val prefs = Preferences.userRoot().node("omnitune-tests/${UUID.randomUUID()}")
+        val root = Files.createTempDirectory("omnitune-settings-corrupt-test").toFile()
+        try {
+            val playlistJson = JSONArray().put(
+                JSONObject()
+                    .put("id", "playlist-1")
+                    .put("name", "Recovered Playlist")
+                    .put("createdAt", 1L)
+                    .put("songs", JSONArray().put(songJson("recovered-song")))
+            ).toString()
+            val historyJson = JSONArray().put(
+                JSONObject()
+                    .put("id", "history-1")
+                    .put("playedAt", 2L)
+                    .put("startedAt", 1L)
+                    .put("accumulatedPlayedMs", 31_000L)
+                    .put("trackDurationMs", 240_000L)
+                    .put("completed", false)
+                    .put("playCount", 1)
+                    .put("sessionId", "session-1")
+                    .put("song", songJson("history-song"))
+            ).toString()
+            val sessionsJson = JSONArray().put(
+                JSONObject()
+                    .put("id", "session-1")
+                    .put("startedAt", 1L)
+                    .put("lastActivityAt", 2L)
+                    .put("endedAt", JSONObject.NULL)
+                    .put("totalListeningMs", 31_000L)
+                    .put("playCount", 1)
+                    .put("uniqueTrackCount", 1)
+            ).toString()
+
+            prefs.put("savedQueuePlaylists.v1", playlistJson)
+            prefs.put("playbackHistory.v1", historyJson)
+            prefs.put("playbackSessions.v1", sessionsJson)
+            prefs.flush()
+            File(root, "savedQueuePlaylists.json").writeText("{broken")
+            File(root, "playbackHistory.json").writeText("{broken")
+            File(root, "playbackSessions.json").writeText("{broken")
+
+            val repo = SettingsRepository(prefs, PlatformContext(root))
+
+            assertEquals("Recovered Playlist", repo.savedQueuePlaylists.single().name)
+            assertEquals("history-song", repo.playbackHistory.single().song.id)
+            assertEquals("session-1", repo.playbackSessions.single().id)
+            assertTrue(root.listFiles().orEmpty().any { it.name.startsWith("savedQueuePlaylists.json.corrupt-") })
+            assertTrue(root.listFiles().orEmpty().any { it.name.startsWith("playbackHistory.json.corrupt-") })
+            assertTrue(root.listFiles().orEmpty().any { it.name.startsWith("playbackSessions.json.corrupt-") })
+        } finally {
+            runCatching {
+                prefs.removeNode()
+                prefs.flush()
+            }
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun corruptPrimaryJsonUsesValidBackupBeforePreferences() {
+        val prefs = Preferences.userRoot().node("omnitune-tests/${UUID.randomUUID()}")
+        val root = Files.createTempDirectory("omnitune-settings-backup-test").toFile()
+        try {
+            prefs.put("savedQueuePlaylists.v1", "[]")
+            File(root, "savedQueuePlaylists.json").writeText("{broken")
+            File(root, "savedQueuePlaylists.json.bak").writeText(
+                JSONArray().put(
+                    JSONObject()
+                        .put("id", "backup-playlist")
+                        .put("name", "Backup Playlist")
+                        .put("createdAt", 1L)
+                        .put("songs", JSONArray())
+                ).toString()
+            )
+
+            val repo = SettingsRepository(prefs, PlatformContext(root))
+
+            assertEquals("Backup Playlist", repo.savedQueuePlaylists.single().name)
+            assertTrue(root.listFiles().orEmpty().any { it.name.startsWith("savedQueuePlaylists.json.corrupt-") })
+        } finally {
+            runCatching {
+                prefs.removeNode()
+                prefs.flush()
+            }
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun playlistSaveFailureDoesNotCreateFalseSuccessState() {
+        val prefs = Preferences.userRoot().node("omnitune-tests/${UUID.randomUUID()}")
+        val root = Files.createTempDirectory("omnitune-settings-write-failure-test").toFile()
+        try {
+            val repo = SettingsRepository(prefs, PlatformContext(root))
+
+            assertFailsWith<IOException> {
+                AtomicFileStore.withFailurePolicyForTest({ file, operation ->
+                    if (file.name == "savedQueuePlaylists.json" && operation == AtomicFileStore.Operation.BEFORE_TEMP_WRITE) {
+                        throw IOException("Simulated permission denied")
+                    }
+                }) {
+                    repo.saveQueueAsPlaylist("Should Not Save", listOf(song("one")))
+                }
+            }
+
+            assertTrue(repo.savedQueuePlaylists.isEmpty())
+            assertFalse(File(root, "savedQueuePlaylists.json").exists())
+        } finally {
+            runCatching {
+                prefs.removeNode()
+                prefs.flush()
+            }
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun malformedPlaylistHistoryAndSessionRecordsAreSkippedWithoutDroppingGoodRecords() {
+        val prefs = Preferences.userRoot().node("omnitune-tests/${UUID.randomUUID()}")
+        val root = Files.createTempDirectory("omnitune-settings-record-recovery-test").toFile()
+        try {
+            File(root, "savedQueuePlaylists.json").writeText(
+                JSONArray()
+                    .put(JSONObject().put("id", "valid-playlist").put("name", "Valid").put("createdAt", 1L).put("songs", JSONArray()))
+                    .put(JSONObject().put("id", "").put("name", "Missing ID").put("createdAt", 1L).put("songs", JSONArray()))
+                    .put(JSONObject().put("id", "valid-playlist").put("name", "Duplicate").put("createdAt", 2L).put("songs", JSONArray()))
+                    .put(JSONObject().put("unknown", true))
+                    .toString()
+            )
+            File(root, "playbackHistory.json").writeText(
+                JSONArray()
+                    .put(JSONObject().put("id", "valid-history").put("playedAt", 1L).put("song", songJson("history-good")))
+                    .put(JSONObject().put("id", "bad-history").put("playedAt", 1L).put("song", JSONObject().put("title", "No ID")))
+                    .put(JSONObject().put("id", "valid-history").put("playedAt", 2L).put("song", songJson("duplicate-history")))
+                    .toString()
+            )
+            File(root, "playbackSessions.json").writeText(
+                JSONArray()
+                    .put(JSONObject().put("id", "session-good").put("startedAt", 1L).put("lastActivityAt", 2L).put("endedAt", JSONObject.NULL))
+                    .put(JSONObject().put("id", "").put("startedAt", 1L))
+                    .put(JSONObject().put("id", "session-good").put("startedAt", 3L).put("lastActivityAt", 4L).put("endedAt", JSONObject.NULL))
+                    .toString()
+            )
+
+            val repo = SettingsRepository(prefs, PlatformContext(root))
+
+            assertEquals(listOf("valid-playlist"), repo.savedQueuePlaylists.map { it.id })
+            assertEquals(listOf("valid-history"), repo.playbackHistory.map { it.id })
+            assertEquals(listOf("session-good"), repo.playbackSessions.map { it.id })
+        } finally {
+            runCatching {
+                prefs.removeNode()
+                prefs.flush()
+            }
+            root.deleteRecursively()
+        }
+    }
+
     private fun song(id: String): SongItem =
         SongItem(
             id = id,
@@ -148,6 +313,15 @@ class SettingsRepositoryTest {
             duration = 240,
             thumbnail = "",
         )
+
+    private fun songJson(id: String): JSONObject = JSONObject()
+        .put("id", id)
+        .put("title", "Song $id")
+        .put("thumbnail", "")
+        .put("duration", 240)
+        .put("explicit", false)
+        .put("artists", JSONArray().put(JSONObject().put("name", "Artist $id").put("id", "artist-$id")))
+        .put("album", JSONObject.NULL)
 
     private fun repoPrefs(repo: SettingsRepository): Preferences {
         val field = SettingsRepository::class.java.getDeclaredField("prefs")

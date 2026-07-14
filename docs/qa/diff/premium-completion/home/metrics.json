@@ -1,0 +1,16 @@
+{
+  "reference": "D:\\Ui images for Windows Omnitune\\Image 1.png",
+  "actual": "docs\\qa\\premium-completion\\home-1672x941.png",
+  "dimensions_match": true,
+  "size": [
+    1672,
+    941
+  ],
+  "masked_regions": [],
+  "measured_pixels": 1573352,
+  "mean_absolute_rgb_error": 21.768235588730303,
+  "max_pixel_mean_error": 255.0,
+  "pct_pixels_over_10": 34.01667268354443,
+  "pct_pixels_over_20": 26.24968856301705,
+  "pct_pixels_over_40": 17.209499209331412
+}

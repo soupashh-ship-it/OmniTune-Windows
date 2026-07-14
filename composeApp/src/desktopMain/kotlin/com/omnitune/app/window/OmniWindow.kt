@@ -77,6 +77,8 @@ fun WindowScope.OmniWindow(
     var qaRouteApplied by remember(qaRoute) { mutableStateOf(false) }
     var qaSearchStarted by remember(qaSearchQuery) { mutableStateOf(false) }
     var qaSearchReported by remember(qaSearchQuery) { mutableStateOf(false) }
+    var editableTextFocused by remember { mutableStateOf(false) }
+    var modalOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(qaRoute, discoveryNew, discoveryTrending, currentSong) {
         if (qaRoute.isBlank() || qaRouteApplied) return@LaunchedEffect
@@ -175,6 +177,7 @@ fun WindowScope.OmniWindow(
     OmniTuneTheme(reducedMotion = reducedMotion, theme = effectiveTheme) {
         val isMaximized = windowState.placement == WindowPlacement.Maximized
         val windowShape = if (isMaximized) RectangleShape else RoundedCornerShape(16.dp)
+        val pressedShortcutKeys = remember { OmniPressedKeyTracker() }
 
         BoxWithConstraints(
             modifier = Modifier
@@ -186,30 +189,44 @@ fun WindowScope.OmniWindow(
                     shape = windowShape,
                 )
                 .onKeyEvent { event ->
-                    if (event.type == KeyEventType.KeyUp) {
-                        when (event.key) {
-                            Key.Spacebar -> { player.togglePlayPause(); true }
-                            Key.MediaPlayPause -> { player.togglePlayPause(); true }
-                            Key.DirectionLeft -> { player.seekRelative(-5000); true }
-                            Key.DirectionRight -> { player.seekRelative(5000); true }
-                            Key.N -> { player.nextTrack(); true }
-                            Key.P -> { player.previousTrack(); true }
-                            Key.K -> {
-                                if (event.isCtrlPressed) {
+                    when (event.type) {
+                        KeyEventType.KeyUp -> {
+                            pressedShortcutKeys.repeatedKeyDownFor(event.key, event.type)
+                            false
+                        }
+                        KeyEventType.KeyDown -> {
+                            val repeated = pressedShortcutKeys.repeatedKeyDownFor(event.key, event.type)
+                            when (
+                                OmniKeyboardShortcutRouter.commandFor(
+                                    OmniKeyboardInput(
+                                        key = event.key,
+                                        type = event.type,
+                                        ctrlPressed = event.isCtrlPressed,
+                                        editableTextFocused = editableTextFocused,
+                                        modalOpen = modalOpen,
+                                        repeatedKeyDown = repeated,
+                                    )
+                                )
+                            ) {
+                                OmniKeyboardCommand.TogglePlayPause -> { player.togglePlayPause(); true }
+                                OmniKeyboardCommand.SeekBackward -> { player.seekRelative(-5000); true }
+                                OmniKeyboardCommand.SeekForward -> { player.seekRelative(5000); true }
+                                OmniKeyboardCommand.NextTrack -> { player.nextTrack(); true }
+                                OmniKeyboardCommand.PreviousTrack -> { player.previousTrack(); true }
+                                OmniKeyboardCommand.FocusSearch -> {
                                     player.navigateTo(NavScreen.Search)
                                     searchFocus.requestFocus()
                                     true
-                                } else false
-                            }
-                            Key.Comma -> {
-                                if (event.isCtrlPressed) {
+                                }
+                                OmniKeyboardCommand.OpenSettings -> {
                                     player.navigateTo(NavScreen.Settings)
                                     true
-                                } else false
+                                }
+                                null -> false
                             }
-                            else -> false
                         }
-                    } else false
+                        else -> false
+                    }
                 }
         ) {
             val shellHeight = maxHeight
@@ -264,7 +281,11 @@ fun WindowScope.OmniWindow(
                                 if (isMaximized) windowState.placement = WindowPlacement.Floating
                                 else windowState.placement = WindowPlacement.Maximized
                             },
-                            onOpenSettings = { player.navigateTo(NavScreen.Settings) }
+                            onOpenSettings = { player.navigateTo(NavScreen.Settings) },
+                            onSearchFocusChanged = {
+                                editableTextFocused = it
+                                pressedShortcutKeys.clear()
+                            },
                         )
 
                         val leftDragX = metrics.px(96f)
@@ -312,10 +333,34 @@ fun WindowScope.OmniWindow(
                                 NavScreen.Browse -> BrowseView(player)
                                 NavScreen.Radio -> RadioView(player)
                                 NavScreen.Library -> LibraryView(player)
-                                NavScreen.Search -> SearchView(player, query, onQueryChange = { query = it })
+                                NavScreen.Search -> SearchView(
+                                    player,
+                                    query,
+                                    onQueryChange = { query = it },
+                                    onSearchFieldFocusChanged = {
+                                        editableTextFocused = it
+                                        pressedShortcutKeys.clear()
+                                    },
+                                )
                                 NavScreen.NowPlaying -> NowPlayingView(player, currentSong, playbackState, pos, volume)
-                                NavScreen.Queue -> QueueView(player)
-                                NavScreen.Playlists -> PlaylistsView(player)
+                                NavScreen.Queue -> QueueView(
+                                    player,
+                                    onEditableTextFocusChanged = {
+                                        editableTextFocused = it
+                                        pressedShortcutKeys.clear()
+                                    },
+                                    onModalOpenChanged = {
+                                        modalOpen = it
+                                        pressedShortcutKeys.clear()
+                                    },
+                                )
+                                NavScreen.Playlists -> PlaylistsView(
+                                    player,
+                                    onEditableTextFocusChanged = {
+                                        editableTextFocused = it
+                                        pressedShortcutKeys.clear()
+                                    },
+                                )
                                 NavScreen.Settings -> SettingsView()
                                 NavScreen.Artist -> ArtistView(player)
                                 NavScreen.Album -> AlbumView(player)

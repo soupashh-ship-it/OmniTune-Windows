@@ -155,8 +155,8 @@ private fun DownloadsReferenceContent(
 
     Box(Modifier.fillMaxSize().verticalScroll(scroll)) {
         Box(Modifier.fillMaxWidth().height(metrics.px(620f))) {
-            Text("Downloads & Offline", color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(17f)))
-            Text("Manage persistent download tasks and verified local playback files.", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(45f)))
+            Text("Downloads & Offline", color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.offset(x = metrics.px(21f), y = metrics.px(11f)))
+            Text("Manage persistent download tasks and verified local playback files.", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.offset(x = metrics.px(21f), y = metrics.px(39f)))
 
             ActionButton("Quality Settings", Icons.Default.Settings, Modifier.offset(x = metrics.px(527f), y = metrics.px(31f)).width(metrics.px(104f)).height(metrics.px(28f))) {
                 val options = listOf(DownloadQualityMode.PROVIDER_DEFAULT, DownloadQualityMode.SMALLER_FILE, DownloadQualityMode.PREFER_HIGH)
@@ -179,7 +179,7 @@ private fun DownloadsReferenceContent(
             }
 
             Row(
-                modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(100f)).width(metrics.px(700f)).height(metrics.px(64f)),
+                modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(97f)).width(metrics.px(700f)).height(metrics.px(64f)),
                 horizontalArrangement = Arrangement.spacedBy(metrics.px(10f)),
             ) {
                 StatCard("Downloaded", "$completedCount", "Verified files", Icons.Default.Download, IrisSoft, Modifier.weight(1f))
@@ -189,7 +189,7 @@ private fun DownloadsReferenceContent(
                 StatCard("Saved", formatBytes(downloadedBytes), "This device", Icons.Default.Storage, SuccessGreen, Modifier.weight(1f))
             }
 
-            DownloadsPanel("Downloaded Songs", Modifier.offset(x = metrics.px(24f), y = metrics.px(164f)).width(metrics.px(700f)).height(metrics.px(136f))) {
+            DownloadsPanel("Downloaded Songs", Modifier.offset(x = metrics.px(24f), y = metrics.px(161f)).width(metrics.px(700f)).height(metrics.px(136f))) {
                 if (visibleTasks.isEmpty()) {
                     EmptyDownloadText(
                         when (activeFilter) {
@@ -213,7 +213,7 @@ private fun DownloadsReferenceContent(
                 }
             }
 
-            DownloadsPanel("Downloaded Albums", Modifier.offset(x = metrics.px(24f), y = metrics.px(324f)).width(metrics.px(700f)).height(metrics.px(78f))) {
+            DownloadsPanel("Downloaded Albums", Modifier.offset(x = metrics.px(24f), y = metrics.px(321f)).width(metrics.px(700f)).height(metrics.px(78f))) {
                 val albums = completedTasks
                     .filter { !it.album.isNullOrBlank() }
                     .groupBy { it.album.orEmpty() }
@@ -232,7 +232,7 @@ private fun DownloadsReferenceContent(
                 EmptyDownloadText("Smart offline mixes were removed as unsupported until a real smart-mix engine exists.")
             }
 
-            SidePanel("Device Storage", Modifier.offset(x = metrics.px(735f), y = metrics.px(33f)).width(metrics.px(205f)).height(metrics.px(185f))) {
+            SidePanel("Device Storage", Modifier.offset(x = metrics.px(733f), y = metrics.px(33f)).width(metrics.px(214f)).height(metrics.px(183f))) {
                 SettingsLine("This PC", "${formatBytes(totalBytes)} total")
                 StorageBar(used = usedBytes, total = totalBytes)
                 SettingsLine(formatBytes(usedBytes) + " used", formatBytes(freeBytes) + " free")
@@ -278,7 +278,7 @@ private fun ActionButton(text: String, icon: androidx.compose.ui.graphics.vector
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        Icon(icon, null, tint = TextPrimary, modifier = Modifier.size(metrics.px(11f)))
+            Icon(icon, contentDescription = text, tint = TextPrimary, modifier = Modifier.size(metrics.px(11f)))
         Spacer(Modifier.width(metrics.px(5f)))
         Text(text, color = TextPrimary, fontSize = 8.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
     }
@@ -380,7 +380,7 @@ private fun DownloadTaskRow(
         Text(taskProgressLabel(task), color = TextSecondary, fontSize = 8.2.sp, maxLines = 1, modifier = Modifier.width(metrics.px(96f)))
         DownloadRowIcon(task, onPlay, onPause, onResume, onRetry)
         Spacer(Modifier.width(metrics.px(10f)))
-        Icon(Icons.Default.Delete, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onDelete))
+        Icon(Icons.Default.Delete, contentDescription = "Delete download", tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onDelete))
     }
 }
 
@@ -392,13 +392,13 @@ private fun DownloadRowIcon(
     onResume: () -> Unit,
     onRetry: () -> Unit,
 ) {
-    val (icon, action) = when (task.state) {
-        DownloadState.COMPLETED -> Icons.Default.PlayArrow to onPlay
-        DownloadState.PAUSED -> Icons.Default.PlayArrow to onResume
-        DownloadState.FAILED, DownloadState.CANCELLED -> Icons.Default.Refresh to onRetry
-        DownloadState.QUEUED, DownloadState.RESOLVING, DownloadState.DOWNLOADING -> Icons.Default.Pause to onPause
+    val (icon, action, description) = when (task.state) {
+        DownloadState.COMPLETED -> Triple(Icons.Default.PlayArrow, onPlay, "Play downloaded track")
+        DownloadState.PAUSED -> Triple(Icons.Default.PlayArrow, onResume, "Resume download")
+        DownloadState.FAILED, DownloadState.CANCELLED -> Triple(Icons.Default.Refresh, onRetry, "Retry download")
+        DownloadState.QUEUED, DownloadState.RESOLVING, DownloadState.DOWNLOADING -> Triple(Icons.Default.Pause, onPause, "Pause download")
     }
-    Icon(icon, null, tint = IrisSoft, modifier = Modifier.size(LocalHomeReferenceMetrics.current.px(13f)).clickable(onClick = action))
+    Icon(icon, contentDescription = description, tint = IrisSoft, modifier = Modifier.size(LocalHomeReferenceMetrics.current.px(13f)).clickable(onClick = action))
 }
 
 @Composable

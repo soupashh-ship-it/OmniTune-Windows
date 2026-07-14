@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,7 +69,7 @@ fun OmniSidebar(
     modifier: Modifier = Modifier,
 ) {
     val motionPolicy = LocalOmniMotionPolicy.current
-    val librarySubScreens = setOf(NavScreen.Playlists, NavScreen.Album, NavScreen.Artist, NavScreen.Search, NavScreen.Downloads)
+    val librarySubScreens = setOf(NavScreen.Playlists, NavScreen.Album, NavScreen.Artist, NavScreen.Search, NavScreen.Downloads, NavScreen.NowPlaying)
     var libraryExpanded by remember { mutableStateOf(activeScreen in librarySubScreens || activeScreen == NavScreen.Library) }
 
     // Auto-expand when navigating into library sub-screens
@@ -155,21 +156,24 @@ fun OmniSidebar(
                 icon = Icons.Default.Home,
                 label = "Home",
                 isActive = activeScreen == NavScreen.Home,
-                onClick = { onNavigate(NavScreen.Home) }
+                onClick = { onNavigate(NavScreen.Home) },
+                modifier = Modifier.testTag("omni.sidebar.home"),
             )
             Spacer(Modifier.height(2.dp))
             NavItem(
                 icon = Icons.Default.Search,
                 label = "Browse",
                 isActive = activeScreen == NavScreen.Browse,
-                onClick = { onNavigate(NavScreen.Browse) }
+                onClick = { onNavigate(NavScreen.Browse) },
+                modifier = Modifier.testTag("omni.sidebar.browse"),
             )
             Spacer(Modifier.height(2.dp))
             NavItem(
                 icon = Icons.Default.Radio,
                 label = "Radio",
                 isActive = activeScreen == NavScreen.Radio,
-                onClick = { onNavigate(NavScreen.Radio) }
+                onClick = { onNavigate(NavScreen.Radio) },
+                modifier = Modifier.testTag("omni.sidebar.radio"),
             )
             Spacer(Modifier.height(2.dp))
 
@@ -183,7 +187,8 @@ fun OmniSidebar(
                 },
                 onToggle = {
                     libraryExpanded = !libraryExpanded
-                }
+                },
+                modifier = Modifier.testTag("omni.sidebar.library"),
             )
 
 
@@ -230,11 +235,11 @@ fun OmniSidebar(
                     Column(
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        LibrarySubItem(label = "Playlists", isActive = activeScreen == NavScreen.Playlists) { onNavigate(NavScreen.Playlists) }
-                        LibrarySubItem(label = "Albums", isActive = activeScreen == NavScreen.Album) { onNavigate(NavScreen.Album) }
-                        LibrarySubItem(label = "Artists", isActive = activeScreen == NavScreen.Artist) { onNavigate(NavScreen.Artist) }
-                        LibrarySubItem(label = "Songs", isActive = activeScreen == NavScreen.Search) { onNavigate(NavScreen.Search) }
-                        LibrarySubItem(label = "Downloads", isActive = activeScreen == NavScreen.Downloads) { onNavigate(NavScreen.Downloads) }
+                        LibrarySubItem(label = "Playlists", isActive = activeScreen == NavScreen.Playlists, modifier = Modifier.testTag("omni.sidebar.library.playlists")) { onNavigate(NavScreen.Playlists) }
+                        LibrarySubItem(label = "Albums", isActive = activeScreen == NavScreen.Album, modifier = Modifier.testTag("omni.sidebar.library.albums")) { onNavigate(NavScreen.Album) }
+                        LibrarySubItem(label = "Artists", isActive = activeScreen == NavScreen.Artist, modifier = Modifier.testTag("omni.sidebar.library.artists")) { onNavigate(NavScreen.Artist) }
+                        LibrarySubItem(label = "Songs", isActive = activeScreen == NavScreen.Search, modifier = Modifier.testTag("omni.sidebar.library.songs")) { onNavigate(NavScreen.Search) }
+                        LibrarySubItem(label = "Downloads", isActive = activeScreen == NavScreen.Downloads, modifier = Modifier.testTag("omni.sidebar.library.downloads")) { onNavigate(NavScreen.Downloads) }
                     }
                 }
             }
@@ -313,7 +318,8 @@ fun OmniSidebar(
                         icon = Icons.Default.Settings,
                         label = "Settings",
                         isActive = activeScreen == NavScreen.Settings,
-                        onClick = { onNavigate(NavScreen.Settings) }
+                        onClick = { onNavigate(NavScreen.Settings) },
+                        modifier = Modifier.testTag("omni.sidebar.settings"),
                     )
                 }
             }
@@ -328,6 +334,7 @@ private fun NavItem(
     label: String,
     isActive: Boolean,
     enabled: Boolean = true,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val motionPolicy = LocalOmniMotionPolicy.current
@@ -368,7 +375,7 @@ private fun NavItem(
         }
     }
 
-    Box(modifier = Modifier.padding(horizontal = 10.dp).height(31.dp)) {
+    Box(modifier = modifier.padding(horizontal = 10.dp).height(31.dp)) {
         if (isActive) {
             OmniReferenceSelectedNavigation {
                 innerRow()
@@ -386,6 +393,7 @@ private fun LibraryHeader(
     isActive: Boolean,
     onOpen: () -> Unit,
     onToggle: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val motionPolicy = LocalOmniMotionPolicy.current
     val interactionSource = remember { MutableInteractionSource() }
@@ -406,7 +414,7 @@ private fun LibraryHeader(
     }
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(31.dp)
             .clip(RoundedCornerShape(8.dp))
@@ -437,6 +445,7 @@ private fun LibraryHeader(
 private fun LibrarySubItem(
     label: String,
     isActive: Boolean,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -449,7 +458,7 @@ private fun LibrarySubItem(
     }
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(28.dp)
             .clip(RoundedCornerShape(6.dp))

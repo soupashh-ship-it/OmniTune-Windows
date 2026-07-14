@@ -19,6 +19,11 @@ data class PlayerPosition(
     val position: Float = 0f
 )
 
+internal fun clampSeekTarget(targetMs: Long, lengthMs: Long): Long {
+    val lowerBounded = targetMs.coerceAtLeast(0L)
+    return if (lengthMs > 0L) lowerBounded.coerceAtMost(lengthMs) else lowerBounded
+}
+
 class VlcjAudioEngine(
     private val scope: CoroutineScope
 ) {
@@ -183,7 +188,7 @@ class VlcjAudioEngine(
         if (isReleased) return
         scope.launch(vlcDispatcher) {
             if (isReleased) return@launch
-            player.controls().setTime(timeMs.coerceAtLeast(0))
+            player.controls().setTime(clampSeekTarget(timeMs, player.status().length()))
         }
     }
 
@@ -193,7 +198,7 @@ class VlcjAudioEngine(
             if (isReleased) return@launch
             val current = player.status().time()
             if (current >= 0) {
-                player.controls().setTime((current + deltaMs).coerceAtLeast(0))
+                player.controls().setTime(clampSeekTarget(current + deltaMs, player.status().length()))
             }
         }
     }

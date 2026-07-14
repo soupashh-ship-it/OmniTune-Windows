@@ -45,7 +45,9 @@ class SettingsRepository(
 ) {
     private fun writeJsonFile(name: String, content: String) {
         platformContext?.appDataDir?.let { dir ->
-            runCatching { java.io.File(dir, name).writeText(content) }
+            runCatching { AtomicFileStore.writeText(java.io.File(dir, name), content) }
+                .onFailure { OmniLogger.error("Settings", "Failed to persist $name.", it) }
+                .getOrThrow()
         }
     }
 
@@ -61,6 +63,46 @@ class SettingsRepository(
             val file = java.io.File(dir, name)
             if (file.exists()) runCatching { file.readText() }.getOrNull() else null
         }
+    }
+
+    private fun readJsonBackupFile(name: String): String? {
+        return platformContext?.appDataDir?.let { dir ->
+            val file = java.io.File(dir, "$name.bak")
+            if (file.exists()) runCatching { file.readText() }.getOrNull() else null
+        }
+    }
+
+    private fun preserveCorruptJsonFile(name: String) {
+        platformContext?.appDataDir?.let { dir ->
+            val file = java.io.File(dir, name)
+            if (!file.exists()) return
+            runCatching {
+                file.copyTo(
+                    java.io.File(dir, "$name.corrupt-${System.currentTimeMillis()}.bak"),
+                    overwrite = false,
+                )
+            }
+        }
+    }
+
+    private fun <T> readRecoverableJsonList(
+        fileName: String,
+        fallbackPreferenceKey: String,
+        parser: (String) -> List<T>,
+    ): List<T> {
+        val fileContent = readJsonFile(fileName)
+        if (fileContent != null) {
+            runCatching { return parser(fileContent) }
+                .onFailure { preserveCorruptJsonFile(fileName) }
+        }
+
+        readJsonBackupFile(fileName)?.let { backupContent ->
+            runCatching { return parser(backupContent) }
+                .onFailure { OmniLogger.error("Settings", "Backup JSON for $fileName is also unreadable.", it) }
+        }
+
+        return runCatching { parser(prefs.get(fallbackPreferenceKey, "[]")) }
+            .getOrDefault(emptyList())
     }
 
     private val _miniPlayerAlwaysOnTopFlow = MutableStateFlow(prefs.getBoolean("miniPlayerAlwaysOnTop", true))
@@ -349,8 +391,10 @@ class SettingsRepository(
         playbackSessions = listOf(updated) + playbackSessions.filterNot { it.id == session.id }
     }
 
-    private fun readPlaylistList(): List<SavedQueuePlaylist> = runCatching {
-        val stored = readJsonFile("savedQueuePlaylists.json") ?: prefs.get("savedQueuePlaylists.v1", "[]")
+    private fun readPlaylistList(): List<SavedQueuePlaylist> = readRecoverableJsonList(
+        fileName = "savedQueuePlaylists.json",
+        fallbackPreferenceKey = "savedQueuePlaylists.v1",
+    ) { stored ->
         val array = JSONArray(stored)
         (0 until array.length()).mapNotNull { index ->
             val obj = array.optJSONObject(index) ?: return@mapNotNull null
@@ -361,11 +405,13 @@ class SettingsRepository(
                 createdAt = obj.optLong("createdAt"),
                 songs = (0 until songsJson.length()).mapNotNull { songsJson.optJSONObject(it)?.toSongItem() },
             ).takeIf { it.id.isNotBlank() && it.name.isNotBlank() }
-        }
-    }.getOrDefault(emptyList())
+        }.distinctBy { it.id }
+    }
 
-    private fun readPlaybackHistory(): List<PlaybackHistoryEntry> = runCatching {
-        val stored = readJsonFile("playbackHistory.json") ?: prefs.get("playbackHistory.v1", "[]")
+    private fun readPlaybackHistory(): List<PlaybackHistoryEntry> = readRecoverableJsonList(
+        fileName = "playbackHistory.json",
+        fallbackPreferenceKey = "playbackHistory.v1",
+    ) { stored ->
         val array = JSONArray(stored)
         (0 until array.length()).mapNotNull { index ->
             val obj = array.optJSONObject(index) ?: return@mapNotNull null
@@ -380,12 +426,14 @@ class SettingsRepository(
                 completed = obj.optBoolean("completed", false),
                 playCount = obj.optInt("playCount", 1),
                 sessionId = obj.optString("sessionId"),
-            ).takeIf { it.id.isNotBlank() }
-        }
-    }.getOrDefault(emptyList())
+            ).takeIf { it.id.isNotBlank() && it.song.id.isNotBlank() }
+        }.distinctBy { it.id }
+    }
 
-    private fun readPlaybackSessions(): List<PlaybackSession> = runCatching {
-        val stored = readJsonFile("playbackSessions.json") ?: prefs.get("playbackSessions.v1", "[]")
+    private fun readPlaybackSessions(): List<PlaybackSession> = readRecoverableJsonList(
+        fileName = "playbackSessions.json",
+        fallbackPreferenceKey = "playbackSessions.v1",
+    ) { stored ->
         val array = JSONArray(stored)
         (0 until array.length()).mapNotNull { index ->
             val obj = array.optJSONObject(index) ?: return@mapNotNull null
@@ -398,8 +446,8 @@ class SettingsRepository(
                 playCount = obj.optInt("playCount"),
                 uniqueTrackCount = obj.optInt("uniqueTrackCount"),
             ).takeIf { it.id.isNotBlank() }
-        }
-    }.getOrDefault(emptyList())
+        }.distinctBy { it.id }
+    }
 
     private fun SongItem.toJson(): JSONObject = JSONObject()
         .put("id", id)

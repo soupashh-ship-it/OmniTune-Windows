@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -230,7 +231,7 @@ private fun PlayerRightZone(
 // PlayerControlBand — exact reproduction of 607×41 reference
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun PlayerControlBand(
+internal fun PlayerControlBand(
     isPlaying: Boolean,
     positionMs: Long,
     durationMs: Long,
@@ -266,7 +267,8 @@ private fun PlayerControlBand(
                 enabled = enabled,
                 onClick = onShuffleClick,
                 size = 15.dp,
-                tooltip = "Shuffle"
+                tooltip = "Shuffle",
+                tag = "omni.player.shuffle",
             )
             PlayerSmallIcon(
                 icon = Icons.Filled.SkipPrevious,
@@ -274,13 +276,15 @@ private fun PlayerControlBand(
                 enabled = enabled,
                 onClick = onPreviousClick,
                 size = 19.dp,
-                tooltip = "Previous"
+                tooltip = "Previous",
+                tag = "omni.player.previous",
             )
             PlayerPlayPauseButton(
                 isPlaying = isPlaying,
                 enabled = enabled,
                 onClick = onPlayPauseClick,
-                tooltip = "Play / Pause"
+                tooltip = "Play / Pause",
+                tag = "omni.player.playPause",
             )
             PlayerSmallIcon(
                 icon = Icons.Filled.SkipNext,
@@ -288,7 +292,8 @@ private fun PlayerControlBand(
                 enabled = enabled,
                 onClick = onNextClick,
                 size = 19.dp,
-                tooltip = "Next"
+                tooltip = "Next",
+                tag = "omni.player.next",
             )
             PlayerSmallIcon(
                 icon = if (repeatMode == com.omnitune.app.player.RepeatMode.ONE)
@@ -297,7 +302,8 @@ private fun PlayerControlBand(
                 enabled = enabled,
                 onClick = onRepeatClick,
                 size = 15.dp,
-                tooltip = "Repeat"
+                tooltip = "Repeat",
+                tag = "omni.player.repeat",
             )
         }
 
@@ -340,6 +346,7 @@ private fun PlayerPlayPauseButton(
     enabled: Boolean,
     onClick: () -> Unit,
     tooltip: String? = null,
+    tag: String? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
@@ -348,6 +355,7 @@ private fun PlayerPlayPauseButton(
         Box(
             modifier = Modifier
                 .size(metrics.px(31f))
+                .then(if (tag != null) Modifier.testTag(tag) else Modifier)
                 .clip(CircleShape)
                 .background(
                     if (!enabled) com.omnitune.app.window.OmniReferenceColors.PlayerPrimaryControl.copy(alpha = 0.4f)
@@ -391,6 +399,7 @@ private fun PlayerSmallIcon(
     onClick: () -> Unit,
     size: androidx.compose.ui.unit.Dp,
     tooltip: String? = null,
+    tag: String? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
@@ -399,6 +408,7 @@ private fun PlayerSmallIcon(
         Box(
             modifier = Modifier
                 .size(metrics.px(28f))
+                .then(if (tag != null) Modifier.testTag(tag) else Modifier)
                 .clip(CircleShape)
                 .clickable(
                     interactionSource = interactionSource,
@@ -673,7 +683,7 @@ fun TargetBottomPlayerSurface(
 
             // BASE
             drawRoundRect(
-                color = Color(0xFF0C1021),
+                color = OmniReferenceColors.PlayerBase,
                 cornerRadius = cornerRadius
             )
 

@@ -43,17 +43,29 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -67,7 +79,11 @@ import com.omnitune.innertube.models.SongItem
 import com.omnitune.innertube.toHighResThumbnail
 
 @Composable
-fun QueueView(player: PlayerViewModel) {
+fun QueueView(
+    player: PlayerViewModel,
+    onEditableTextFocusChanged: (Boolean) -> Unit = {},
+    onModalOpenChanged: (Boolean) -> Unit = {},
+) {
     val queue by player.queue.collectAsState()
     val queueIndex by player.queueIndex.collectAsState()
     val currentSong by player.currentSong.collectAsState()
@@ -80,6 +96,37 @@ fun QueueView(player: PlayerViewModel) {
     var recRotation by remember { mutableIntStateOf(0) }
     var showSaveDialog by remember { mutableStateOf(false) }
     var playlistName by remember { mutableStateOf("") }
+    val savePlaylistOpenerFocusRequester = remember { FocusRequester() }
+    val savePlaylistNameFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(showSaveDialog) {
+        onModalOpenChanged(showSaveDialog)
+        if (!showSaveDialog) onEditableTextFocusChanged(false)
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            onModalOpenChanged(false)
+            onEditableTextFocusChanged(false)
+        }
+    }
+
+    fun closeSaveDialog() {
+        showSaveDialog = false
+        onEditableTextFocusChanged(false)
+        savePlaylistOpenerFocusRequester.requestFocus()
+    }
+
+    fun saveQueuePlaylistFromDialog() {
+        if (playlistName.isBlank()) return
+        val result = player.saveQueueAsPlaylist(playlistName)
+        result
+            .onSuccess {
+                message = "Saved playlist: $it"
+                closeSaveDialog()
+            }
+            .onFailure { message = "Couldn't save playlist." }
+    }
 
     val realRecommendations = remember(recommendations, queue, recRotation) {
         val queuedIds = queue.map { it.id }.toSet()
@@ -111,6 +158,9 @@ fun QueueView(player: PlayerViewModel) {
                 showSaveDialog = true
             }
         },
+        saveActionModifier = Modifier
+            .testTag("omni.queue.saveAsPlaylist")
+            .focusRequester(savePlaylistOpenerFocusRequester),
         onShuffle = {
             player.toggleShuffle()
             message = "Shuffle toggled."
@@ -140,33 +190,75 @@ fun QueueView(player: PlayerViewModel) {
     )
 
     if (showSaveDialog) {
-        AlertDialog(
-            onDismissRequest = { showSaveDialog = false },
-            title = { Text("Save queue as playlist") },
-            text = {
-                OutlinedTextField(
-                    value = playlistName,
-                    onValueChange = { playlistName = it },
-                    singleLine = true,
-                    label = { Text("Playlist name") },
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = playlistName.isNotBlank(),
-                    onClick = {
-                        player.saveQueueAsPlaylist(playlistName)
-                            .onSuccess { message = "Saved playlist: $it" }
-                            .onFailure { message = it.message ?: "Could not save playlist." }
-                        showSaveDialog = false
-                    }
-                ) { Text("Save") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showSaveDialog = false }) { Text("Cancel") }
-            },
+        QueueSaveAsPlaylistDialog(
+            playlistName = playlistName,
+            onPlaylistNameChange = { playlistName = it },
+            onSave = { saveQueuePlaylistFromDialog() },
+            onClose = { closeSaveDialog() },
+            onEditableTextFocusChanged = onEditableTextFocusChanged,
+            nameFocusRequester = savePlaylistNameFocusRequester,
         )
     }
+}
+
+@Composable
+internal fun QueueSaveAsPlaylistDialog(
+    playlistName: String,
+    onPlaylistNameChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onClose: () -> Unit,
+    onEditableTextFocusChanged: (Boolean) -> Unit = {},
+    nameFocusRequester: FocusRequester = remember { FocusRequester() },
+) {
+    LaunchedEffect(Unit) {
+        withFrameNanos { }
+        nameFocusRequester.requestFocus()
+    }
+
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text("Save queue as playlist") },
+        text = {
+            OutlinedTextField(
+                value = playlistName,
+                onValueChange = onPlaylistNameChange,
+                modifier = Modifier
+                    .testTag("omni.queue.saveDialog.name")
+                    .focusRequester(nameFocusRequester)
+                    .onFocusChanged { onEditableTextFocusChanged(it.isFocused) }
+                    .onPreviewKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        when (event.key) {
+                            Key.Enter,
+                            Key.NumPadEnter -> {
+                                onSave()
+                                true
+                            }
+                            Key.Escape -> {
+                                onClose()
+                                true
+                            }
+                            else -> false
+                        }
+                    },
+                singleLine = true,
+                label = { Text("Playlist name") },
+            )
+        },
+        confirmButton = {
+            TextButton(
+                enabled = playlistName.isNotBlank(),
+                onClick = onSave,
+                modifier = Modifier.testTag("omni.queue.saveDialog.confirm"),
+            ) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onClose,
+                modifier = Modifier.testTag("omni.queue.saveDialog.cancel"),
+            ) { Text("Cancel") }
+        },
+    )
 }
 
 @Composable
@@ -191,6 +283,7 @@ private fun QueueReferenceContent(
     onAddRecommendation: (SongItem) -> Unit,
     onAddAllRecommendations: () -> Unit,
     onRefreshRecommendations: () -> Unit,
+    saveActionModifier: Modifier = Modifier,
 ) {
     val metrics = LocalHomeReferenceMetrics.current
     val scroll = rememberScrollState()
@@ -211,7 +304,7 @@ private fun QueueReferenceContent(
                 modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(65f)).width(metrics.px(474f)).height(metrics.px(346f)),
                 header = {
                     QueueHeaderAction(Icons.Default.Delete, "Clear", onClear)
-                    QueueHeaderAction(Icons.Default.PlaylistAdd, "Save as Playlist", onSave)
+                    QueueHeaderAction(Icons.Default.PlaylistAdd, "Save as Playlist", onSave, saveActionModifier)
                     QueueHeaderAction(Icons.Default.Shuffle, "Shuffle", onShuffle)
                     QueueHeaderAction(Icons.Default.Repeat, "Repeat", onRepeat)
                 },
@@ -343,10 +436,10 @@ private fun ReferencePanel(
 }
 
 @Composable
-private fun QueueHeaderAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+private fun QueueHeaderAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val metrics = LocalHomeReferenceMetrics.current
     Row(
-        modifier = Modifier.height(metrics.px(18f)).clip(RoundedCornerShape(metrics.px(5f))).clickable(onClick = onClick).padding(horizontal = metrics.px(4f)),
+        modifier = modifier.height(metrics.px(18f)).clip(RoundedCornerShape(metrics.px(5f))).clickable(onClick = onClick).padding(horizontal = metrics.px(4f)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(10f)))
@@ -385,7 +478,7 @@ private fun QueueSongRow(
         }
         Text(item.album?.name ?: "Single", color = TextSecondary, fontSize = 7.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(0.82f))
         Text(formatDuration(item.duration ?: 0), color = TextSecondary, fontSize = 7.5.sp, modifier = Modifier.width(metrics.px(32f)), textAlign = TextAlign.End)
-        Icon(if (isPlaying) Icons.Default.PlayArrow else Icons.Default.MoreHoriz, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onRemove))
+        Icon(Icons.Default.Delete, contentDescription = "Remove from queue", tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onRemove))
     }
 }
 

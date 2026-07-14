@@ -123,6 +123,8 @@ class PlayerViewModel(
 
     private val _playlistError = MutableStateFlow<String?>(null)
     val playlistError: StateFlow<String?> = _playlistError.asStateFlow()
+    private var activePlaylistSearchJob: Job? = null
+    private var activePlaylistSearchToken: Long = 0L
 
     private val _currentSong = MutableStateFlow<SongItem?>(null)
     val currentSong: StateFlow<SongItem?> = _currentSong.asStateFlow()
@@ -185,6 +187,18 @@ class PlayerViewModel(
 
     private val _discoveryRelated = MutableStateFlow<List<com.omnitune.innertube.models.YTItem>>(emptyList())
     val discoveryRelated: StateFlow<List<com.omnitune.innertube.models.YTItem>> = _discoveryRelated.asStateFlow()
+    private val _relatedLoading = MutableStateFlow(false)
+    val relatedLoading: StateFlow<Boolean> = _relatedLoading.asStateFlow()
+    private val _relatedError = MutableStateFlow<String?>(null)
+    val relatedError: StateFlow<String?> = _relatedError.asStateFlow()
+    private var relatedJob: Job? = null
+    private var relatedRequestToken: Long = 0L
+
+    private var activeRadioSessionId: Long = 0L
+    private var activeRadioEndpoint: WatchEndpoint? = null
+    private var activeRadioContinuation: String? = null
+    private var radioContinuationJob: Job? = null
+    private var radioContinuationFailures: Int = 0
 
     private val _playbackHistory = MutableStateFlow(settings.playbackHistory)
     val playbackHistory = _playbackHistory.asStateFlow()
@@ -469,17 +483,29 @@ class PlayerViewModel(
     }
 
     fun searchPlaylists(query: String) {
-        if (query.isBlank()) return
-        launch {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) return
+        val searchToken = ++activePlaylistSearchToken
+        activePlaylistSearchJob?.cancel()
+        activePlaylistSearchJob = launch {
             _playlistLoading.value = true
             _playlistError.value = null
             _playlistResults.value = emptyList()
             runCatching {
-                val result = youTubeService.search(query, YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST)
+                val result = youTubeService.search(trimmed, YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST)
                 result.items
-            }.onSuccess { _playlistResults.value = it }
-                .onFailure { _playlistError.value = it.message }
-            _playlistLoading.value = false
+            }.onSuccess {
+                if (searchToken == activePlaylistSearchToken) {
+                    _playlistResults.value = it.distinctBy { item -> "${item::class.simpleName}:${item.id}" }
+                }
+            }.onFailure {
+                if (searchToken == activePlaylistSearchToken && it !is CancellationException) {
+                    _playlistError.value = it.message
+                }
+            }
+            if (searchToken == activePlaylistSearchToken) {
+                _playlistLoading.value = false
+            }
         }
     }
 
@@ -583,16 +609,7 @@ class PlayerViewModel(
         lyricsJob?.cancel()
         _streamUrl.value = null
         startListenTracking(item)
-        _discoveryRelated.value = emptyList()
-        launch {
-            runCatching {
-                val nextRes = youTubeService.next(com.omnitune.innertube.models.WatchEndpoint(videoId = item.id, playlistId = _currentPlaylistId.value))
-                nextRes.relatedEndpoint?.let { relEndpoint ->
-                    val page = youTubeService.related(relEndpoint)
-                    _discoveryRelated.value = page.songs + page.albums + page.artists + page.playlists
-                }
-            }
-        }
+        loadRelatedFor(item)
         downloadManager.completedLocalFileFor(item.id)?.absolutePath?.let { localPath ->
             _streamUrl.value = localPath
             audioEngine.play(localPath)
@@ -637,12 +654,48 @@ class PlayerViewModel(
         }
     }
 
+    fun retryRelated() {
+        currentSong.value?.let(::loadRelatedFor)
+    }
+
+    private fun loadRelatedFor(item: SongItem) {
+        val token = ++relatedRequestToken
+        relatedJob?.cancel()
+        _discoveryRelated.value = emptyList()
+        _relatedLoading.value = true
+        _relatedError.value = null
+        relatedJob = launch {
+            runCatching {
+                val nextRes = youTubeService.next(WatchEndpoint(videoId = item.id, playlistId = _currentPlaylistId.value))
+                val relEndpoint = nextRes.relatedEndpoint ?: return@runCatching emptyList<YTItem>()
+                val page = youTubeService.related(relEndpoint)
+                RelatedContentPolicy.clean(
+                    currentSongId = item.id,
+                    items = page.songs + page.albums + page.artists + page.playlists,
+                )
+            }.onSuccess { related ->
+                if (token != relatedRequestToken || _currentSong.value?.id != item.id) return@onSuccess
+                _discoveryRelated.value = related
+                _relatedLoading.value = false
+                _relatedError.value = null
+            }.onFailure { throwable ->
+                if (throwable is CancellationException) return@onFailure
+                if (token != relatedRequestToken || _currentSong.value?.id != item.id) return@onFailure
+                _discoveryRelated.value = emptyList()
+                _relatedLoading.value = false
+                _relatedError.value = "Couldn't load related tracks."
+                com.omnitune.app.platform.OmniLogger.error("PlayerVM", "Failed to load related tracks: ${throwable.message}", throwable)
+            }
+        }
+    }
+
     fun playQueueIndex(index: Int) {
         val q = _queue.value
         if (index in q.indices) {
             _queueIndex.value = index
             _currentSong.value = q[index]
             launch { doPlay(q[index]) }
+            maybeRequestRadioContinuation()
         }
     }
 
@@ -793,6 +846,7 @@ class PlayerViewModel(
 
     fun clearQueue() {
         finalizeActiveListen(completed = false)
+        cancelRadioSession()
         _queue.value = emptyList()
         _queueIndex.value = -1
 
@@ -807,34 +861,105 @@ class PlayerViewModel(
             "album" -> "RDAMPL$seedId"
             else -> "RDAMVM$seedId"
         }
+        val sessionId = beginRadioSession()
         launch {
             runCatching {
                 val result = youTubeService.next(WatchEndpoint(videoId = seedId, playlistId = playlistId))
-                val songs = result.items
+                val songs = RadioSessionPolicy.initialQueue(seedId, result.items)
                 if (songs.isNotEmpty()) {
+                    if (sessionId != activeRadioSessionId) return@runCatching
+                    activeRadioEndpoint = result.endpoint
+                    activeRadioContinuation = result.continuation
+                    radioContinuationFailures = 0
                     _queue.value = songs
                     _queueIndex.value = 0
+                    _currentSong.value = songs[0]
                     doPlay(songs[0])
+                    maybeRequestRadioContinuation()
                 }
             }.onFailure {
+                if (sessionId != activeRadioSessionId) return@onFailure
+                activeRadioContinuation = null
+                radioContinuationFailures = RadioSessionPolicy.MaxContinuationFailures
                 com.omnitune.app.platform.OmniLogger.error("PlayerVM", "Failed to start radio: ${it.message}", it)
             }
         }
     }
 
     fun startRadio(endpoint: WatchEndpoint) {
+        val sessionId = beginRadioSession()
         launch {
             runCatching {
                 val result = youTubeService.next(endpoint)
-                result.items.distinctBy { it.id }
-            }.onSuccess { songs ->
+                RadioSessionPolicy.initialQueue(endpoint.videoId, result.items) to result
+            }.onSuccess { (songs, result) ->
+                if (sessionId != activeRadioSessionId) return@onSuccess
                 if (songs.isNotEmpty()) {
+                    activeRadioEndpoint = result.endpoint
+                    activeRadioContinuation = result.continuation
+                    radioContinuationFailures = 0
                     _queue.value = songs
                     _queueIndex.value = 0
+                    _currentSong.value = songs[0]
                     doPlay(songs[0])
+                    maybeRequestRadioContinuation()
                 }
             }.onFailure {
+                if (sessionId != activeRadioSessionId) return@onFailure
+                activeRadioContinuation = null
+                radioContinuationFailures = RadioSessionPolicy.MaxContinuationFailures
                 com.omnitune.app.platform.OmniLogger.error("PlayerVM", "Failed to start endpoint radio: ${it.message}", it)
+            }
+        }
+    }
+
+    private fun beginRadioSession(): Long {
+        activeRadioSessionId += 1
+        radioContinuationJob?.cancel()
+        radioContinuationJob = null
+        activeRadioEndpoint = null
+        activeRadioContinuation = null
+        radioContinuationFailures = 0
+        return activeRadioSessionId
+    }
+
+    private fun cancelRadioSession() {
+        activeRadioSessionId += 1
+        radioContinuationJob?.cancel()
+        radioContinuationJob = null
+        activeRadioEndpoint = null
+        activeRadioContinuation = null
+        radioContinuationFailures = 0
+    }
+
+    private fun maybeRequestRadioContinuation() {
+        val endpoint = activeRadioEndpoint ?: return
+        val continuation = activeRadioContinuation ?: return
+        val sessionId = activeRadioSessionId
+        val inFlight = radioContinuationJob?.isActive == true
+        if (!RadioSessionPolicy.shouldRequestContinuation(_queue.value.size, _queueIndex.value, inFlight, radioContinuationFailures)) return
+
+        radioContinuationJob = launch {
+            runCatching {
+                youTubeService.next(endpoint, continuation)
+            }.onSuccess { result ->
+                if (sessionId != activeRadioSessionId) return@onSuccess
+                val beforeSize = _queue.value.size
+                val nextQueue = RadioSessionPolicy.appendContinuation(_queue.value, result.items, _queueIndex.value)
+                if (nextQueue.size > beforeSize) {
+                    _queue.value = nextQueue
+                    activeRadioEndpoint = result.endpoint
+                    activeRadioContinuation = result.continuation
+                    radioContinuationFailures = 0
+                } else {
+                    activeRadioContinuation = result.continuation ?: activeRadioContinuation
+                    radioContinuationFailures++
+                }
+            }.onFailure { throwable ->
+                if (throwable is CancellationException) return@onFailure
+                if (sessionId != activeRadioSessionId) return@onFailure
+                radioContinuationFailures++
+                com.omnitune.app.platform.OmniLogger.error("PlayerVM", "Radio continuation failed: ${throwable.message}", throwable)
             }
         }
     }
@@ -849,6 +974,7 @@ class PlayerViewModel(
 
     fun stop() {
         finalizeActiveListen(completed = false)
+        cancelRadioSession()
         audioEngine.stop()
         _currentSong.value = null
         _queueIndex.value = -1

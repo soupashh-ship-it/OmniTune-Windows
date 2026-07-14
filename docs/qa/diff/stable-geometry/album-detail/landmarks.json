@@ -1,0 +1,112 @@
+[
+  {
+    "name": "artwork",
+    "reference": [
+      300,
+      113,
+      349,
+      342
+    ],
+    "actual": [
+      300,
+      113,
+      349,
+      342
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "info",
+    "reference": [
+      675,
+      118,
+      500,
+      260
+    ],
+    "actual": [
+      675,
+      118,
+      500,
+      260
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "track list",
+    "reference": [
+      296,
+      492,
+      860,
+      324
+    ],
+    "actual": [
+      296,
+      492,
+      860,
+      324
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "credits",
+    "reference": [
+      1219,
+      103,
+      415,
+      276
+    ],
+    "actual": [
+      1219,
+      103,
+      415,
+      276
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "related panels",
+    "reference": [
+      1203,
+      509,
+      431,
+      300
+    ],
+    "actual": [
+      1203,
+      509,
+      431,
+      300
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  }
+]

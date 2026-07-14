@@ -9,6 +9,8 @@
 | Primary EXE artifact | PASS | `build/release/windows/OmniTune-Setup-0.1.3-windows-x64.exe` | 196,457,984 bytes; SHA-256 `7f64ef6585b41d367532085a4b21d0e90c181230fe612bfc94866ab66dab3dc9`. |
 | MSI artifact | PASS | `build/release/windows/OmniTune-0.1.3-windows-x64.msi` | 195,885,909 bytes; SHA-256 `9c5572c49b1de7eeb42560b3512787223e8920328108cc9cb1a14cf044907d4d`. |
 | Release manifest | PASS | `build/release/windows/release-manifest.json` | Records version, x64 architecture, hashes, Java runtime bundled, VLC runtime bundled, unsigned status. |
+| Code signing hook | PASS | `scripts/release/build-windows-release.ps1 -Sign` | Opt-in signing supports `OMNITUNE_SIGNTOOL`, `OMNITUNE_SIGN_CERT_PATH`, `OMNITUNE_SIGN_CERT_PASSWORD`, and timestamp URL. No certificate is committed. |
+| Code signing actual signature | FAIL | No certificate available | Installers remain unsigned; SmartScreen warnings may occur. |
 | GitHub RC publication | PASS | `https://github.com/soupashh-ship-it/OmniTune-Windows/releases/tag/v0.1.1-rc.1` | Pre-release contains EXE, MSI, `SHA256SUMS.txt`, and `release-manifest.json`. This release supersedes 0.1.0 RC2 to avoid Windows Installer same-version error 1638. |
 | GitHub 0.1.2 RC publication | PASS | `https://github.com/soupashh-ship-it/OmniTune-Windows/releases/tag/v0.1.2-rc.1` | Pre-release contains EXE, MSI, checksum files, `SHA256SUMS.txt`, and `release-manifest.json`. |
 | GitHub 0.1.3 RC publication | PASS | `https://github.com/soupashh-ship-it/OmniTune-Windows/releases/tag/v0.1.3-rc.1` | 0.1.3 supersedes 0.1.2 after install QA found missing installed native VLC files. |
@@ -26,10 +28,12 @@
 | QA media not in app image | PASS | `rg runtime-download-artifacts` over app image | No QA download artifact found in app image. |
 | Development project path not in app image | PASS | `rg "D:\\Omnitune Windoww"` over app image | No project path found in app image. |
 | Release-ProGuard package task | PASS | `composeApp/build.gradle.kts` | Release ProGuard minification is disabled by policy; `packageReleaseExe` and `packageReleaseMsi` pass. |
-| Clean machine install | FAIL | Not executed in this environment | Current machine already contains an older `C:\Program Files\OmniTuneWindows` install, so it is not a clean target. |
-| Installer lifecycle install | FAIL | Attempted silent MSI install | Existing old installation contaminated the test; clean VM/test user required. |
-| Start menu launch | FAIL | Not executed in this environment | Requires installer installation on clean target. |
-| No system Java required | FAIL | Not executed on clean machine | App image includes private runtime, but clean-machine proof remains. |
-| No system VLC required | FAIL | Not executed on machine without VLC | App image includes VLC and packaged runtime was selected in app-image launch, but clean-machine proof remains. |
-| Installed-build playback/search/download QA | FAIL | Not executed in installed build | Requires install/run QA. |
-| Uninstall/reinstall/upgrade QA | FAIL | Not executed in this environment | Requires installed package lifecycle QA. |
+| Current-machine installer lifecycle install | PASS | HKCU uninstall entry: OmniTune `0.1.3`, install path `C:\Users\soupa\AppData\Local\OmniTune\` | Current machine is not clean because older `OmniTuneWindows` also exists under Program Files, but the OmniTune 0.1.3 per-user install itself succeeded. |
+| Start menu shortcut | PASS | `C:\Users\soupa\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\OmniTune\OmniTune.lnk` | Shortcut exists after install. |
+| Uninstall data preservation | PASS | Marker file under `%LOCALAPPDATA%\OmniTuneData` survived uninstall | Uninstall removed app binaries/entry and preserved user data by policy. |
+| Reinstall data rediscovery | PASS | Same marker file remained after reinstalling 0.1.3 | Reinstall recreated app install while preserving `%LOCALAPPDATA%\OmniTuneData`. |
+| Upgrade 0.1.1 -> 0.1.3 current-machine test | PARTIAL | `docs/qa/upgrade-0.1.1-to-0.1.3-qa.json`; `PlatformContextMigrationTest` | MSI upgrade succeeded and embedded VLC extraction worked. The synthetic JSON-only migration caveat was fixed with marker-based allowlisted migration and tested locally, but a clean full older-RC VM matrix remains unproven. |
+| Clean machine install | FAIL | Not executed in this environment | User explicitly deferred clean Windows VM/no Java/no VLC test. |
+| No system Java required | FAIL | Not executed on clean machine | App image includes private runtime, but clean-machine proof remains deferred. |
+| No system VLC required | FAIL | Not executed on machine without VLC | Packaged/embedded VLC path is proven on current machine; no-system-VLC clean proof remains deferred. |
+| Installed-build playback/search/download QA | PARTIAL | Installed provider search smoke PASS; embedded VLC launch PASS | Full installed-build playback/download walkthrough was not rerun in this pass. |

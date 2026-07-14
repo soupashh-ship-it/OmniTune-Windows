@@ -114,8 +114,8 @@ object OmniReferenceColors {
     // ---------------------------------------------------------
     // BOTTOM PLAYER
     // ---------------------------------------------------------
-    val PlayerBase = Color(0xFF0B0F20)
-    val PlayerCenter = Color(0xFF0C101F)
+    val PlayerBase = Color(0xFF0B1021)
+    val PlayerCenter = Color(0xFF11132A)
     val PlayerViolet = Color(0xFF16112D)
     val PlayerVioletStrong = Color(0xFF1D1033)
     val PlayerRightViolet = Color(0xFF0F1027)

@@ -69,6 +69,8 @@ fun NowPlayingView(
     val queue by player.queue.collectAsState()
     val queueIndex by player.queueIndex.collectAsState()
     val related by player.discoveryRelated.collectAsState()
+    val relatedLoading by player.relatedLoading.collectAsState()
+    val relatedError by player.relatedError.collectAsState()
 
     // Seek drag state — UI owns the scrub position during drag; engine is not queried
     var sliderPos by remember { mutableStateOf(0f) }
@@ -144,6 +146,8 @@ fun NowPlayingView(
                 currentSong = currentSong,
                 queueIndex = queueIndex,
                 related = related,
+                relatedLoading = relatedLoading,
+                relatedError = relatedError,
             )
         }
     }
@@ -331,7 +335,7 @@ private fun PlayerRegion(
         // Transport controls: Shuffle | Prev | Play/Pause | Next | Repeat
         Row(
             modifier = Modifier
-                .offset(y = metrics.px(463f))
+                .offset(y = metrics.px(476f))
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
@@ -447,15 +451,45 @@ private fun LyricsRegion(
     currentSong: SongItem?,
     queueIndex: Int,
     related: List<com.omnitune.innertube.models.YTItem>,
+    relatedLoading: Boolean,
+    relatedError: String?,
 ) {
     var tab by remember { mutableStateOf(0) }
 
     Box(
         modifier = modifier
             .clip(Shapes.large)
-            .background(Surface1.copy(alpha = 0.65f))
+            .background(Surface1.copy(alpha = 0.70f))
             .border(1.dp, BorderLow, Shapes.large)
     ) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Iris.copy(alpha = 0.24f),
+                            CoolBlue.copy(alpha = 0.08f),
+                            Color.Transparent,
+                        ),
+                        center = androidx.compose.ui.geometry.Offset(330f, 280f),
+                        radius = 420f,
+                    )
+                )
+        )
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.018f),
+                            Color.Transparent,
+                            BgDeep.copy(alpha = 0.20f),
+                        )
+                    )
+                )
+        )
         Row(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -477,8 +511,46 @@ private fun LyricsRegion(
                     displayTimeMs = displayTimeMs,
                     player = player,
                 )
-                1 -> RelatedPanel(related = related, player = player)
+                1 -> RelatedPanel(
+                    related = related,
+                    loading = relatedLoading,
+                    error = relatedError,
+                    player = player,
+                    onRetry = player::retryRelated,
+                )
             }
+        }
+
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(46.dp)
+                .background(Color(0xFF080B1C).copy(alpha = 0.35f))
+                .padding(horizontal = 18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("AA", color = TextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Spacer(Modifier.weight(1f))
+            val syncLabel = when (lyricsResult) {
+                is LyricsResult.Synced -> "✓ SYNCED"
+                is LyricsResult.Unsynced -> "UNSYNCED"
+                is LyricsResult.Loading -> "LOADING"
+                is LyricsResult.NotFound -> "NO LYRICS"
+                is LyricsResult.Error -> "ERROR"
+            }
+            Box(
+                modifier = Modifier
+                    .clip(Shapes.pill)
+                    .background(if (lyricsResult is LyricsResult.Synced) Color(0xFF3B2B83).copy(alpha = 0.88f) else Surface2.copy(alpha = 0.70f))
+                    .border(1.dp, Iris.copy(alpha = 0.20f), Shapes.pill)
+                    .padding(horizontal = 26.dp, vertical = 9.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(syncLabel, color = TextPrimary.copy(alpha = 0.86f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.weight(1f))
+            Icon(Icons.Default.MoreHoriz, contentDescription = "Lyrics options", tint = TextSecondary, modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -701,25 +773,33 @@ private fun UnsyncedLyricsDisplay(text: String) {
             "Unsynced lyrics",
             color = TextMuted,
             style = MaterialTheme.typography.labelSmall,
-            modifier = Modifier.padding(bottom = 12.dp),
+            modifier = Modifier.padding(bottom = 8.dp),
         )
-        LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            item { Spacer(Modifier.height(4.dp)) }
+        LazyColumn(
+            Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            item { Spacer(Modifier.height(10.dp)) }
             text.lines().forEachIndexed { _, line ->
                 if (line.isBlank()) {
-                    item { Spacer(Modifier.height(8.dp)) }
+                    item { Spacer(Modifier.height(12.dp)) }
                 } else {
                     item {
                         Text(
                             line,
-                            color = TextSecondary,
-                            style = MaterialTheme.typography.bodyLarge,
-                            lineHeight = 26.sp,
+                            color = TextPrimary.copy(alpha = 0.58f),
+                            style = MaterialTheme.typography.bodyLarge.copy(fontSize = 17.sp),
+                            lineHeight = 28.sp,
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth(0.92f),
                         )
                     }
                 }
             }
-            item { Spacer(Modifier.height(40.dp)) }
+            item { Spacer(Modifier.height(88.dp)) }
         }
     }
 }
@@ -748,8 +828,44 @@ private fun LyricsLoadingState() {
 @Composable
 private fun RelatedPanel(
     related: List<com.omnitune.innertube.models.YTItem>,
+    loading: Boolean,
+    error: String?,
     player: PlayerViewModel,
+    onRetry: () -> Unit,
 ) {
+    if (loading) {
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            repeat(5) {
+                OmniShimmerBlock(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(58.dp)
+                        .clip(Shapes.small),
+                )
+            }
+        }
+        return
+    }
+    if (error != null) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(Icons.Default.CloudOff, null, tint = TextMuted, modifier = Modifier.size(32.dp))
+                Text(error, color = TextMuted, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+                Box(
+                    modifier = Modifier
+                        .clip(Shapes.pill)
+                        .background(Surface2.copy(alpha = 0.86f))
+                        .border(1.dp, Iris.copy(alpha = 0.20f), Shapes.pill)
+                        .clickable(onClick = onRetry)
+                        .padding(horizontal = 18.dp, vertical = 9.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("Retry", color = TextPrimary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+        return
+    }
     if (related.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("Related content is not available yet for this track.", color = TextMuted, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
@@ -887,7 +1003,7 @@ private fun AnimatedEqBars() {
 
 @Composable
 private fun PlaybackProgressVisualizer(progress: Float, modifier: Modifier) {
-    val barCount = 30
+    val barCount = 96
     val clampedProgress = progress.coerceIn(0f, 1f)
     Row(
         modifier = modifier,
@@ -901,15 +1017,15 @@ private fun PlaybackProgressVisualizer(progress: Float, modifier: Modifier) {
             val fraction = if (isElapsed) base else 0.14f
             Box(
                 modifier = Modifier
-                    .width(3.dp)
+                    .width(2.dp)
                     .height((fraction * 28f).coerceAtLeast(3f).dp)
                     .clip(RoundedCornerShape(2.dp))
                     .background(
                         Brush.verticalGradient(
                             colors = if (isElapsed) {
-                                listOf(Iris.copy(alpha = 0.72f), IrisSoft.copy(alpha = 0.34f))
+                                listOf(Color(0xFFFF4FD8).copy(alpha = 0.80f), IrisSoft.copy(alpha = 0.42f))
                             } else {
-                                listOf(Surface3.copy(alpha = 0.88f), Surface3.copy(alpha = 0.42f))
+                                listOf(Iris.copy(alpha = 0.28f), Surface3.copy(alpha = 0.46f))
                             }
                         )
                     ),

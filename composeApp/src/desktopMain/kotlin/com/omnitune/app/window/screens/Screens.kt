@@ -118,6 +118,31 @@ private fun HomeShimmer() {
 // ---------------------------------------------------------------------------
 
 @Composable
+private fun ProviderRetryState(title: String, message: String, onRetry: () -> Unit) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Icon(Icons.Default.CloudOff, contentDescription = null, tint = TextMuted, modifier = Modifier.size(34.dp))
+            Text(title, style = MaterialTheme.typography.titleMedium, color = TextPrimary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text(
+                message.ifBlank { "The provider did not return this section." },
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.widthIn(max = 420.dp),
+            )
+            OmniSurface(
+                modifier = Modifier
+                    .clip(Shapes.pill)
+                    .clickable(onClick = onRetry)
+                    .padding(horizontal = 18.dp, vertical = 10.dp)
+            ) {
+                Text("Try again", color = TextPrimary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+@Composable
 fun BrowseView(player: PlayerViewModel) {
     val service = koinInject<YouTubeService>()
     val scope = rememberCoroutineScope()
@@ -128,13 +153,16 @@ fun BrowseView(player: PlayerViewModel) {
     var genreLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var genreError by remember { mutableStateOf<String?>(null) }
+    var browseRetryNonce by remember { mutableStateOf(0) }
+    var genreRetryNonce by remember { mutableStateOf(0) }
 
     val currentSong by player.currentSong.collectAsState()
     val playbackState by player.playbackState.collectAsState()
     val liked by player.likedSongs.collectAsState()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(browseRetryNonce) {
         scope.launch {
+            error = null
             runCatching {
                 val explore = service.explore()
                 val charts = service.getChartsPage()
@@ -172,10 +200,14 @@ fun BrowseView(player: PlayerViewModel) {
             }
         }
         when {
-            error != null -> OmniEmptyState("Couldn't load browse", error ?: "")
+            error != null -> ProviderRetryState(
+                title = "Couldn't load Browse",
+                message = "Some provider sections are unavailable. Retry will reload the live Browse shelves.",
+                onRetry = { browseRetryNonce++ },
+            )
             explorePage == null || chartsPage == null -> HomeShimmer()
             selectedGenre != null -> {
-                LaunchedEffect(selectedGenre) {
+                LaunchedEffect(selectedGenre, genreRetryNonce) {
                     val genre = selectedGenre ?: return@LaunchedEffect
                     genreLoading = true
                     genreError = null
@@ -194,7 +226,11 @@ fun BrowseView(player: PlayerViewModel) {
 
                 when {
                     genreLoading -> HomeShimmer()
-                    genreError != null -> OmniEmptyState("Couldn't load ${selectedGenre!!.title}", genreError ?: "")
+                    genreError != null -> ProviderRetryState(
+                        title = "Couldn't load ${selectedGenre!!.title}",
+                        message = "This provider section failed to load. Other Browse sections remain available.",
+                        onRetry = { genreRetryNonce++ },
+                    )
                     genrePage?.items.isNullOrEmpty() -> OmniEmptyState("No browse results", "The provider returned no playable items for this section.")
                     else -> {
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(Spacing.medium)) {
@@ -284,6 +320,7 @@ fun RadioView(player: PlayerViewModel) {
     var explorePage by remember { mutableStateOf<ExplorePage?>(null) }
     var chartsPage by remember { mutableStateOf<ChartsPage?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var retryNonce by remember { mutableStateOf(0) }
     val service = koinInject<YouTubeService>()
     val scope = rememberCoroutineScope()
     
@@ -294,8 +331,9 @@ fun RadioView(player: PlayerViewModel) {
     val playbackHistory by player.playbackHistory.collectAsState()
     val discoveryTrending by player.discoveryTrending.collectAsState()
 
-    LaunchedEffect(Unit) { 
+    LaunchedEffect(retryNonce) { 
         scope.launch { 
+            error = null
             runCatching { service.explore() to service.getChartsPage() }
                 .onSuccess {
                     explorePage = it.first
@@ -314,7 +352,11 @@ fun RadioView(player: PlayerViewModel) {
             modifier = Modifier.padding(bottom = 24.dp)
         )
         when {
-            error != null -> OmniEmptyState("Radio unavailable", error ?: "")
+            error != null -> ProviderRetryState(
+                title = "Radio unavailable",
+                message = "OmniTune couldn't load provider radio seeds. Retry will reload real playable seeds.",
+                onRetry = { retryNonce++ },
+            )
             explorePage == null || chartsPage == null -> HomeShimmer()
             else -> {
                 val historySongs = playbackHistory.map { it.song }

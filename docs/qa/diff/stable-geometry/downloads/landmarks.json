@@ -1,0 +1,134 @@
+[
+  {
+    "name": "title",
+    "reference": [
+      294,
+      95,
+      380,
+      45
+    ],
+    "actual": [
+      295,
+      95,
+      380,
+      45
+    ],
+    "delta": {
+      "dx": 1,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 1
+    }
+  },
+  {
+    "name": "stat cards",
+    "reference": [
+      299,
+      214,
+      1002,
+      93
+    ],
+    "actual": [
+      299,
+      215,
+      1002,
+      93
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 1,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 1
+    }
+  },
+  {
+    "name": "songs panel",
+    "reference": [
+      299,
+      340,
+      1002,
+      190
+    ],
+    "actual": [
+      299,
+      340,
+      1002,
+      190
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "albums panel",
+    "reference": [
+      299,
+      575,
+      1002,
+      190
+    ],
+    "actual": [
+      299,
+      575,
+      1002,
+      190
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "device storage",
+    "reference": [
+      1337,
+      120,
+      313,
+      267
+    ],
+    "actual": [
+      1337,
+      120,
+      313,
+      267
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "auto download",
+    "reference": [
+      1340,
+      720,
+      300,
+      96
+    ],
+    "actual": [
+      1340,
+      721,
+      300,
+      96
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 1,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 1
+    }
+  }
+]

@@ -30,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.omnitune.app.player.NavScreen
 import com.omnitune.app.window.components.OmniSearchField
@@ -50,6 +51,7 @@ fun OmniTopBar(
     onMinimize: () -> Unit = {},
     onMaximize: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    onSearchFocusChanged: (Boolean) -> Unit = {},
 ) {
     val metrics = LocalHomeReferenceMetrics.current
     BoxWithConstraints(
@@ -97,6 +99,7 @@ fun OmniTopBar(
                 value = query,
                 onValueChange = onQueryChange,
                 modifier = Modifier
+                    .testTag("omni.topbar.globalSearch")
                     .width(searchWidth)
                     .height(metrics.px(28f)),
                 focusRequester = focusRequester,
@@ -105,6 +108,7 @@ fun OmniTopBar(
                     onSearch(query)
                 },
                 onEscape = { onQueryChange("") },
+                onFocusChanged = onSearchFocusChanged,
             )
         }
 

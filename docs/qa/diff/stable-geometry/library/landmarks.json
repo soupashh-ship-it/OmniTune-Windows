@@ -1,0 +1,112 @@
+[
+  {
+    "name": "title",
+    "reference": [
+      294,
+      101,
+      280,
+      42
+    ],
+    "actual": [
+      294,
+      101,
+      280,
+      42
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "tab strip",
+    "reference": [
+      297,
+      147,
+      584,
+      43
+    ],
+    "actual": [
+      297,
+      147,
+      584,
+      43
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "pinned shelf",
+    "reference": [
+      297,
+      252,
+      1326,
+      150
+    ],
+    "actual": [
+      297,
+      252,
+      1326,
+      150
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "recent shelf",
+    "reference": [
+      297,
+      465,
+      1326,
+      132
+    ],
+    "actual": [
+      297,
+      465,
+      1326,
+      132
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "all songs",
+    "reference": [
+      297,
+      636,
+      1326,
+      180
+    ],
+    "actual": [
+      297,
+      636,
+      1326,
+      180
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  }
+]

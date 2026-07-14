@@ -1,0 +1,112 @@
+[
+  {
+    "name": "up next",
+    "reference": [
+      299,
+      169,
+      693,
+      506
+    ],
+    "actual": [
+      299,
+      169,
+      693,
+      506
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "queue controls",
+    "reference": [
+      299,
+      685,
+      693,
+      115
+    ],
+    "actual": [
+      299,
+      685,
+      693,
+      115
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "session history",
+    "reference": [
+      1002,
+      169,
+      311,
+      376
+    ],
+    "actual": [
+      1002,
+      169,
+      311,
+      376
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "recently played",
+    "reference": [
+      1001,
+      555,
+      312,
+      251
+    ],
+    "actual": [
+      1001,
+      555,
+      312,
+      251
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "recommendations",
+    "reference": [
+      1323,
+      169,
+      318,
+      641
+    ],
+    "actual": [
+      1323,
+      169,
+      318,
+      641
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  }
+]

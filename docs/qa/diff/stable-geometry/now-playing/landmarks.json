@@ -1,0 +1,112 @@
+[
+  {
+    "name": "badge",
+    "reference": [
+      297,
+      84,
+      168,
+      32
+    ],
+    "actual": [
+      299,
+      84,
+      168,
+      32
+    ],
+    "delta": {
+      "dx": 2,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 2
+    }
+  },
+  {
+    "name": "artwork",
+    "reference": [
+      297,
+      139,
+      620,
+      455
+    ],
+    "actual": [
+      299,
+      141,
+      621,
+      455
+    ],
+    "delta": {
+      "dx": 2,
+      "dy": 2,
+      "dw": 1,
+      "dh": 0,
+      "largest_abs_delta": 2
+    }
+  },
+  {
+    "name": "transport",
+    "reference": [
+      505,
+      768,
+      220,
+      57
+    ],
+    "actual": [
+      505,
+      768,
+      220,
+      60
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 3,
+      "largest_abs_delta": 3
+    }
+  },
+  {
+    "name": "lyrics panel",
+    "reference": [
+      983,
+      81,
+      663,
+      751
+    ],
+    "actual": [
+      983,
+      81,
+      663,
+      751
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "lyrics viewport",
+    "reference": [
+      1007,
+      168,
+      615,
+      555
+    ],
+    "actual": [
+      1007,
+      168,
+      615,
+      555
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  }
+]

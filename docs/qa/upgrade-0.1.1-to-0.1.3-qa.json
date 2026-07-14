@@ -1,0 +1,11 @@
+{
+  "oldInstallVersion": "0.1.1",
+  "upgradedVersion": "0.1.3",
+  "legacyFileCreated": false,
+  "migrationTriggered": true,
+  "migratedPlaylist": false,
+  "embeddedVlcExtracted": true,
+  "appStayedRunningDuringMigration": true,
+  "originalDataBackup": "C:\\Users\\soupa\\AppData\\Local\\OmniTuneData.qa-backup-20260714110658",
+  "migratedDataSnapshot": "C:\\Users\\soupa\\AppData\\Local\\OmniTuneData.qa-upgrade-result-20260714110658"
+}

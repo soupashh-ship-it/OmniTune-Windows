@@ -155,10 +155,7 @@ private fun AlbumReferenceContent(
                 Spacer(Modifier.height(metrics.px(21f)))
                 Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(10f)), verticalAlignment = Alignment.CenterVertically) {
                     AlbumPrimaryButton(onPlayAlbum)
-                    AlbumRound(Icons.Default.Add) {}
-                    AlbumRound(Icons.Default.FavoriteBorder) {}
                     AlbumRound(Icons.Default.Download, onDownloadAlbum)
-                    AlbumRound(Icons.Default.MoreHoriz) {}
                 }
                 Spacer(Modifier.height(metrics.px(22f)))
                 Text("Album metadata is provided by the active music provider. Detailed credits are shown only when available.", color = TextSecondary, fontSize = 9.2.sp, lineHeight = 13.sp)
@@ -228,9 +225,9 @@ private fun AlbumTrackRow(song: SongItem, index: Int, active: Boolean, playing: 
         Text(song.title, color = if (active) IrisSoft else TextPrimary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1.5f))
         Text(song.artists.joinToString(", ") { it.name }, color = TextSecondary, fontSize = 8.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         Text(song.durationLabel(), color = TextSecondary, fontSize = 8.5.sp, modifier = Modifier.width(metrics.px(46f)))
-        Icon(Icons.Default.Add, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)).clickable(onClick = onAdd))
+        Icon(Icons.Default.Add, contentDescription = "Add to queue", tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)).clickable(onClick = onAdd))
         Spacer(Modifier.width(metrics.px(14f)))
-        Icon(Icons.Default.MoreHoriz, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)).clickable(onClick = onLike))
+        Icon(Icons.Default.FavoriteBorder, contentDescription = "Like or unlike song", tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)).clickable(onClick = onLike))
     }
 }
 
@@ -299,7 +296,7 @@ private fun AlbumPrimaryButton(onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(LocalHomeReferenceMetrics.current.px(13f)))
+        Icon(Icons.Default.PlayArrow, contentDescription = "Play album", tint = Color.White, modifier = Modifier.size(LocalHomeReferenceMetrics.current.px(13f)))
         Spacer(Modifier.width(LocalHomeReferenceMetrics.current.px(6f)))
         Text("Play", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
     }
@@ -317,7 +314,7 @@ private fun AlbumRound(icon: androidx.compose.ui.graphics.vector.ImageVector, on
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)))
+        Icon(icon, contentDescription = "Album action", tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)))
     }
 }
 

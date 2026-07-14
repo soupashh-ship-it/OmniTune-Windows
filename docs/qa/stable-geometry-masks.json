@@ -1,0 +1,942 @@
+{
+  "viewport": [
+    1672,
+    941
+  ],
+  "screens": {
+    "library": {
+      "actual": "docs/qa/premium-completion/library-1672x941.png",
+      "rawMetrics": "docs/qa/diff/premium-completion/library/metrics.json",
+      "dynamicMasks": [
+        {
+          "name": "pinned collection artwork and provider text",
+          "rect": [
+            303,
+            292,
+            1302,
+            92
+          ]
+        },
+        {
+          "name": "recent additions cards artwork and provider text",
+          "rect": [
+            303,
+            501,
+            1302,
+            84
+          ]
+        },
+        {
+          "name": "all songs provider rows",
+          "rect": [
+            302,
+            675,
+            1298,
+            114
+          ]
+        }
+      ],
+      "landmarks": [
+        {
+          "name": "title",
+          "reference": [
+            294,
+            101,
+            280,
+            42
+          ],
+          "actual": [
+            294,
+            101,
+            280,
+            42
+          ]
+        },
+        {
+          "name": "tab strip",
+          "reference": [
+            297,
+            147,
+            584,
+            43
+          ],
+          "actual": [
+            297,
+            147,
+            584,
+            43
+          ]
+        },
+        {
+          "name": "pinned shelf",
+          "reference": [
+            297,
+            252,
+            1326,
+            150
+          ],
+          "actual": [
+            297,
+            252,
+            1326,
+            150
+          ]
+        },
+        {
+          "name": "recent shelf",
+          "reference": [
+            297,
+            465,
+            1326,
+            132
+          ],
+          "actual": [
+            297,
+            465,
+            1326,
+            132
+          ]
+        },
+        {
+          "name": "all songs",
+          "reference": [
+            297,
+            636,
+            1326,
+            180
+          ],
+          "actual": [
+            297,
+            636,
+            1326,
+            180
+          ]
+        }
+      ]
+    },
+    "playlist-detail": {
+      "actual": "docs/qa/premium-completion/playlist-detail-1672x941.png",
+      "rawMetrics": "docs/qa/diff/premium-completion/playlist-detail/metrics.json",
+      "dynamicMasks": [
+        {
+          "name": "cover art interior",
+          "rect": [
+            306,
+            132,
+            307,
+            312
+          ]
+        },
+        {
+          "name": "provider playlist title and metadata text",
+          "rect": [
+            646,
+            169,
+            620,
+            135
+          ]
+        },
+        {
+          "name": "track row dynamic titles/artists",
+          "rect": [
+            315,
+            552,
+            975,
+            220
+          ]
+        },
+        {
+          "name": "right rail provider recommendation content",
+          "rect": [
+            1350,
+            222,
+            262,
+            552
+          ]
+        }
+      ],
+      "landmarks": [
+        {
+          "name": "artwork",
+          "reference": [
+            298,
+            124,
+            323,
+            328
+          ],
+          "actual": [
+            298,
+            124,
+            323,
+            328
+          ]
+        },
+        {
+          "name": "info region",
+          "reference": [
+            644,
+            146,
+            610,
+            180
+          ],
+          "actual": [
+            644,
+            146,
+            610,
+            180
+          ]
+        },
+        {
+          "name": "track list",
+          "reference": [
+            296,
+            503,
+            1005,
+            305
+          ],
+          "actual": [
+            296,
+            503,
+            1005,
+            305
+          ]
+        },
+        {
+          "name": "right rail",
+          "reference": [
+            1332,
+            168,
+            305,
+            661
+          ],
+          "actual": [
+            1332,
+            168,
+            305,
+            661
+          ]
+        }
+      ]
+    },
+    "artist-detail": {
+      "actual": "docs/qa/premium-completion/artist-detail-1672x941.png",
+      "rawMetrics": "docs/qa/diff/premium-completion/artist-detail/metrics.json",
+      "dynamicMasks": [
+        {
+          "name": "artist image and provider hero texture",
+          "rect": [
+            292,
+            78,
+            1015,
+            270
+          ]
+        },
+        {
+          "name": "artist name and provider subtitle glyphs",
+          "rect": [
+            335,
+            153,
+            650,
+            112
+          ]
+        },
+        {
+          "name": "truthful unavailable stats text",
+          "rect": [
+            1350,
+            190,
+            245,
+            112
+          ]
+        },
+        {
+          "name": "lower provider content columns",
+          "rect": [
+            305,
+            470,
+            1290,
+            302
+          ]
+        }
+      ],
+      "landmarks": [
+        {
+          "name": "hero",
+          "reference": [
+            289,
+            70,
+            1328,
+            291
+          ],
+          "actual": [
+            289,
+            70,
+            1328,
+            291
+          ]
+        },
+        {
+          "name": "identity",
+          "reference": [
+            331,
+            134,
+            700,
+            160
+          ],
+          "actual": [
+            331,
+            134,
+            700,
+            160
+          ]
+        },
+        {
+          "name": "stats card",
+          "reference": [
+            1333,
+            149,
+            285,
+            200
+          ],
+          "actual": [
+            1333,
+            149,
+            285,
+            200
+          ]
+        },
+        {
+          "name": "tabs",
+          "reference": [
+            297,
+            366,
+            1318,
+            51
+          ],
+          "actual": [
+            297,
+            366,
+            1318,
+            51
+          ]
+        },
+        {
+          "name": "lower columns",
+          "reference": [
+            289,
+            438,
+            1334,
+            370
+          ],
+          "actual": [
+            289,
+            438,
+            1334,
+            370
+          ]
+        }
+      ]
+    },
+    "album-detail": {
+      "actual": "docs/qa/premium-completion/album-detail-1672x941.png",
+      "rawMetrics": "docs/qa/diff/premium-completion/album-detail/metrics.json",
+      "dynamicMasks": [
+        {
+          "name": "album artwork interior",
+          "rect": [
+            308,
+            121,
+            333,
+            326
+          ]
+        },
+        {
+          "name": "album title and provider metadata glyphs",
+          "rect": [
+            678,
+            136,
+            480,
+            205
+          ]
+        },
+        {
+          "name": "track list provider rows",
+          "rect": [
+            312,
+            542,
+            825,
+            236
+          ]
+        },
+        {
+          "name": "credits unavailable/provider text",
+          "rect": [
+            1235,
+            151,
+            375,
+            190
+          ]
+        },
+        {
+          "name": "related provider content",
+          "rect": [
+            1220,
+            552,
+            385,
+            220
+          ]
+        }
+      ],
+      "landmarks": [
+        {
+          "name": "artwork",
+          "reference": [
+            300,
+            113,
+            349,
+            342
+          ],
+          "actual": [
+            300,
+            113,
+            349,
+            342
+          ]
+        },
+        {
+          "name": "info",
+          "reference": [
+            675,
+            118,
+            500,
+            260
+          ],
+          "actual": [
+            675,
+            118,
+            500,
+            260
+          ]
+        },
+        {
+          "name": "track list",
+          "reference": [
+            296,
+            492,
+            860,
+            324
+          ],
+          "actual": [
+            296,
+            492,
+            860,
+            324
+          ]
+        },
+        {
+          "name": "credits",
+          "reference": [
+            1219,
+            103,
+            415,
+            276
+          ],
+          "actual": [
+            1219,
+            103,
+            415,
+            276
+          ]
+        },
+        {
+          "name": "related panels",
+          "reference": [
+            1203,
+            509,
+            431,
+            300
+          ],
+          "actual": [
+            1203,
+            509,
+            431,
+            300
+          ]
+        }
+      ]
+    },
+    "now-playing": {
+      "actual": "docs/qa/premium-completion/now-playing-1672x941.png",
+      "rawMetrics": "docs/qa/diff/premium-completion/now-playing/metrics.json",
+      "dynamicMasks": [
+        {
+          "name": "artwork image interior",
+          "rect": [
+            307,
+            149,
+            603,
+            435
+          ]
+        },
+        {
+          "name": "track title artist metadata glyphs",
+          "rect": [
+            302,
+            604,
+            610,
+            72
+          ]
+        },
+        {
+          "name": "progress waveform bars",
+          "rect": [
+            311,
+            692,
+            590,
+            48
+          ]
+        },
+        {
+          "name": "lyrics glyph content",
+          "rect": [
+            1010,
+            178,
+            583,
+            520
+          ]
+        },
+        {
+          "name": "related/provider footer text",
+          "rect": [
+            1010,
+            714,
+            584,
+            80
+          ]
+        }
+      ],
+      "landmarks": [
+        {
+          "name": "badge",
+          "reference": [
+            297,
+            84,
+            168,
+            32
+          ],
+          "actual": [
+            299,
+            84,
+            168,
+            32
+          ]
+        },
+        {
+          "name": "artwork",
+          "reference": [
+            297,
+            139,
+            620,
+            455
+          ],
+          "actual": [
+            299,
+            141,
+            621,
+            455
+          ]
+        },
+        {
+          "name": "transport",
+          "reference": [
+            505,
+            768,
+            220,
+            57
+          ],
+          "actual": [
+            505,
+            768,
+            220,
+            60
+          ]
+        },
+        {
+          "name": "lyrics panel",
+          "reference": [
+            983,
+            81,
+            663,
+            751
+          ],
+          "actual": [
+            983,
+            81,
+            663,
+            751
+          ]
+        },
+        {
+          "name": "lyrics viewport",
+          "reference": [
+            1007,
+            168,
+            615,
+            555
+          ],
+          "actual": [
+            1007,
+            168,
+            615,
+            555
+          ]
+        }
+      ]
+    },
+    "queue-session": {
+      "actual": "docs/qa/premium-completion/queue-session-1672x941.png",
+      "rawMetrics": "docs/qa/diff/premium-completion/queue-session/metrics.json",
+      "dynamicMasks": [
+        {
+          "name": "up next queue rows",
+          "rect": [
+            315,
+            235,
+            646,
+            386
+          ]
+        },
+        {
+          "name": "session history dynamic rows",
+          "rect": [
+            1020,
+            224,
+            266,
+            268
+          ]
+        },
+        {
+          "name": "recently played dynamic rows",
+          "rect": [
+            1019,
+            607,
+            270,
+            130
+          ]
+        },
+        {
+          "name": "recommendation rows",
+          "rect": [
+            1340,
+            225,
+            274,
+            520
+          ]
+        }
+      ],
+      "landmarks": [
+        {
+          "name": "up next",
+          "reference": [
+            299,
+            169,
+            693,
+            506
+          ],
+          "actual": [
+            299,
+            169,
+            693,
+            506
+          ]
+        },
+        {
+          "name": "queue controls",
+          "reference": [
+            299,
+            685,
+            693,
+            115
+          ],
+          "actual": [
+            299,
+            685,
+            693,
+            115
+          ]
+        },
+        {
+          "name": "session history",
+          "reference": [
+            1002,
+            169,
+            311,
+            376
+          ],
+          "actual": [
+            1002,
+            169,
+            311,
+            376
+          ]
+        },
+        {
+          "name": "recently played",
+          "reference": [
+            1001,
+            555,
+            312,
+            251
+          ],
+          "actual": [
+            1001,
+            555,
+            312,
+            251
+          ]
+        },
+        {
+          "name": "recommendations",
+          "reference": [
+            1323,
+            169,
+            318,
+            641
+          ],
+          "actual": [
+            1323,
+            169,
+            318,
+            641
+          ]
+        }
+      ]
+    },
+    "settings": {
+      "actual": "docs/qa/premium-completion/settings-1672x941.png",
+      "rawMetrics": "docs/qa/diff/premium-completion/settings/metrics.json",
+      "dynamicMasks": [
+        {
+          "name": "setting labels and values",
+          "rect": [
+            320,
+            215,
+            1285,
+            565
+          ]
+        }
+      ],
+      "landmarks": [
+        {
+          "name": "account",
+          "reference": [
+            301,
+            173,
+            434,
+            249
+          ],
+          "actual": [
+            301,
+            173,
+            434,
+            249
+          ]
+        },
+        {
+          "name": "audio",
+          "reference": [
+            750,
+            173,
+            433,
+            249
+          ],
+          "actual": [
+            750,
+            173,
+            433,
+            249
+          ]
+        },
+        {
+          "name": "playback",
+          "reference": [
+            1199,
+            173,
+            432,
+            250
+          ],
+          "actual": [
+            1199,
+            173,
+            432,
+            250
+          ]
+        },
+        {
+          "name": "shortcuts",
+          "reference": [
+            301,
+            707,
+            434,
+            120
+          ],
+          "actual": [
+            301,
+            707,
+            433,
+            120
+          ]
+        },
+        {
+          "name": "about",
+          "reference": [
+            750,
+            707,
+            881,
+            120
+          ],
+          "actual": [
+            750,
+            707,
+            881,
+            120
+          ]
+        }
+      ]
+    },
+    "downloads": {
+      "actual": "docs/qa/premium-completion/downloads-1672x941.png",
+      "rawMetrics": "docs/qa/diff/premium-completion/downloads/metrics.json",
+      "dynamicMasks": [
+        {
+          "name": "downloaded songs dynamic rows",
+          "rect": [
+            315,
+            392,
+            965,
+            116
+          ]
+        },
+        {
+          "name": "albums dynamic rows",
+          "rect": [
+            315,
+            626,
+            965,
+            116
+          ]
+        },
+        {
+          "name": "storage path and values",
+          "rect": [
+            1356,
+            188,
+            260,
+            150
+          ]
+        },
+        {
+          "name": "quality labels and values",
+          "rect": [
+            1356,
+            445,
+            260,
+            90
+          ]
+        }
+      ],
+      "landmarks": [
+        {
+          "name": "title",
+          "reference": [
+            294,
+            95,
+            380,
+            45
+          ],
+          "actual": [
+            295,
+            95,
+            380,
+            45
+          ]
+        },
+        {
+          "name": "stat cards",
+          "reference": [
+            299,
+            214,
+            1002,
+            93
+          ],
+          "actual": [
+            299,
+            215,
+            1002,
+            93
+          ]
+        },
+        {
+          "name": "songs panel",
+          "reference": [
+            299,
+            340,
+            1002,
+            190
+          ],
+          "actual": [
+            299,
+            340,
+            1002,
+            190
+          ]
+        },
+        {
+          "name": "albums panel",
+          "reference": [
+            299,
+            575,
+            1002,
+            190
+          ],
+          "actual": [
+            299,
+            575,
+            1002,
+            190
+          ]
+        },
+        {
+          "name": "device storage",
+          "reference": [
+            1337,
+            120,
+            313,
+            267
+          ],
+          "actual": [
+            1337,
+            120,
+            313,
+            267
+          ]
+        },
+        {
+          "name": "auto download",
+          "reference": [
+            1340,
+            720,
+            300,
+            96
+          ],
+          "actual": [
+            1340,
+            721,
+            300,
+            96
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -638,12 +638,12 @@ private fun LibrarySongTableRow(
         Text(song.album?.name ?: "Single", color = TextSecondary, fontSize = 8.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1.65f))
         Text(song.durationLabel(), color = TextSecondary, fontSize = 8.5.sp, modifier = Modifier.width(metrics.px(74f)))
         Text("Session", color = TextSecondary, fontSize = 8.5.sp, modifier = Modifier.width(metrics.px(96f)))
-        Icon(Icons.Default.Favorite, null, tint = IrisSoft, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onLike))
+        Icon(Icons.Default.Favorite, contentDescription = "Like or unlike song", tint = IrisSoft, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onLike))
         Spacer(Modifier.width(metrics.px(14f)))
-        Icon(Icons.Default.Add, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)).clickable(onClick = onAdd))
+        Icon(Icons.Default.Add, contentDescription = "Add to queue", tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)).clickable(onClick = onAdd))
         Spacer(Modifier.width(metrics.px(14f)))
         Box {
-            Icon(Icons.Default.MoreHoriz, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)).clickable { menuExpanded = true })
+            Icon(Icons.Default.MoreHoriz, contentDescription = "Song actions", tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)).clickable { menuExpanded = true })
             DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
                 DropdownMenuItem(text = { Text("Play") }, onClick = {
                     menuExpanded = false

@@ -106,8 +106,12 @@ fun OmniSurface(
     onClick: (() -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
     Surface(
-        modifier = modifier.then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        modifier = modifier
+            .then(if (focused && onClick != null) Modifier.border(1.5.dp, Iris.copy(alpha = 0.72f), shape) else Modifier)
+            .then(if (onClick != null) Modifier.clickable(interactionSource = interactionSource, indication = null, onClick = onClick) else Modifier),
         shape = shape,
         color = color,
         shadowElevation = elevation,
@@ -133,11 +137,13 @@ fun OmniIconButton(
     background: Color? = null,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
     Box(
         modifier = modifier
             .size(size)
             .clip(CircleShape)
             .then(if (background != null) Modifier.background(background) else Modifier)
+            .border(1.5.dp, if (focused) Iris.copy(alpha = 0.78f) else Color.Transparent, CircleShape)
             .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, onClick = onClick)
             .pressBounce(interactionSource),
         contentAlignment = Alignment.Center,
@@ -156,10 +162,12 @@ fun OmniPrimaryButton(
     leadingIcon: Boolean = true,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
     Box(
         modifier = modifier
             .clip(Shapes.small)
             .background(if (enabled) OmniGradients.irisToLavender else Brush.linearGradient(listOf(TextMuted.copy(alpha = 0.25f), TextMuted.copy(alpha = 0.25f))))
+            .border(1.5.dp, if (focused) Color.White.copy(alpha = 0.72f) else Color.Transparent, Shapes.small)
             .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, onClick = onClick)
             .pressBounce(interactionSource)
             .padding(horizontal = 18.dp, vertical = 10.dp),
@@ -183,11 +191,12 @@ fun OmniSecondaryButton(
     enabled: Boolean = true,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
+    val focused by interactionSource.collectIsFocusedAsState()
     Box(
         modifier = modifier
             .clip(Shapes.small)
             .background(Surface3.copy(alpha = 0.6f))
-            .border(1.dp, BorderLow, Shapes.small)
+            .border(1.dp, if (focused) Iris.copy(alpha = 0.78f) else BorderLow, Shapes.small)
             .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, onClick = onClick)
             .pressBounce(interactionSource)
             .padding(horizontal = 18.dp, vertical = 10.dp),
@@ -221,9 +230,11 @@ fun OmniSectionHeader(
         Spacer(Modifier.weight(1f))
         if (actionLabel != null && onAction != null) {
             val interactionSource = remember { MutableInteractionSource() }
+            val focused by interactionSource.collectIsFocusedAsState()
             Box(
                 modifier = Modifier
                     .clip(Shapes.pill)
+                    .border(1.dp, if (focused) Iris.copy(alpha = 0.72f) else Color.Transparent, Shapes.pill)
                     .clickable(interactionSource = interactionSource, indication = null, onClick = onAction)
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center,
@@ -250,6 +261,7 @@ fun OmniSearchField(
     focusRequester: FocusRequester? = null,
     leadingIcon: @Composable (() -> Unit)? = null,
     trailingIcon: @Composable (() -> Unit)? = null,
+    onFocusChanged: (Boolean) -> Unit = {},
 ) {
     var isFocused by remember { mutableStateOf(false) }
     val borderColor by animateColorAsState(
@@ -264,7 +276,10 @@ fun OmniSearchField(
             .clip(RoundedCornerShape(10.dp))
             .background(Color(0xFF0B0F1E))
             .border(1.dp, if (isFocused) Iris.copy(alpha = 0.55f) else Color(0xFF121623), RoundedCornerShape(10.dp))
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                onFocusChanged(it.isFocused)
+            }
             .then(if (focusRequester != null) Modifier.focusRequester(focusRequester) else Modifier)
             .onPreviewKeyEvent { ev ->
                 if (ev.type == androidx.compose.ui.input.key.KeyEventType.KeyDown) {

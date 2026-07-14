@@ -4,7 +4,8 @@ param(
   [string]$Theme = "",
   [int]$WaitSeconds = 35,
   [int]$Width = 1672,
-  [int]$Height = 941
+  [int]$Height = 941,
+  [int]$PostWindowSeconds = 8
 )
 $project = 'D:\Omnitune Windoww'
 Add-Type -AssemblyName System.Drawing
@@ -48,7 +49,7 @@ while ((Get-Date) -lt $deadline) {
   Start-Sleep -Seconds 1
 }
 if (-not $window) { Write-Host "NO_WINDOW:$Route"; exit 2 }
-Start-Sleep -Seconds 8
+Start-Sleep -Seconds $PostWindowSeconds
 $hw = [IntPtr]$window.MainWindowHandle
 [RouteCaptureWin32]::ShowWindow($hw, 9) | Out-Null
 [RouteCaptureWin32]::MoveWindow($hw, 0, 0, $Width, $Height, $true) | Out-Null

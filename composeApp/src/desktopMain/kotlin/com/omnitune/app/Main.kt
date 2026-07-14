@@ -8,7 +8,9 @@ import androidx.compose.ui.window.*
 import kotlin.math.roundToInt
 import com.omnitune.app.di.initKoin
 import com.omnitune.app.platform.NativeRuntime
+import com.omnitune.app.platform.PlaybackState
 import com.omnitune.app.platform.SettingsRepository
+import com.omnitune.app.platform.SmtcManager
 import com.omnitune.app.platform.VlcjAudioEngine
 import com.omnitune.app.player.NavScreen
 import com.omnitune.app.player.PlayerViewModel
@@ -44,6 +46,9 @@ fun main() {
             val settings: SettingsRepository = koinInject()
             val player: PlayerViewModel = koinInject()
             val discoveryTrending by player.discoveryTrending.collectAsState()
+            val smtcCurrentSong by player.currentSong.collectAsState()
+            val smtcPlaybackState by player.playbackState.collectAsState()
+            val smtcPosition by player.position.collectAsState()
             val miniAlwaysOnTop by settings.miniPlayerAlwaysOnTopFlow.collectAsState()
             val miniAotQa = remember { System.getenv("OMNITUNE_QA_MINI_AOT") == "true" }
             val queueSaveQa = remember { System.getenv("OMNITUNE_QA_QUEUE_SAVE_UI") == "true" }
@@ -53,6 +58,47 @@ fun main() {
                     ?: "QA Queue Save ${System.currentTimeMillis()}"
             }
             var miniNativeAot by remember { mutableStateOf<Boolean?>(null) }
+            val smtcManager = remember(player) {
+                SmtcManager(
+                    onPlayRequested = {
+                        if (player.playbackState.value != PlaybackState.PLAYING) player.togglePlayPause()
+                    },
+                    onPauseRequested = {
+                        if (player.playbackState.value == PlaybackState.PLAYING) player.togglePlayPause()
+                    },
+                    onNextRequested = player::nextTrack,
+                    onPreviousRequested = player::previousTrack,
+                    onSeekRequested = player::seek,
+                )
+            }
+
+            DisposableEffect(smtcManager) {
+                smtcManager.initialize()
+                onDispose {
+                    smtcManager.dispose()
+                }
+            }
+
+            LaunchedEffect(smtcCurrentSong?.id, smtcPosition.lengthMs) {
+                val song = smtcCurrentSong
+                if (song != null) {
+                    smtcManager.updateMetadata(
+                        title = song.title,
+                        artist = song.artists.joinToString(", ") { it.name },
+                        album = song.album?.name.orEmpty(),
+                        thumbnailPath = null,
+                        durationMs = smtcPosition.lengthMs,
+                    )
+                }
+            }
+
+            LaunchedEffect(smtcPlaybackState) {
+                smtcManager.updatePlaybackState(smtcPlaybackState == PlaybackState.PLAYING)
+            }
+
+            LaunchedEffect(smtcPosition.timeMs, smtcPosition.lengthMs) {
+                smtcManager.updatePosition(smtcPosition.timeMs, smtcPosition.lengthMs)
+            }
 
             val winDpSize = windowState.size
             LaunchedEffect(winDpSize) {

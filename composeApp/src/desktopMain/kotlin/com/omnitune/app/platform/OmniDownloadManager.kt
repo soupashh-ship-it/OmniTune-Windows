@@ -24,6 +24,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 import java.io.RandomAccessFile
 import java.net.HttpURLConnection
 import java.net.URL
@@ -69,6 +70,42 @@ data class DownloadTask(
     val updatedAt: Long,
 )
 
+data class ResolvedDownloadFormat(
+    val url: String,
+    val mimeType: String,
+    val bitrate: Int,
+    val averageBitrate: Int?,
+    val contentLength: Long?,
+)
+
+interface DownloadFormatResolver {
+    suspend fun resolve(videoId: String, quality: DownloadQualityMode): ResolvedDownloadFormat?
+}
+
+interface DownloadMediaWriter {
+    fun openPartial(partialFile: File, rangeAccepted: Boolean, startBytes: Long): RandomAccessFile
+    fun write(output: RandomAccessFile, buffer: ByteArray, offset: Int, length: Int)
+    fun finalizePartial(partialFile: File, finalFile: File)
+}
+
+object DefaultDownloadMediaWriter : DownloadMediaWriter {
+    override fun openPartial(partialFile: File, rangeAccepted: Boolean, startBytes: Long): RandomAccessFile =
+        RandomAccessFile(partialFile, "rw").apply {
+            if (rangeAccepted) seek(startBytes) else setLength(0L)
+        }
+
+    override fun write(output: RandomAccessFile, buffer: ByteArray, offset: Int, length: Int) {
+        output.write(buffer, offset, length)
+    }
+
+    override fun finalizePartial(partialFile: File, finalFile: File) {
+        if (!partialFile.renameTo(finalFile)) {
+            partialFile.copyTo(finalFile, overwrite = true)
+            partialFile.delete()
+        }
+    }
+}
+
 interface OmniDownloadManager {
     val tasks: StateFlow<List<DownloadTask>>
 
@@ -94,6 +131,8 @@ fun OmniDownloadManager.completedLocalFileFor(trackId: String): File? =
 class FileBackedOmniDownloadManager(
     private val platform: PlatformContext,
     private val youTubeService: YouTubeService,
+    private val formatResolver: DownloadFormatResolver = YouTubeDownloadFormatResolver(youTubeService),
+    private val mediaWriter: DownloadMediaWriter = DefaultDownloadMediaWriter,
 ) : OmniDownloadManager {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val activeJobs = ConcurrentHashMap<String, Job>()
@@ -220,7 +259,7 @@ class FileBackedOmniDownloadManager(
                 update(id) {
                     it.copy(
                         state = DownloadState.FAILED,
-                        errorMessage = t.message ?: t::class.simpleName ?: "Download failed",
+                        errorMessage = userFacingDownloadError(t),
                         updatedAt = System.currentTimeMillis(),
                     )
                 }
@@ -232,7 +271,7 @@ class FileBackedOmniDownloadManager(
 
     private suspend fun download(id: String, song: SongItem) {
         update(id) { it.copy(state = DownloadState.RESOLVING, errorMessage = null, updatedAt = System.currentTimeMillis()) }
-        val resolved = resolveDownloadFormat(song.id, find(id)?.requestedQuality ?: DownloadQualityMode.PROVIDER_DEFAULT)
+        val resolved = formatResolver.resolve(song.id, find(id)?.requestedQuality ?: DownloadQualityMode.PROVIDER_DEFAULT)
             ?: error("No downloadable audio format available.")
 
         val extension = extensionFor(resolved.mimeType)
@@ -268,8 +307,7 @@ class FileBackedOmniDownloadManager(
             )
         }
 
-        RandomAccessFile(partialFile, "rw").use { output ->
-            if (rangeAccepted) output.seek(startBytes) else output.setLength(0L)
+        mediaWriter.openPartial(partialFile, rangeAccepted, startBytes).use { output ->
             connection.inputStream.use { input ->
                 val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                 var downloaded = startBytes
@@ -277,7 +315,7 @@ class FileBackedOmniDownloadManager(
                 while (currentCoroutineContext().isActive) {
                     val read = input.read(buffer)
                     if (read < 0) break
-                    output.write(buffer, 0, read)
+                    mediaWriter.write(output, buffer, 0, read)
                     downloaded += read
                     val now = System.currentTimeMillis()
                     if (now - lastPersist > 500L) {
@@ -288,10 +326,7 @@ class FileBackedOmniDownloadManager(
             }
         }
 
-        if (!partialFile.renameTo(finalFile)) {
-            partialFile.copyTo(finalFile, overwrite = true)
-            partialFile.delete()
-        }
+        mediaWriter.finalizePartial(partialFile, finalFile)
         if (!finalFile.isFile || finalFile.length() <= 0L) error("Downloaded file verification failed.")
 
         update(id) {
@@ -306,48 +341,21 @@ class FileBackedOmniDownloadManager(
         }
     }
 
-    private suspend fun resolveDownloadFormat(videoId: String, quality: DownloadQualityMode): ResolvedFormat? {
-        val clients = listOf(
-            YouTubeClient.WEB_REMIX,
-            YouTubeClient.WEB,
-            YouTubeClient.ANDROID_VR_NO_AUTH,
-            YouTubeClient.IOS,
-            YouTubeClient.ANDROID_MUSIC,
-        )
-        for (client in clients) {
-            val player = runCatching { youTubeService.getPlayer(videoId, client) }.getOrNull() ?: continue
-            val formats = player.streamingData?.adaptiveFormats?.filter { it.isAudio }.orEmpty()
-            val selected = when (quality) {
-                DownloadQualityMode.SMALLER_FILE -> formats.minByOrNull { it.bitrate }
-                DownloadQualityMode.PREFER_HIGH -> formats.maxByOrNull { it.bitrate }
-                DownloadQualityMode.PROVIDER_DEFAULT -> formats.firstOrNull()
-            } ?: continue
-            val url = resolveFormatUrl(selected, videoId, client) ?: continue
-            return ResolvedFormat(
-                url = url,
-                mimeType = selected.mimeType,
-                bitrate = selected.bitrate,
-                averageBitrate = selected.averageBitrate,
-                contentLength = selected.contentLength,
-            )
-        }
-        return null
-    }
-
-    private fun resolveFormatUrl(format: PlayerResponse.StreamingData.Format, videoId: String, client: YouTubeClient): String? {
-        return com.omnitune.innertube.pages.NewPipeUtils.getStreamUrl(format, videoId, client).getOrNull()
-    }
-
     private fun restoreTasks(): List<DownloadTask> {
         val restored = runCatching {
             if (!indexFile.isFile) return@runCatching emptyList()
-            val raw = indexFile.readText()
-            val array = JSONArray(raw)
-            (0 until array.length()).mapNotNull { array.optJSONObject(it)?.toTask() }
+            parseTaskIndex(indexFile.readText())
         }.onFailure { error ->
             OmniLogger.error("Downloads", "Failed to read downloads index; preserving corrupt file and starting with an empty download index.", error)
             preserveCorruptIndex()
-        }.getOrDefault(emptyList())
+        }.getOrElse {
+            runCatching {
+                val backup = File(indexFile.parentFile, "${indexFile.name}.bak")
+                if (backup.isFile) parseTaskIndex(backup.readText()) else emptyList()
+            }.onFailure { backupError ->
+                OmniLogger.error("Downloads", "Failed to recover downloads index from backup.", backupError)
+            }.getOrDefault(emptyList())
+        }
 
         return restored.map { task ->
             when (task.state) {
@@ -366,9 +374,16 @@ class FileBackedOmniDownloadManager(
                 indexFile.parentFile?.mkdirs()
                 val array = JSONArray()
                 restoredTasks.forEach { array.put(it.toJson()) }
-                indexFile.writeText(array.toString())
+                AtomicFileStore.writeText(indexFile, array.toString())
             }
         }
+    }
+
+    private fun parseTaskIndex(raw: String): List<DownloadTask> {
+        val array = JSONArray(raw)
+        return (0 until array.length())
+            .mapNotNull { array.optJSONObject(it)?.toTaskOrNull() }
+            .distinctBy { it.id }
     }
 
     private fun find(id: String): DownloadTask? = _tasks.value.firstOrNull { it.id == id }
@@ -387,7 +402,7 @@ class FileBackedOmniDownloadManager(
         indexFile.parentFile?.mkdirs()
         val array = JSONArray()
         _tasks.value.forEach { array.put(it.toJson()) }
-        indexFile.writeText(array.toString())
+        AtomicFileStore.writeText(indexFile, array.toString())
     }
 
     private fun preserveCorruptIndex() {
@@ -404,14 +419,42 @@ class FileBackedOmniDownloadManager(
     }
 
     private fun partialPath(id: String): String = File(downloadDir, "$id.part").absolutePath
+}
 
-    private data class ResolvedFormat(
-        val url: String,
-        val mimeType: String,
-        val bitrate: Int,
-        val averageBitrate: Int?,
-        val contentLength: Long?,
-    )
+class YouTubeDownloadFormatResolver(
+    private val youTubeService: YouTubeService,
+) : DownloadFormatResolver {
+    override suspend fun resolve(videoId: String, quality: DownloadQualityMode): ResolvedDownloadFormat? {
+        val clients = listOf(
+            YouTubeClient.WEB_REMIX,
+            YouTubeClient.WEB,
+            YouTubeClient.ANDROID_VR_NO_AUTH,
+            YouTubeClient.IOS,
+            YouTubeClient.ANDROID_MUSIC,
+        )
+        for (client in clients) {
+            val player = runCatching { youTubeService.getPlayer(videoId, client) }.getOrNull() ?: continue
+            val formats = player.streamingData?.adaptiveFormats?.filter { it.isAudio }.orEmpty()
+            val selected = when (quality) {
+                DownloadQualityMode.SMALLER_FILE -> formats.minByOrNull { it.bitrate }
+                DownloadQualityMode.PREFER_HIGH -> formats.maxByOrNull { it.bitrate }
+                DownloadQualityMode.PROVIDER_DEFAULT -> formats.firstOrNull()
+            } ?: continue
+            val url = resolveFormatUrl(selected, videoId, client) ?: continue
+            return ResolvedDownloadFormat(
+                url = url,
+                mimeType = selected.mimeType,
+                bitrate = selected.bitrate,
+                averageBitrate = selected.averageBitrate,
+                contentLength = selected.contentLength,
+            )
+        }
+        return null
+    }
+
+    private fun resolveFormatUrl(format: PlayerResponse.StreamingData.Format, videoId: String, client: YouTubeClient): String? {
+        return com.omnitune.innertube.pages.NewPipeUtils.getStreamUrl(format, videoId, client).getOrNull()
+    }
 }
 
 private fun DownloadTask.toJson(): JSONObject = JSONObject()
@@ -431,6 +474,15 @@ private fun DownloadTask.toJson(): JSONObject = JSONObject()
     .put("errorMessage", errorMessage ?: JSONObject.NULL)
     .put("createdAt", createdAt)
     .put("updatedAt", updatedAt)
+
+private fun JSONObject.toTaskOrNull(): DownloadTask? = runCatching {
+    toTask().takeIf {
+        it.id.isNotBlank() &&
+            it.trackId.isNotBlank() &&
+            it.title.isNotBlank() &&
+            it.artist.isNotBlank()
+    }
+}.getOrNull()
 
 private fun JSONObject.toTask(): DownloadTask = DownloadTask(
     id = optString("id"),
@@ -482,3 +534,26 @@ private fun extensionFor(mimeType: String): String = when {
 private fun codecFor(mimeType: String): String? =
     Regex("codecs=\"([^\"]+)\"").find(mimeType)?.groupValues?.getOrNull(1)
         ?: mimeType.substringBefore(";").takeIf { it.isNotBlank() }
+
+internal fun userFacingDownloadError(error: Throwable): String {
+    val message = error.message.orEmpty()
+    val lower = message.lowercase()
+    return when {
+        error is java.io.FileNotFoundException ||
+            "access is denied" in lower ||
+            "permission denied" in lower ||
+            "read-only" in lower -> "Download location is unavailable."
+
+        error is IOException && (
+            "no space" in lower ||
+                "not enough space" in lower ||
+                "disk full" in lower ||
+                "there is not enough space" in lower
+            ) -> "Not enough storage space."
+
+        "downloaded file verification failed" in lower -> "Downloaded file verification failed."
+        "no downloadable audio format" in lower -> "No downloadable audio format available."
+        message.isNotBlank() -> message
+        else -> error::class.simpleName ?: "Download failed."
+    }
+}

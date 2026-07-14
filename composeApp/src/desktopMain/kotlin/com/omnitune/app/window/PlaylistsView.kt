@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -37,7 +38,10 @@ import com.omnitune.innertube.toHighResThumbnail
 import com.omnitune.innertube.models.YTItem
 
 @Composable
-fun PlaylistsView(player: PlayerViewModel) {
+fun PlaylistsView(
+    player: PlayerViewModel,
+    onEditableTextFocusChanged: (Boolean) -> Unit = {},
+) {
     val results by player.playlistResults.collectAsState()
     val loading by player.playlistLoading.collectAsState()
     val error by player.playlistError.collectAsState()
@@ -64,7 +68,9 @@ fun PlaylistsView(player: PlayerViewModel) {
                     androidx.compose.foundation.text.BasicTextField(
                         value = query,
                         onValueChange = { query = it },
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .onFocusChanged { onEditableTextFocusChanged(it.isFocused) },
                         singleLine = true,
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = TextWhite),
                         decorationBox = { innerTextField ->

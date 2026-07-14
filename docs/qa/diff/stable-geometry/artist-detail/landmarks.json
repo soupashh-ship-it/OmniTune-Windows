@@ -1,0 +1,112 @@
+[
+  {
+    "name": "hero",
+    "reference": [
+      289,
+      70,
+      1328,
+      291
+    ],
+    "actual": [
+      289,
+      70,
+      1328,
+      291
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "identity",
+    "reference": [
+      331,
+      134,
+      700,
+      160
+    ],
+    "actual": [
+      331,
+      134,
+      700,
+      160
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "stats card",
+    "reference": [
+      1333,
+      149,
+      285,
+      200
+    ],
+    "actual": [
+      1333,
+      149,
+      285,
+      200
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "tabs",
+    "reference": [
+      297,
+      366,
+      1318,
+      51
+    ],
+    "actual": [
+      297,
+      366,
+      1318,
+      51
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "lower columns",
+    "reference": [
+      289,
+      438,
+      1334,
+      370
+    ],
+    "actual": [
+      289,
+      438,
+      1334,
+      370
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  }
+]

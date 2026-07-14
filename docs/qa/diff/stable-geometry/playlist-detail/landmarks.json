@@ -1,0 +1,90 @@
+[
+  {
+    "name": "artwork",
+    "reference": [
+      298,
+      124,
+      323,
+      328
+    ],
+    "actual": [
+      298,
+      124,
+      323,
+      328
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "info region",
+    "reference": [
+      644,
+      146,
+      610,
+      180
+    ],
+    "actual": [
+      644,
+      146,
+      610,
+      180
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "track list",
+    "reference": [
+      296,
+      503,
+      1005,
+      305
+    ],
+    "actual": [
+      296,
+      503,
+      1005,
+      305
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  },
+  {
+    "name": "right rail",
+    "reference": [
+      1332,
+      168,
+      305,
+      661
+    ],
+    "actual": [
+      1332,
+      168,
+      305,
+      661
+    ],
+    "delta": {
+      "dx": 0,
+      "dy": 0,
+      "dw": 0,
+      "dh": 0,
+      "largest_abs_delta": 0
+    }
+  }
+]

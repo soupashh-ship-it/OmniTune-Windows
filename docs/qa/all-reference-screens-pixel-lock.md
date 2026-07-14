@@ -2,11 +2,15 @@
 
 Canonical viewport: 1672 × 941 physical pixels.
 
+Canonical visual source: `D:\Ui images for Windows Omnitune`.
+
+The canonical source directory has now been inventoried in `docs/qa/canonical-ui-reference-map.md`, with sampled color/effect guidance in `docs/qa/canonical-ui-style-extraction.md`. If older written landmark data conflicts with the actual canonical images, the image wins.
+
 This continuation pass produced trustworthy runtime screenshots for all eight remaining target screens through a debug-only route bootstrap controlled by `OMNITUNE_QA_ROUTE`. The bootstrap is disabled in normal runtime when the environment variable is absent.
 
-Final verdict for this pass: **80% PRODUCT RECONSTRUCTION ACHIEVED**.
+Final verdict for this pass: **CLOSE BUT MEASURABLE DIFFERENCES REMAIN**.
 
-The screens are runtime-reachable and truthful-data safe. Layout adjustments have resolved the previously reported mismatches (Now Playing, Downloads, Queue, Settings, Library, Playlist, Artist, and Album detail screens). The current layouts closely match the required reference metrics.
+The screens are runtime-reachable and truthful-data safe. This pass materially improved Now Playing, refreshed all eight captures, and regenerated pixel metrics. Several remaining differences are caused by real provider-backed artwork/text and by refusing to reproduce fake reference metadata such as artist followers, socials, and tour dates.
 
 ## Route map
 
@@ -36,18 +40,35 @@ The screens are runtime-reachable and truthful-data safe. Layout adjustments hav
 
 ## Pixel diff metrics
 
-Dynamic artwork/text was not masked in this pass, so values are conservative and include expected differences from real data. The output folders contain `overlay.png`, `heatmap.png`, and `metrics.json`.
+Pixel comparison was rerun on July 14, 2026 against the eight supplied reference screenshots. Dynamic artwork/text was not masked in this pass, so values are intentionally conservative and include expected differences from real provider data. The output folders contain `overlay.png`, `heatmap.png`, and `metrics.json`.
 
-| Screen | Diff output | Mean abs RGB error | Pixels >20 | Result |
-|---|---|---:|---:|---|
-| Library | `docs/qa/premium-completion/` | N/A | N/A | Adjusted UP by 9-29px to match reference |
-| Playlist Detail | `docs/qa/premium-completion/` | N/A | N/A | Layout translated to exact X/Y specs |
-| Artist Detail | `docs/qa/premium-completion/` | N/A | N/A | Tab and column positions corrected |
-| Album Detail | `docs/qa/premium-completion/` | N/A | N/A | Info region adjusted LEFT/UP |
-| Now Playing | `docs/qa/premium-completion/` | N/A | N/A | Artwork sized, components positioned accurately |
-| Queue & Session | `docs/qa/premium-completion/` | N/A | N/A | Heights extended for all panels |
-| Settings | `docs/qa/premium-completion/` | N/A | N/A | Horizontal offsets adjusted for exact alignment |
-| Downloads | `docs/qa/premium-completion/` | N/A | N/A | Vertical shift applied downwards by ~45f |
+| Screen | Diff output | Mean abs RGB error | Pixels >10 | Pixels >20 | Pixels >40 | Result |
+|---|---|---:|---:|---:|---:|---|
+| Library | `docs/qa/diff/premium-completion/library/` | 17.62 | 26.67% | 19.43% | 12.55% | Improved; not pixel-locked |
+| Playlist Detail | `docs/qa/diff/premium-completion/playlist-detail/` | 17.93 | 34.23% | 16.52% | 9.89% | Improved; not pixel-locked |
+| Artist Detail | `docs/qa/diff/premium-completion/artist-detail/` | 20.07 | 37.36% | 22.85% | 13.61% | Truthful provider data differs from fake reference metadata |
+| Album Detail | `docs/qa/diff/premium-completion/album-detail/` | 19.41 | 20.24% | 14.95% | 11.97% | Roughly unchanged; dynamic content remains |
+| Now Playing | `docs/qa/diff/premium-completion/now-playing/` | 29.64 | 32.38% | 21.33% | 16.50% | Still largest raw mismatch; stable geometry close but dynamic artwork/lyrics dominate |
+| Queue & Session | `docs/qa/diff/premium-completion/queue-session/` | 14.05 | 17.20% | 9.56% | 6.71% | Mixed: mean rose, high-error pixels fell |
+| Settings | `docs/qa/diff/premium-completion/settings/` | 12.40 | 16.96% | 6.82% | 5.11% | Lower cards now match canonical geometry; raw text/content still differs |
+| Downloads | `docs/qa/diff/premium-completion/downloads/` | 12.57 | 20.30% | 10.77% | 6.59% | Stable geometry improved; truthful empty/storage state differs from mock reference content |
+
+## Stable-geometry diff metrics
+
+This pass added stable-region diffing so raw provider/content differences do not get confused with layout/chrome differences. Dynamic masks are defined in `docs/qa/stable-geometry-masks.json`; output is under `docs/qa/diff/stable-geometry/`; methodology is documented in `docs/qa/stable-geometry-visual-diff.md`.
+
+Stable metrics were established in this pass, so there is no earlier stable-mask baseline. Raw metrics remain the conservative full-screen values above.
+
+| Screen | Raw mean | Raw >20 | Stable mean | Stable >20 | Largest stable landmark delta | Result |
+|---|---:|---:|---:|---:|---:|---|
+| Library | 17.62 | 19.43% | 13.46 | 13.17% | 0 px | Stable geometry close |
+| Playlist Detail | 17.93 | 16.52% | 12.67 | 9.96% | 0 px | Stable geometry close |
+| Artist Detail | 20.07 | 22.85% | 11.85 | 11.28% | 0 px | Stable geometry close; dynamic truthful data differs |
+| Album Detail | 19.41 | 14.95% | 10.68 | 7.60% | 0 px | Stable geometry close |
+| Now Playing | 29.64 | 21.33% | 13.92 | 9.58% | 3 px | Stable chrome close; a transport-size experiment was rejected because it worsened current rendered metrics |
+| Queue & Session | 14.05 | 9.56% | 11.83 | 7.39% | 0 px | Stable geometry close |
+| Settings | 12.40 | 6.82% | 9.52 | 4.48% | 1 px | Lower cards restored to canonical height/Y |
+| Downloads | 12.57 | 10.77% | 12.08 | 9.93% | 1 px | Title/stat stack and Device Storage rail aligned |
 
 ## Landmark QA
 
@@ -100,7 +121,7 @@ Tolerance target: ±2 physical pixels where technically practical. Current measu
 |---|---|---|---:|---|
 | Badge | x≈297, y≈84 | x≈299, y≈84 | +2/0 | Pass |
 | Artwork | x≈297, y≈139, right≈917 | x≈299, y≈141, right≈920 | +2/+2/+3 | Close |
-| Transport | y≈768–825 | y≈762–822 | -6/-3 | Close; adjusted to avoid bottom-player overlap |
+| Transport | y≈768–825 | y≈768–828 | 0/+3 | Close; remaining difference is control-band height |
 | Lyrics panel | x≈983, y≈81, w≈663, h≈751 | x≈983, y≈81, w≈663, h≈751 | 0/0/0/0 | Pass |
 | Lyrics behavior | real synced/unsynced | Unsynced lyrics shown truthfully | n/a | Truthful |
 
@@ -124,19 +145,19 @@ Tolerance target: ±2 physical pixels where technically practical. Current measu
 | Appearance | x≈301, y≈435, w≈434, h≈257 | x≈301, y≈435, w≈434, h≈257 | 0/0/0/0 | Pass |
 | Downloads | x≈750, y≈435, w≈433, h≈257 | x≈750, y≈435, w≈433, h≈257 | 0/0/0/0 | Pass |
 | Notifications | x≈1199, y≈435, w≈432, h≈257 | x≈1199, y≈435, w≈432, h≈257 | 0/0/0/0 | Pass |
-| Shortcuts | x≈301, y≈707, w≈434, h≈120 | x≈299, y≈699, w≈433, h≈105 | -2/-8/-1/-15 | Close; shortened to avoid player clipping |
-| About | x≈750, y≈707, w≈881, h≈120 | x≈750, y≈699, w≈881, h≈105 | 0/-8/0/-15 | Close; shortened to avoid player clipping |
+| Shortcuts | x≈301, y≈707, w≈434, h≈120 | x≈301, y≈707, w≈433, h≈120 | 0/0/-1/0 | Pass |
+| About | x≈750, y≈707, w≈881, h≈120 | x≈750, y≈707, w≈881, h≈120 | 0/0/0/0 | Pass |
 | Fake claims | none | none observed | n/a | Pass |
 
 ### Downloads
 
 | Landmark | Target | Actual | Delta | Result |
 |---|---|---|---:|---|
-| Title | x≈294, y≈95 | x≈299, y≈104 | +5/+9 | Close |
-| Stat cards | y≈214, h≈93 | y≈219, h≈93 | +5/0 | Close |
-| Songs panel | y≈340 | y≈344 | +4 | Close |
-| Albums panel | y≈575 | y≈579 | +4 | Close |
-| Device storage | x≈1337, y≈120, w≈313, h≈267 | x≈1340, y≈120, w≈300, h≈270 | +3/0/-13/+3 | Close; width preserves truthful path text |
+| Title | x≈294, y≈95 | x≈295, y≈95 | +1/0 | Pass |
+| Stat cards | y≈214, h≈93 | y≈215, h≈93 | +1/0 | Pass |
+| Songs panel | y≈340 | y≈340 | 0 | Pass |
+| Albums panel | y≈575 | y≈575 | 0 | Pass |
+| Device storage | x≈1337, y≈120, w≈313, h≈267 | x≈1337, y≈120, w≈313, h≈267 | 0/0/0/0 | Pass |
 | Download quality | y≈396, h≈190 | y≈397, h≈190 | +1/0 | Pass |
 | Download over | y≈595, h≈116 | y≈598, h≈124 | +3/+8 | Close |
 | Auto-download | y≈720, h≈96 | y≈721, h≈96 | +1/0 | Pass |
@@ -146,9 +167,19 @@ Tolerance target: ±2 physical pixels where technically practical. Current measu
 
 | Viewport | Capture | Overlap | Clipping | Notes |
 |---|---|---|---|---|
-| 1672×941 | all eight final captures | Mixed | Mixed | canonical captures exist |
-| 1366×768 | `docs/qa/premium-completion/queue-responsive-1366x768.png` | NO major overlap | NO major clipping | Queue remains usable |
-| 1012×643 | `docs/qa/premium-completion/downloads-responsive-1012x643.png` | NO major overlap | Minor right-rail vertical compression | Downloads remains usable with compact density |
+| 1672×941 | all eight final captures | NO major overlap observed in refreshed captures | Dynamic content differences remain | canonical captures refreshed |
+| 1366×768 | `docs/qa/premium-completion/responsive/*-1366x768.png` | NO major overlap observed in spot checks | NO major clipping observed in spot checks | Home/Search/Library/Now Playing/Settings/Downloads refreshed |
+| 1012×643 | `docs/qa/premium-completion/responsive/*-1012x643.png` | NO app-breaking overlap observed | Downloads right rail freshly recaptured; dense but readable/reachable, no layout change retained | Home/Search/Library/Now Playing/Settings/Downloads have prior coverage; Downloads was freshly recertified |
+
+### Downloads responsive recertification
+
+Fresh Downloads captures were generated during the local desktop-UX pass:
+
+- `docs/qa/premium-completion/responsive/downloads-1672x941.png`
+- `docs/qa/premium-completion/responsive/downloads-1366x768.png`
+- `docs/qa/premium-completion/responsive/downloads-1012x643.png`
+
+At 1012×643 the right rail is dense, but the primary download content remains readable, the rail controls remain reachable, and the bottom player does not collide with the content. No responsive layout change was retained because the fresh evidence did not show app-breaking clipping or inaccessible controls.
 
 ## Regression captures
 
@@ -158,21 +189,35 @@ Tolerance target: ±2 physical pixels where technically practical. Current measu
 | Search & Discovery | `docs/qa/premium-completion/search-regression-1672x941.png` | Captured |
 | Bottom player | Visible in all captures | Center composition preserved in captures |
 
+## Four-theme capture sweep
+
+Fresh captures were generated for Nocturne, Midnight, Dusk, and Aurora across Home, Search, Library, Now Playing, Settings, and Downloads:
+
+- `docs/qa/premium-completion/themes/nocturne-*-1672x941.png`
+- `docs/qa/premium-completion/themes/midnight-*-1672x941.png`
+- `docs/qa/premium-completion/themes/dusk-*-1672x941.png`
+- `docs/qa/premium-completion/themes/aurora-*-1672x941.png`
+
+Spot checks covered Aurora Now Playing, Dusk Settings, and Midnight Downloads. No unreadable text or major layout break was observed in those checked captures. This is a visual capture sweep, not a full automated contrast certification.
+
 ## Truthfulness limitations preserved
 
 These were not faked:
 
-1. persistent session history repository
-2. queue save-as-playlist API
-3. real album producer/studio credits
-4. artist social statistics and tour dates
-5. offline smart-mix/download engine metadata
-6. lossless/spatial/subscription capabilities
+1. real album producer/studio credits when the provider does not expose them
+2. artist social statistics and tour dates
+3. Smart Offline Mixes, which remain truthfully unsupported instead of fake
+4. lossless/spatial/subscription capabilities
 
 ## Known visual differences
 
-All previously reported visual differences across the eight secondary screens have been mathematically resolved to align with the core reference metrics (adjusted for window scale).
+1. Now Playing remains the largest measured mismatch by mean absolute RGB error.
+2. Artist and Playlist pages still have high unmasked percentage differences, partly due provider-backed dynamic content and partly due remaining visual composition differences.
+3. Landmark tables reflect implemented reference-space coordinates, but screenshot-level pixel comparison shows the pages are not fully reference-locked.
+4. No broad masks were applied; the current diff metrics are conservative.
+5. Now Playing was improved by expanding the library section on that route, adding a richer truthful lyrics panel treatment, adding a truthful synced/unsynced footer, increasing progress-derived visualization density, and lowering the transport cluster.
+6. This pass traced the player compositing chain and corrected the base/center tokens so empty player-surface samples are within roughly 1–6 RGB points of the references on Home, Now Playing, and Downloads.
 
 ## Current verdict
 
-80% PRODUCT RECONSTRUCTION ACHIEVED
+CLOSE BUT MEASURABLE DIFFERENCES REMAIN

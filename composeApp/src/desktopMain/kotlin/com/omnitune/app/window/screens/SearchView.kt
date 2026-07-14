@@ -101,7 +101,12 @@ private enum class SearchDiscoverySection {
 }
 
 @Composable
-fun SearchView(player: PlayerViewModel, query: String, onQueryChange: (String) -> Unit) {
+fun SearchView(
+    player: PlayerViewModel,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onSearchFieldFocusChanged: (Boolean) -> Unit = {},
+) {
     val results by player.searchResults.collectAsState()
     val loading by player.searchLoading.collectAsState()
     val error by player.searchError.collectAsState()
@@ -183,6 +188,7 @@ fun SearchView(player: PlayerViewModel, query: String, onQueryChange: (String) -
         onPlayNext = { player.playNext(it) },
         onLike = { player.toggleLike(it.id) },
         onOpenArtist = { id -> if (id != null) player.openArtist(id) },
+        onSearchFieldFocusChanged = onSearchFieldFocusChanged,
     )
 }
 
@@ -211,6 +217,7 @@ private fun SearchDiscoveryReferenceContent(
     onPlayNext: (SongItem) -> Unit,
     onLike: (SongItem) -> Unit,
     onOpenArtist: (String?) -> Unit,
+    onSearchFieldFocusChanged: (Boolean) -> Unit = {},
 ) {
     val metrics = LocalHomeReferenceMetrics.current
     val motionPolicy = LocalOmniMotionPolicy.current
@@ -269,6 +276,7 @@ private fun SearchDiscoveryReferenceContent(
                     .height(metrics.px(36f)),
                 onEnter = { onSearch(query) },
                 onEscape = { onQueryChange("") },
+                onFocusChanged = onSearchFieldFocusChanged,
             )
 
             Row(
@@ -613,12 +621,9 @@ private fun SongResultRow(
             Text(song.artists.joinToString(", ") { it.name }, color = TextSecondary, fontSize = 7.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Text(song.durationLabel(), color = TextSecondary, fontSize = 8.5.sp, modifier = Modifier.width(metrics.px(28f)))
-        Icon(Icons.Default.Add, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onAddToQueue))
+        Icon(Icons.Default.Add, contentDescription = "Add to queue", tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onAddToQueue))
         Spacer(Modifier.width(metrics.px(8f)))
-        Icon(Icons.Default.MoreHoriz, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable {
-            onPlayNext()
-            onLike()
-        })
+        Icon(Icons.Default.Favorite, contentDescription = "Like or unlike song", tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onLike))
         if (isPlaying) {
             Spacer(Modifier.width(metrics.px(4f)))
             Icon(Icons.Default.GraphicEq, null, tint = IrisSoft, modifier = Modifier.size(metrics.px(10f)))

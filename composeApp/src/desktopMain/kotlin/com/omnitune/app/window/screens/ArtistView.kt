@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Person
@@ -162,7 +163,6 @@ private fun ArtistReferenceContent(
                     Spacer(Modifier.height(metrics.px(16f)))
                     Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(8f))) {
                         ReferencePlayButton("Play", onPlayArtist)
-                        ReferenceOutlineButton("More", Icons.Default.MoreHoriz) {}
                     }
                 }
                 ProviderStatsCard(
@@ -273,9 +273,9 @@ private fun ArtistPopularRow(song: SongItem, index: Int, active: Boolean, playin
             Text(song.artists.joinToString(", ") { it.name }, color = TextSecondary, fontSize = 7.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Text(song.durationLabel(), color = TextSecondary, fontSize = 8.5.sp, modifier = Modifier.width(metrics.px(36f)))
-        Icon(Icons.Default.Add, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onAdd))
+        Icon(Icons.Default.Add, contentDescription = "Add to queue", tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onAdd))
         Spacer(Modifier.width(metrics.px(12f)))
-        Icon(Icons.Default.MoreHoriz, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onLike))
+        Icon(Icons.Default.FavoriteBorder, contentDescription = "Like or unlike song", tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onLike))
     }
 }
 

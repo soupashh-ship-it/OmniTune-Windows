@@ -1,0 +1,41 @@
+{
+  "reference": "D:\\Ui images for Windows Omnitune\\ChatGPT Image Jul 10, 2026, 03_00_05 PM (4).png",
+  "actual": "docs\\qa\\premium-completion\\playlist-detail-1672x941.png",
+  "dimensions_match": true,
+  "size": [
+    1672,
+    941
+  ],
+  "masked_regions": [
+    [
+      306,
+      132,
+      307,
+      312
+    ],
+    [
+      646,
+      169,
+      620,
+      135
+    ],
+    [
+      315,
+      552,
+      975,
+      220
+    ],
+    [
+      1350,
+      222,
+      262,
+      552
+    ]
+  ],
+  "measured_pixels": 1034744,
+  "mean_absolute_rgb_error": 12.672355352306141,
+  "max_pixel_mean_error": 255.0,
+  "pct_pixels_over_10": 26.793100515683104,
+  "pct_pixels_over_20": 9.958501813008821,
+  "pct_pixels_over_40": 5.696481448551525
+}

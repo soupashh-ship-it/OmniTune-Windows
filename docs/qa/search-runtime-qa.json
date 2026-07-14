@@ -1,0 +1,62 @@
+{
+  "result": true,
+  "totalResults": 70,
+  "artistResults": 10,
+  "albumResults": 20,
+  "playlistResults": 20,
+  "firstResults": [
+    {
+      "id": "J7p4bzqLvCw",
+      "type": "SongItem",
+      "title": "Blinding Lights"
+    },
+    {
+      "id": "i7GM16iyGEQ",
+      "type": "SongItem",
+      "title": "Blinding Lights"
+    },
+    {
+      "id": "HVjMrELe7EY",
+      "type": "SongItem",
+      "title": "Blinding Lights"
+    },
+    {
+      "id": "H64a2ggVIWc",
+      "type": "SongItem",
+      "title": "Blinding Lights"
+    },
+    {
+      "id": "i5dze75rRmQ",
+      "type": "SongItem",
+      "title": "Blinding Lights"
+    },
+    {
+      "id": "Fg4MfA3BCyI",
+      "type": "SongItem",
+      "title": "City Of Blinding Lights"
+    },
+    {
+      "id": "aAJfUFZgh2Y",
+      "type": "SongItem",
+      "title": "Blinding Lights"
+    },
+    {
+      "id": "3_g2un5M350",
+      "type": "SongItem",
+      "title": "Starboy (feat. Daft Punk)"
+    },
+    {
+      "id": "kD-mJP40Pz8",
+      "type": "SongItem",
+      "title": "Blinding Lights (Country Version)"
+    },
+    {
+      "id": "JuTk9c4UofM",
+      "type": "SongItem",
+      "title": "Blinding lights"
+    }
+  ],
+  "query": "Blinding Lights",
+  "songResults": 20,
+  "error": null
+}
