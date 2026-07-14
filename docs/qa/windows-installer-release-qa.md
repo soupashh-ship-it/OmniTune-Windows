@@ -11,7 +11,7 @@
 | Release manifest | PASS | `build/release/windows/release-manifest.json` | Records version, x64 architecture, hashes, Java runtime bundled, VLC runtime bundled, unsigned status. |
 | GitHub RC publication | PASS | `https://github.com/soupashh-ship-it/OmniTune-Windows/releases/tag/v0.1.1-rc.1` | Pre-release contains EXE, MSI, `SHA256SUMS.txt`, and `release-manifest.json`. This release supersedes 0.1.0 RC2 to avoid Windows Installer same-version error 1638. |
 | GitHub 0.1.2 RC publication | PASS | `https://github.com/soupashh-ship-it/OmniTune-Windows/releases/tag/v0.1.2-rc.1` | Pre-release contains EXE, MSI, checksum files, `SHA256SUMS.txt`, and `release-manifest.json`. |
-| GitHub 0.1.3 RC publication | PENDING | `https://github.com/soupashh-ship-it/OmniTune-Windows/releases/tag/v0.1.3-rc.1` | 0.1.3 supersedes 0.1.2 after install QA found missing installed native VLC files. |
+| GitHub 0.1.3 RC publication | PASS | `https://github.com/soupashh-ship-it/OmniTune-Windows/releases/tag/v0.1.3-rc.1` | 0.1.3 supersedes 0.1.2 after install QA found missing installed native VLC files. |
 | Same-version installer failure diagnosis | PASS | Windows Event Log `MsiInstaller` status `1638` for OmniTune 0.1.0 | RC2 appeared not to open because OmniTune 0.1.0 was already installed; 0.1.1 uses a higher installer version for upgrade/install retry. |
 | Manual search hotfix validation | PASS | `:innertube:test --tests com.omnitune.innertube.InnertubeSearchTest`; `:composeApp:desktopTest` | Provider-backed song search returns results; desktop tests pass after preview-key search submission fix. |
 | Private Java runtime image | PASS | `composeApp/build/compose/binaries/main/app/OmniTune/runtime` | Runtime image exists in app image. |
