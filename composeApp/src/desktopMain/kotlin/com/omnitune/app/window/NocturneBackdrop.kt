@@ -74,8 +74,8 @@ fun OmniReferenceBackdrop(
                 brush = Brush.radialGradient(
                     colorStops = arrayOf(
                         0.00f to palette.mainGlow.copy(alpha = 0.25f),
-                        0.30f to palette.mainGlow.copy(alpha = 0.17f),
-                        0.58f to palette.mainGlow.copy(alpha = 0.08f),
+                        0.30f to palette.mainGlow.copy(alpha = 0.11f),
+                        0.58f to palette.mainGlow.copy(alpha = 0.045f),
                         1.00f to Color.Transparent
                     ),
                     center = mainBlueCenter,
@@ -94,7 +94,7 @@ fun OmniReferenceBackdrop(
                 brush = Brush.radialGradient(
                     colors = listOf(
                         palette.violetGlow.copy(alpha = 0.075f),
-                        palette.violetGlow.copy(alpha = 0.035f),
+                        palette.violetGlow.copy(alpha = 0.028f),
                         Color.Transparent
                     ),
                     center = violetCenter,

@@ -46,7 +46,6 @@ import com.omnitune.app.window.components.*
 import com.omnitune.innertube.models.*
 import com.omnitune.innertube.pages.*
 import com.omnitune.innertube.toHighResThumbnail
-import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import java.time.LocalTime
 
@@ -55,24 +54,22 @@ fun HomeView(player: PlayerViewModel) {
     var home by remember { mutableStateOf<HomePage?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val service = koinInject<YouTubeService>()
-    val scope = rememberCoroutineScope()
     val currentSong by player.currentSong.collectAsState()
     val playbackState by player.playbackState.collectAsState()
     val liked by player.likedSongs.collectAsState()
 
     LaunchedEffect(Unit) {
-        scope.launch {
-            runCatching { service.home() }.onSuccess { home = it }.onFailure { error = it.message }
-        }
+        runCatching { service.home() }.onSuccess { home = it }.onFailure { error = it.message }
     }
 
+    val loadedHome = home
     Box(Modifier.fillMaxSize()) {
-        if (home == null && error == null) {
+        if (loadedHome == null && error == null) {
             HomeShimmer()
         } else if (error != null) {
             OmniEmptyState("Couldn't load Home", error ?: "Unknown error")
-        } else {
-            HomeContent(player, home!!, currentSong, playbackState, liked)
+        } else if (loadedHome != null) {
+            HomeContent(player, loadedHome, currentSong, playbackState, liked)
         }
     }
 }
@@ -141,7 +138,7 @@ private fun HomeContent(player: PlayerViewModel, home: HomePage, currentSong: So
         when (item) {
             is SongItem -> player.playSong(item)
             is AlbumItem -> player.openAlbum(item.browseId)
-            is PlaylistItem -> player.playPlaylist(item.id)
+            is PlaylistItem -> player.openPlaylist(item.id)
             is ArtistItem -> player.openArtist(item.id)
         }
     }
@@ -772,7 +769,7 @@ private fun ReferenceTrending(
                 onClick = {
                     if (item is SongItem) player.playSong(item)
                     else if (item is AlbumItem) player.openAlbum(item.browseId)
-                    else if (item is PlaylistItem) player.playPlaylist(item.id)
+                    else if (item is PlaylistItem) player.openPlaylist(item.id)
                     else if (item is ArtistItem) player.openArtist(item.id)
                 },
                 modifier = Modifier
@@ -1086,7 +1083,6 @@ private fun QuickPicksCard(item: YTItem, player: PlayerViewModel) {
         is AlbumItem -> item.artists?.joinToString(", ") { it.name ?: "" } ?: ""
         is PlaylistItem -> "Playlist"
         is ArtistItem -> "Artist"
-        else -> ""
     }
 
     Column(
@@ -1102,7 +1098,7 @@ private fun QuickPicksCard(item: YTItem, player: PlayerViewModel) {
             )
             .clickable(interactionSource = interactionSource, indication = null) {
                 if (item is AlbumItem) player.openAlbum(item.browseId)
-                else if (item is PlaylistItem) player.playPlaylist(item.id)
+                else if (item is PlaylistItem) player.openPlaylist(item.id)
                 else if (item is ArtistItem) player.openArtist(item.id)
                 else if (item is SongItem) player.playSong(item, 0)
             }
@@ -1189,7 +1185,7 @@ private fun MadeForYouCard(item: YTItem, player: PlayerViewModel) {
             ))
             .border(1.dp, Color.White.copy(alpha = 0.06f), Shapes.medium)
             .clickable(interactionSource = interactionSource, indication = null) {
-                if (item is PlaylistItem) player.playPlaylist(item.id)
+                if (item is PlaylistItem) player.openPlaylist(item.id)
                 else if (item is AlbumItem) player.openAlbum(item.browseId)
             }
     ) {
@@ -1249,7 +1245,6 @@ private fun TrendingRow(item: YTItem, rank: Int, player: PlayerViewModel) {
             is AlbumItem -> "Album"
             is PlaylistItem -> "Playlist"
             is ArtistItem -> "Artist"
-            else -> ""
         }
         Text(albumName, style = MaterialTheme.typography.bodySmall, color = TextSecondary, modifier = Modifier.weight(0.8f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         val d = if (item is SongItem) item.duration else null
@@ -1277,7 +1272,6 @@ private fun NewReleaseCard(item: YTItem, player: PlayerViewModel) {
         is SongItem -> item.artists?.joinToString(", ") { it.name ?: "" } ?: ""
         is PlaylistItem -> "Playlist"
         is ArtistItem -> "Artist"
-        else -> ""
     }
 
     Box(modifier = Modifier.width(120.dp).height(150.dp).clip(RoundedCornerShape(8.dp)).background(Color.Transparent)
@@ -1342,7 +1336,6 @@ private fun FeaturedCompanionRow(item: YTItem, selected: Boolean, onClick: () ->
                 is AlbumItem -> item.artists?.joinToString(", ") { it.name ?: "" } ?: ""
                 is PlaylistItem -> "Playlist"
                 is ArtistItem -> "Artist"
-                else -> ""
             }
             Text(sub, maxLines = 1, overflow = TextOverflow.Ellipsis, color = Color(0xFFA9AEC2), style = MaterialTheme.typography.labelMedium)
         }
@@ -1508,7 +1501,7 @@ private fun HomeHeroRow(album: YTItem?, continueListening: List<YTItem>, player:
                     val isSelected = i == 0 // Fake selected state for visual QA, or derive from real state
                     FeaturedCompanionRow(song, selected = isSelected, onClick = {
                         if (song is SongItem) player.playSong(song)
-                        else if (song is PlaylistItem) player.playPlaylist(song.id)
+                        else if (song is PlaylistItem) player.openPlaylist(song.id)
                         else if (song is AlbumItem) player.openAlbum(song.browseId)
                     })
                 }

@@ -146,6 +146,68 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun playlistCreateEditAddRemoveReorderDeletePersist() = isolatedRepository { repo ->
+        val one = song("one")
+        val two = song("two")
+        val three = song("three")
+
+        val created = repo.createPlaylist("Late Set", "Night listening", listOf("Chill", "chill", "Late Night"))
+        assertEquals("Late Set", created.name)
+        assertEquals(listOf("Chill", "Late Night"), created.tags)
+
+        assertEquals(1, repo.addSongToPlaylists(one, setOf(created.id)).size)
+        assertEquals(0, repo.addSongToPlaylists(one, setOf(created.id)).size)
+        repo.addSongToPlaylists(two, setOf(created.id))
+        repo.addSongToPlaylists(three, setOf(created.id))
+        assertEquals(listOf("one", "two", "three"), repo.savedQueuePlaylists.single().songs.map { it.id })
+
+        repo.movePlaylistSong(created.id, 2, 0)
+        assertEquals(listOf("three", "one", "two"), repo.savedQueuePlaylists.single().songs.map { it.id })
+
+        repo.removeSongFromPlaylist(created.id, "one")
+        assertEquals(listOf("three", "two"), repo.savedQueuePlaylists.single().songs.map { it.id })
+
+        repo.updatePlaylistMetadata(
+            id = created.id,
+            name = "Late Set Edited",
+            description = "Updated description",
+            tags = listOf("Soul", "Downtempo"),
+            coverPath = "C:/covers/late.png",
+        )
+
+        val restored = SettingsRepository(repoPrefs(repo)).savedQueuePlaylists.single()
+        assertEquals("Late Set Edited", restored.name)
+        assertEquals("Updated description", restored.description)
+        assertEquals(listOf("Soul", "Downtempo"), restored.tags)
+        assertEquals("C:/covers/late.png", restored.coverPath)
+        assertEquals(listOf("three", "two"), restored.songs.map { it.id })
+
+        repo.deletePlaylist(created.id)
+        assertTrue(repo.savedQueuePlaylists.isEmpty())
+    }
+
+    @Test
+    fun likedSongsPersistWithTimestampsAndUnlikeRemovesRecord() = isolatedRepository { repo ->
+        val first = song("liked-one")
+        val second = song("liked-two")
+
+        repo.likeSong(first, likedAt = 100L)
+        repo.likeSong(second, likedAt = 200L)
+        repo.likeSong(first, likedAt = 300L)
+
+        val restored = SettingsRepository(repoPrefs(repo))
+        assertEquals(listOf("liked-two", "liked-one"), restored.likedSongRecords.map { it.song.id })
+        assertEquals(listOf(200L, 100L), restored.likedSongRecords.map { it.likedAt })
+        assertEquals(setOf("liked-one", "liked-two"), restored.likedSongIds)
+
+        restored.unlikeSong("liked-one")
+
+        val afterUnlike = SettingsRepository(repoPrefs(restored))
+        assertEquals(listOf("liked-two"), afterUnlike.likedSongRecords.map { it.song.id })
+        assertEquals(setOf("liked-two"), afterUnlike.likedSongIds)
+    }
+
+    @Test
     fun corruptJsonStoresFallBackToPreferencesAndArePreserved() {
         val prefs = Preferences.userRoot().node("omnitune-tests/${UUID.randomUUID()}")
         val root = Files.createTempDirectory("omnitune-settings-corrupt-test").toFile()

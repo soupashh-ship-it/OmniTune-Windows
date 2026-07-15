@@ -274,8 +274,8 @@ fun OmniSearchField(
         modifier = modifier
             .height(29.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFF0B0F1E))
-            .border(1.dp, if (isFocused) Iris.copy(alpha = 0.55f) else Color(0xFF121623), RoundedCornerShape(10.dp))
+            .background(OmniReferenceColors.SearchBackground)
+            .border(1.dp, if (isFocused) Iris.copy(alpha = 0.55f) else OmniReferenceColors.SearchBorder, RoundedCornerShape(10.dp))
             .onFocusChanged {
                 isFocused = it.isFocused
                 onFocusChanged(it.isFocused)
@@ -303,7 +303,7 @@ fun OmniSearchField(
                 Spacer(Modifier.width(10.dp))
                 Box(Modifier.weight(1f)) {
                     if (value.isEmpty()) {
-                        Text(placeholder, color = Color(0xFF72758F), fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+                    Text(placeholder, color = OmniReferenceColors.TextMuted, fontSize = 11.sp, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
                     }
                     inner()
                 }
@@ -314,11 +314,11 @@ fun OmniSearchField(
                         modifier = Modifier
                             .height(22.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF171B4D))
+                            .background(OmniReferenceColors.SurfaceSelected.copy(alpha = 0.62f))
                             .padding(horizontal = 8.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(hint, color = Color(0xFF9A94FF), style = MaterialTheme.typography.labelMedium)
+                        Text(hint, color = OmniReferenceColors.AccentSoft, style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }

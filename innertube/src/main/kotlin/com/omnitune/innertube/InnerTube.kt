@@ -113,7 +113,7 @@ class InnerTube {
             authState.visitorData?.let { append("X-Goog-Visitor-Id", it) }
 
             if (setLogin && authState.hasLoginCookie) {
-                val cookieStr = authState.cookie!!
+                val cookieStr = authState.cookie ?: return@headers
                 append("cookie", cookieStr)
 
                 if (client.loginSupported) {

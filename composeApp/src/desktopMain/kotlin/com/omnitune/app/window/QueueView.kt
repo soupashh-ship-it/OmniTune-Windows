@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -32,7 +33,6 @@ import androidx.compose.material.icons.filled.DragIndicator
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Shuffle
@@ -304,7 +304,7 @@ private fun QueueReferenceContent(
                 modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(65f)).width(metrics.px(474f)).height(metrics.px(346f)),
                 header = {
                     QueueHeaderAction(Icons.Default.Delete, "Clear", onClear)
-                    QueueHeaderAction(Icons.Default.PlaylistAdd, "Save as Playlist", onSave, saveActionModifier)
+                    QueueHeaderAction(Icons.AutoMirrored.Filled.PlaylistAdd, "Save as Playlist", onSave, saveActionModifier)
                     QueueHeaderAction(Icons.Default.Shuffle, "Shuffle", onShuffle)
                     QueueHeaderAction(Icons.Default.Repeat, "Repeat", onRepeat)
                 },

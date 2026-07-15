@@ -2,6 +2,7 @@ param(
   [string]$Route,
   [string]$FileName,
   [string]$Theme = "",
+  [string]$PlaylistState = "",
   [int]$WaitSeconds = 35,
   [int]$Width = 1672,
   [int]$Height = 941,
@@ -36,6 +37,7 @@ $psi.RedirectStandardError = $true
 $psi.CreateNoWindow = $true
 $psi.Environment['OMNITUNE_QA_ROUTE'] = $Route
 if ($Theme -ne "") { $psi.Environment['OMNITUNE_QA_THEME'] = $Theme }
+if ($PlaylistState -ne "") { $psi.Environment['OMNITUNE_QA_PLAYLIST_STATE'] = $PlaylistState }
 $p = [System.Diagnostics.Process]::new()
 $p.StartInfo = $psi
 [void]$p.Start()

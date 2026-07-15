@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import com.omnitune.app.player.NavScreen
 import com.omnitune.app.player.PlayerViewModel
 import com.omnitune.app.platform.PlaybackState
+import com.omnitune.app.platform.QaRuntime
 import com.omnitune.app.platform.SettingsRepository
 import com.omnitune.app.window.screens.*
 import com.omnitune.innertube.models.AlbumItem
@@ -55,11 +56,12 @@ fun WindowScope.OmniWindow(
     val navScreen by player.navScreen.collectAsState()
     val currentSong by player.currentSong.collectAsState()
     val playbackState by player.playbackState.collectAsState()
-    val pos by player.position.collectAsState()
     val volume by player.volume.collectAsState()
     val canGoBack by player.canGoBack.collectAsState()
     val canGoForward by player.canGoForward.collectAsState()
     val liked by player.likedSongs.collectAsState()
+    val savedPlaylists by player.savedQueuePlaylists.collectAsState()
+    val currentPlaylistId by player.currentPlaylistId.collectAsState()
     val discoveryNew by player.discoveryNew.collectAsState()
     val discoveryTrending by player.discoveryTrending.collectAsState()
     val searchResults by player.searchResults.collectAsState()
@@ -68,12 +70,13 @@ fun WindowScope.OmniWindow(
     val settings: SettingsRepository = koinInject()
     val reducedMotion by settings.reduceMotionFlow.collectAsState()
     val themeMode by settings.appearanceThemeFlow.collectAsState()
-    val qaTheme = remember { System.getenv("OMNITUNE_QA_THEME")?.trim()?.lowercase().orEmpty() }
+    val globalShortcutsEnabled by settings.globalShortcutsFlow.collectAsState()
+    val qaTheme = remember { QaRuntime.theme }
     val effectiveTheme = qaTheme.takeIf { it in setOf("nocturne", "midnight", "dusk", "aurora") } ?: themeMode
     var query by remember { mutableStateOf("") }
     val searchFocus = remember { FocusRequester() }
-    val qaRoute = remember { System.getenv("OMNITUNE_QA_ROUTE")?.trim()?.lowercase().orEmpty() }
-    val qaSearchQuery = remember { System.getenv("OMNITUNE_QA_SEARCH_QUERY")?.trim().orEmpty() }
+    val qaRoute = remember { QaRuntime.route }
+    val qaSearchQuery = remember { QaRuntime.searchQuery }
     var qaRouteApplied by remember(qaRoute) { mutableStateOf(false) }
     var qaSearchStarted by remember(qaSearchQuery) { mutableStateOf(false) }
     var qaSearchReported by remember(qaSearchQuery) { mutableStateOf(false) }
@@ -88,12 +91,21 @@ fun WindowScope.OmniWindow(
             "browse" -> player.navigateTo(NavScreen.Browse).also { qaRouteApplied = true }
             "radio" -> player.navigateTo(NavScreen.Radio).also { qaRouteApplied = true }
             "library" -> player.navigateTo(NavScreen.Library).also { qaRouteApplied = true }
+            "liked", "likedsongs" -> player.navigateTo(NavScreen.LikedSongs).also { qaRouteApplied = true }
             "search" -> player.navigateTo(NavScreen.Search).also { qaRouteApplied = true }
             "queue" -> player.navigateTo(NavScreen.Queue).also { qaRouteApplied = true }
             "settings" -> player.navigateTo(NavScreen.Settings).also { qaRouteApplied = true }
             "downloads" -> player.navigateTo(NavScreen.Downloads).also { qaRouteApplied = true }
             "playlist" -> {
-                discoveryNew.filterIsInstance<PlaylistItem>().firstOrNull()?.let {
+                val qaPlaylistState = QaRuntime.playlistState
+                val savedForState = if (qaPlaylistState in setOf("expanded", "menu", "add", "edit")) {
+                    settings.savedQueuePlaylists.firstOrNull { it.songs.isNotEmpty() }?.id
+                        ?: settings.savedQueuePlaylists.firstOrNull()?.id
+                } else null
+                if (savedForState != null) {
+                    player.openPlaylist(savedForState)
+                    qaRouteApplied = true
+                } else discoveryNew.filterIsInstance<PlaylistItem>().firstOrNull()?.let {
                     player.openPlaylist(it.id)
                     qaRouteApplied = true
                 }
@@ -195,6 +207,7 @@ fun WindowScope.OmniWindow(
                             false
                         }
                         KeyEventType.KeyDown -> {
+                            if (!globalShortcutsEnabled) return@onKeyEvent false
                             val repeated = pressedShortcutKeys.repeatedKeyDownFor(event.key, event.type)
                             when (
                                 OmniKeyboardShortcutRouter.commandFor(
@@ -249,7 +262,11 @@ fun WindowScope.OmniWindow(
                         hasCurrentSong = currentSong != null,
                         currentSong = currentSong,
                         likedCount = liked.size,
+                        savedPlaylists = savedPlaylists,
+                        currentPlaylistId = currentPlaylistId,
                         onNavigate = { player.navigateTo(it) },
+                        onOpenPlaylist = { player.openPlaylist(it) },
+                        onCreatePlaylist = { player.createPlaylist(it) },
                         width = sidebarWidth,
                         modifier = Modifier
                             .align(Alignment.TopStart)
@@ -333,6 +350,7 @@ fun WindowScope.OmniWindow(
                                 NavScreen.Browse -> BrowseView(player)
                                 NavScreen.Radio -> RadioView(player)
                                 NavScreen.Library -> LibraryView(player)
+                                NavScreen.LikedSongs -> LikedSongsView(player)
                                 NavScreen.Search -> SearchView(
                                     player,
                                     query,
@@ -342,7 +360,7 @@ fun WindowScope.OmniWindow(
                                         pressedShortcutKeys.clear()
                                     },
                                 )
-                                NavScreen.NowPlaying -> NowPlayingView(player, currentSong, playbackState, pos, volume)
+                                NavScreen.NowPlaying -> NowPlayingRoute(player, currentSong, playbackState, volume)
                                 NavScreen.Queue -> QueueView(
                                     player,
                                     onEditableTextFocusChanged = {
@@ -370,24 +388,53 @@ fun WindowScope.OmniWindow(
                         }
                     }
 
-                    OmniBottomPlayer(
-                    player = player,
-                    currentSong = currentSong,
-                    playbackState = playbackState,
-                    position = pos,
-                    volume = volume,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(
-                            start = playerHorizontalInset,
-                            end = playerHorizontalInset,
-                            bottom = playerBottomInset,
-                        )
-                        .fillMaxWidth()
-                        .height(playerHeight)
+                    BottomPlayerRoute(
+                        player = player,
+                        currentSong = currentSong,
+                        playbackState = playbackState,
+                        volume = volume,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(
+                                start = playerHorizontalInset,
+                                end = playerHorizontalInset,
+                                bottom = playerBottomInset,
+                            )
+                            .fillMaxWidth()
+                            .height(playerHeight)
                     )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun NowPlayingRoute(
+    player: PlayerViewModel,
+    currentSong: SongItem?,
+    playbackState: PlaybackState,
+    volume: Int,
+) {
+    val position by player.position.collectAsState()
+    NowPlayingView(player, currentSong, playbackState, position, volume)
+}
+
+@Composable
+private fun BottomPlayerRoute(
+    player: PlayerViewModel,
+    currentSong: SongItem?,
+    playbackState: PlaybackState,
+    volume: Int,
+    modifier: Modifier = Modifier,
+) {
+    val position by player.position.collectAsState()
+    OmniBottomPlayer(
+        player = player,
+        currentSong = currentSong,
+        playbackState = playbackState,
+        position = position,
+        volume = volume,
+        modifier = modifier,
+    )
 }

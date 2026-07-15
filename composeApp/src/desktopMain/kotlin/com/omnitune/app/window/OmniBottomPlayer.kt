@@ -171,20 +171,29 @@ private fun PlayerLeftZone(
                 modifier = Modifier
                     .size(artworkSize)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(Color.White.copy(alpha = 0.05f))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(
+                                Color(0xFF0B1328),
+                                Color(0xFF171238),
+                                Color(0xFF090F21),
+                            )
+                        )
+                    )
+                    .border(1.dp, OmniReferenceColors.PlayerBorder.copy(alpha = 0.70f), RoundedCornerShape(6.dp))
             )
             Spacer(Modifier.width(12.dp))
             Column {
                 Box(
                     modifier = Modifier.width(100.dp).height(12.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(Color.White.copy(alpha = 0.05f))
+                        .background(Color(0xFF1A2038).copy(alpha = 0.74f))
                 )
                 Spacer(Modifier.height(8.dp))
                 Box(
                     modifier = Modifier.width(60.dp).height(8.dp)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(Color.White.copy(alpha = 0.05f))
+                        .background(Color(0xFF171D32).copy(alpha = 0.62f))
                 )
             }
         }
@@ -669,7 +678,7 @@ fun TargetBottomPlayerSurface(
     Box(
         modifier = modifier.border(
             width = 1.dp,
-            color = Color(0xFF181C32).copy(alpha = 0.90f),
+            color = OmniReferenceColors.PlayerBorder.copy(alpha = 0.90f),
             shape = shape
         )
     ) {
@@ -696,7 +705,7 @@ fun TargetBottomPlayerSurface(
             drawCircle(
                 brush = Brush.radialGradient(
                     colorStops = arrayOf(
-                        0.00f to Color(0xFF12345A).copy(alpha = 0.09f),
+                        0.00f to Color(0xFF12345A).copy(alpha = 0.06f),
                         1.00f to Color.Transparent
                     ),
                     center = leftBlueCenter,
@@ -708,42 +717,42 @@ fun TargetBottomPlayerSurface(
 
             // RESTRAINED LEFT-MIDDLE MAGENTA/VIOLET
             val leftVioletCenter = Offset(
-                x = size.width * 0.34f,
+                x = size.width * 0.32f,
                 y = size.height * 0.53f
             )
 
             drawCircle(
                 brush = Brush.radialGradient(
                     colorStops = arrayOf(
-                        0.00f to Color(0xFF5A1B50).copy(alpha = 0.15f),
-                        0.42f to Color(0xFF38143C).copy(alpha = 0.09f),
+                        0.00f to OmniReferenceColors.PlayerVioletStrong.copy(alpha = 0.28f),
+                        0.42f to OmniReferenceColors.PlayerViolet.copy(alpha = 0.16f),
                         1.00f to Color.Transparent
                     ),
                     center = leftVioletCenter,
-                    radius = size.width * 0.24f
+                    radius = size.width * 0.28f
                 ),
                 center = leftVioletCenter,
-                radius = size.width * 0.24f
+                radius = size.width * 0.28f
             )
 
             // TARGET RIGHT-SIDE VIOLET AROUND 75–80%
             val rightVioletCenter = Offset(
-                x = size.width * 0.78f,
+                x = size.width * 0.70f,
                 y = size.height * 0.54f
             )
 
             drawCircle(
                 brush = Brush.radialGradient(
                     colorStops = arrayOf(
-                        0.00f to Color(0xFF432162).copy(alpha = 0.16f),
-                        0.45f to Color(0xFF281944).copy(alpha = 0.09f),
+                        0.00f to Color(0xFF37153E).copy(alpha = 0.32f),
+                        0.45f to Color(0xFF281944).copy(alpha = 0.12f),
                         1.00f to Color.Transparent
                     ),
                     center = rightVioletCenter,
-                    radius = size.width * 0.21f
+                    radius = size.width * 0.24f
                 ),
                 center = rightVioletCenter,
-                radius = size.width * 0.21f
+                radius = size.width * 0.24f
             )
 
             // FAR-RIGHT SUBTLE VIOLET DEPTH
@@ -755,7 +764,7 @@ fun TargetBottomPlayerSurface(
             drawCircle(
                 brush = Brush.radialGradient(
                     colorStops = arrayOf(
-                        0.00f to Color(0xFF302058).copy(alpha = 0.11f),
+                        0.00f to Color(0xFF302058).copy(alpha = 0.08f),
                         1.00f to Color.Transparent
                     ),
                     center = farRightCenter,

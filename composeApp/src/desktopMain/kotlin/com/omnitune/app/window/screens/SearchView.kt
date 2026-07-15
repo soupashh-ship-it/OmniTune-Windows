@@ -34,15 +34,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -383,8 +383,9 @@ private fun SearchDiscoveryReferenceContent(
                     }
                 }
             } else if (expandedSection != null) {
+                val activeExpandedSection = expandedSection ?: return@Box
                 ExpandedSearchSectionPanel(
-                    section = expandedSection!!,
+                    section = activeExpandedSection,
                     query = query,
                     songs = songs,
                     trendingTerms = trendingTerms,
@@ -710,7 +711,7 @@ private fun ArtistRow(artist: SearchArtistRow, onClick: () -> Unit) {
         )
         Spacer(Modifier.width(metrics.px(7f)))
         Text(artist.name, color = TextPrimary, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        Icon(Icons.Default.ArrowForwardIos, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(9f)))
+        Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(9f)))
     }
 }
 
@@ -1086,7 +1087,7 @@ private fun MoreGenresActionChip(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
-            Icons.Default.ArrowForwardIos,
+            Icons.AutoMirrored.Filled.ArrowForwardIos,
             null,
             tint = IrisSoft,
             modifier = Modifier
@@ -1183,7 +1184,7 @@ private fun playSearchItem(player: PlayerViewModel, item: YTItem) {
     when (item) {
         is SongItem -> player.playSong(item)
         is AlbumItem -> player.openAlbum(item.browseId)
-        is PlaylistItem -> player.playPlaylist(item.id)
+        is PlaylistItem -> player.openPlaylist(item.id)
         is ArtistItem -> player.openArtist(item.id)
     }
 }
@@ -1220,7 +1221,7 @@ private fun genreIcon(index: Int): ImageVector = when (index % 6) {
     0 -> Icons.Default.GraphicEq
     1 -> Icons.Default.Bolt
     2 -> Icons.Default.Favorite
-    3 -> Icons.Default.TrendingUp
+    3 -> Icons.AutoMirrored.Filled.TrendingUp
     4 -> Icons.Default.GraphicEq
     else -> Icons.Default.Search
 }

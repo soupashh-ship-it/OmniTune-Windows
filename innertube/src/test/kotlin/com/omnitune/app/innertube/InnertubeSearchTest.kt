@@ -28,7 +28,6 @@ class InnertubeSearchTest {
                     "Artist: ${item.title}"
                 is PlaylistItem ->
                     "Playlist: ${item.title}"
-                else -> "Other: $item"
             }
             println("  [$index] $label")
         }

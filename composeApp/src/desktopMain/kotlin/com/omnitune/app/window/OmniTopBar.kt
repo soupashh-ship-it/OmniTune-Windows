@@ -59,7 +59,7 @@ fun OmniTopBar(
             .fillMaxWidth()
             .drawBehind {
                 drawLine(
-                    color = Color(0xFF080C1B),
+                    color = OmniReferenceColors.BorderSoft.copy(alpha = 0.72f),
                     start = androidx.compose.ui.geometry.Offset(0f, size.height - 1f),
                     end = androidx.compose.ui.geometry.Offset(size.width, size.height - 1f),
                     strokeWidth = 1f,
@@ -166,9 +166,9 @@ private fun TargetHeaderNavigationButton(
 
     val animatedBackground by animateColorAsState(
         targetValue = when {
-            !enabled -> Color(0xFF080C1A)
-            isHovered -> Color(0xFF121629)
-            else -> Color(0xFF0E1120)
+            !enabled -> Color(0xFF050A16)
+            isHovered -> Color(0xFF0A1128)
+            else -> Color(0xFF080E1D)
         },
         animationSpec = tween(
             durationMillis = 140

@@ -895,7 +895,6 @@ private fun RelatedPanel(
                         is AlbumItem -> item.thumbnail.toHighResThumbnail()
                         is com.omnitune.innertube.models.ArtistItem -> item.thumbnail?.toHighResThumbnail()
                         is com.omnitune.innertube.models.PlaylistItem -> item.thumbnail?.toHighResThumbnail()
-                        else -> null
                     },
                     contentDescription = null,
                     modifier = Modifier.size(48.dp).clip(Shapes.artworkSmall),
@@ -909,7 +908,6 @@ private fun RelatedPanel(
                         is AlbumItem -> item.artists?.joinToString { it.name } ?: "Album"
                         is com.omnitune.innertube.models.ArtistItem -> "Artist"
                         is com.omnitune.innertube.models.PlaylistItem -> item.author?.name ?: "Playlist"
-                        else -> ""
                     }
                     Text(subtitle, color = TextSecondary, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }

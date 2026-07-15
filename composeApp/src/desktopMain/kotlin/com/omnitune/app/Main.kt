@@ -9,6 +9,7 @@ import kotlin.math.roundToInt
 import com.omnitune.app.di.initKoin
 import com.omnitune.app.platform.NativeRuntime
 import com.omnitune.app.platform.PlaybackState
+import com.omnitune.app.platform.QaRuntime
 import com.omnitune.app.platform.SettingsRepository
 import com.omnitune.app.platform.SmtcManager
 import com.omnitune.app.platform.VlcjAudioEngine
@@ -20,6 +21,9 @@ import com.omnitune.app.window.OmniMiniPlayer
 import com.omnitune.app.window.OmniWindow
 import com.omnitune.innertube.models.SongItem
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import org.json.JSONObject
 import org.koin.compose.KoinApplication
 import org.koin.compose.koinInject
@@ -46,15 +50,12 @@ fun main() {
             val settings: SettingsRepository = koinInject()
             val player: PlayerViewModel = koinInject()
             val discoveryTrending by player.discoveryTrending.collectAsState()
-            val smtcCurrentSong by player.currentSong.collectAsState()
-            val smtcPlaybackState by player.playbackState.collectAsState()
-            val smtcPosition by player.position.collectAsState()
             val miniAlwaysOnTop by settings.miniPlayerAlwaysOnTopFlow.collectAsState()
-            val miniAotQa = remember { System.getenv("OMNITUNE_QA_MINI_AOT") == "true" }
-            val queueSaveQa = remember { System.getenv("OMNITUNE_QA_QUEUE_SAVE_UI") == "true" }
-            val queueSaveQaVerifyOnly = remember { System.getenv("OMNITUNE_QA_QUEUE_SAVE_VERIFY_ONLY") == "true" }
+            val miniAotQa = remember { QaRuntime.miniAlwaysOnTop }
+            val queueSaveQa = remember { QaRuntime.queueSaveUi }
+            val queueSaveQaVerifyOnly = remember { QaRuntime.queueSaveVerifyOnly }
             val queueSaveQaName = remember {
-                System.getenv("OMNITUNE_QA_QUEUE_PLAYLIST_NAME")?.takeIf { it.isNotBlank() }
+                QaRuntime.queuePlaylistName
                     ?: "QA Queue Save ${System.currentTimeMillis()}"
             }
             var miniNativeAot by remember { mutableStateOf<Boolean?>(null) }
@@ -79,32 +80,42 @@ fun main() {
                 }
             }
 
-            LaunchedEffect(smtcCurrentSong?.id, smtcPosition.lengthMs) {
-                val song = smtcCurrentSong
-                if (song != null) {
-                    smtcManager.updateMetadata(
-                        title = song.title,
-                        artist = song.artists.joinToString(", ") { it.name },
-                        album = song.album?.name.orEmpty(),
-                        thumbnailPath = null,
-                        durationMs = smtcPosition.lengthMs,
-                    )
+            LaunchedEffect(smtcManager, player) {
+                player.currentSong.collect { song ->
+                    if (song != null) {
+                        smtcManager.updateMetadata(
+                            title = song.title,
+                            artist = song.artists.joinToString(", ") { it.name },
+                            album = song.album?.name.orEmpty(),
+                            thumbnailPath = null,
+                            durationMs = player.position.value.lengthMs,
+                        )
+                    }
                 }
             }
 
-            LaunchedEffect(smtcPlaybackState) {
-                smtcManager.updatePlaybackState(smtcPlaybackState == PlaybackState.PLAYING)
+            LaunchedEffect(smtcManager, player) {
+                player.playbackState.collect { state ->
+                    smtcManager.updatePlaybackState(state == PlaybackState.PLAYING)
+                }
             }
 
-            LaunchedEffect(smtcPosition.timeMs, smtcPosition.lengthMs) {
-                smtcManager.updatePosition(smtcPosition.timeMs, smtcPosition.lengthMs)
+            LaunchedEffect(smtcManager, player) {
+                player.position.collect { position ->
+                    smtcManager.updatePosition(position.timeMs, position.lengthMs)
+                }
             }
 
-            val winDpSize = windowState.size
-            LaunchedEffect(winDpSize) {
-                settings.windowWidth = winDpSize.width.value.roundToInt()
-                settings.windowHeight = winDpSize.height.value.roundToInt()
-                settings.flush()
+            LaunchedEffect(windowState, settings) {
+                snapshotFlow { windowState.size }
+                    .map { it.width.value.roundToInt() to it.height.value.roundToInt() }
+                    .distinctUntilChanged()
+                    .collectLatest { (width, height) ->
+                        delay(500L)
+                        settings.windowWidth = width
+                        settings.windowHeight = height
+                        settings.flush()
+                    }
             }
 
             if (isWindowVisible) {

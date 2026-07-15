@@ -36,22 +36,22 @@ object OmniReferenceColors {
     // ---------------------------------------------------------
     // GLOBAL WINDOW / SHELL
     // ---------------------------------------------------------
-    val WindowBase = Color(0xFF030819)
-    val MainBase = Color(0xFF040819)
-    val MainBaseAlt = Color(0xFF04081A)
-    val ContentBase = Color(0xFF04081A)
-    val ContentDeep = Color(0xFF030718)
-    val TopBarBase = Color(0xFF030715)
-    val TopBarSecondary = Color(0xFF040716)
+    val WindowBase = Color(0xFF020714)
+    val MainBase = Color(0xFF030917)
+    val MainBaseAlt = Color(0xFF030917)
+    val ContentBase = Color(0xFF030917)
+    val ContentDeep = Color(0xFF020816)
+    val TopBarBase = Color(0xFF010613)
+    val TopBarSecondary = Color(0xFF020713)
 
     // ---------------------------------------------------------
     // SIDEBAR
     // ---------------------------------------------------------
-    val SidebarTop = Color(0xFF0D0C23)
-    val SidebarBase = Color(0xFF080F22)
-    val SidebarMiddle = Color(0xFF0C1025)
-    val SidebarBottom = Color(0xFF090E1F)
-    val SidebarBlueTint = Color(0xFF0E1743)
+    val SidebarTop = Color(0xFF050B18)
+    val SidebarBase = Color(0xFF050C1D)
+    val SidebarMiddle = Color(0xFF050D1E)
+    val SidebarBottom = Color(0xFF050D1D)
+    val SidebarBlueTint = Color(0xFF0F1642)
 
     // ---------------------------------------------------------
     // MAIN CONTENT ILLUMINATION
@@ -64,70 +64,70 @@ object OmniReferenceColors {
     // ---------------------------------------------------------
     // GENERAL SURFACES
     // ---------------------------------------------------------
-    val SurfaceLowest = Color(0xFF080D1D)
-    val SurfaceBase = Color(0xFF0A0F20)
-    val SurfaceAlternate = Color(0xFF0B0F20)
-    val SurfaceRaised = Color(0xFF0F122C)
-    val SurfaceDeepRaised = Color(0xFF0C1021)
-    val SurfaceSelected = Color(0xFF0F143C)
-    val SurfaceSelectedStrong = Color(0xFF181F5B)
-    val Border = Color(0xFF181D34)
-    val BorderSoft = Color(0xFF12172A)
-    val SurfaceBorder = Color(0xFF181D34)
-    val Divider = Color(0xFF161A2B)
+    val SurfaceLowest = Color(0xFF080E1D)
+    val SurfaceBase = Color(0xFF090F1F)
+    val SurfaceAlternate = Color(0xFF080F1D)
+    val SurfaceRaised = Color(0xFF0A1128)
+    val SurfaceDeepRaised = Color(0xFF080E1D)
+    val SurfaceSelected = Color(0xFF10143D)
+    val SurfaceSelectedStrong = Color(0xFF1F1471)
+    val Border = Color(0xFF12182A)
+    val BorderSoft = Color(0xFF0E1424)
+    val SurfaceBorder = Color(0xFF12182A)
+    val Divider = Color(0xFF101629)
 
     // ---------------------------------------------------------
     // SEARCH
     // ---------------------------------------------------------
-    val SearchBackground = Color(0xFF0C0F1E)
-    val SearchBackgroundAlternate = Color(0xFF0B0F1E)
-    val SearchBorder = Color(0xFF121623)
-    val SearchBorderTop = Color(0xFF131624)
-    val SearchBorderBottom = Color(0xFF121623)
+    val SearchBackground = Color(0xFF090E1D)
+    val SearchBackgroundAlternate = Color(0xFF080E1C)
+    val SearchBorder = Color(0xFF121827)
+    val SearchBorderTop = Color(0xFF141A2A)
+    val SearchBorderBottom = Color(0xFF0D1322)
 
     // ---------------------------------------------------------
     // SELECTED NAVIGATION
     // ---------------------------------------------------------
-    val NavSelectedStart = Color(0xFF1A0F47)
-    val NavSelectedLeftMiddle = Color(0xFF211253)
-    val NavSelectedCenter = Color(0xFF201566)
-    val NavSelectedRightMiddle = Color(0xFF221C7B)
-    val NavSelectedEnd = Color(0xFF18184C)
-    val NavSelectedIndicator = Color(0xFF7D84F7)
+    val NavSelectedStart = Color(0xFF1D135D)
+    val NavSelectedLeftMiddle = Color(0xFF1C1670)
+    val NavSelectedCenter = Color(0xFF1F1471)
+    val NavSelectedRightMiddle = Color(0xFF24247A)
+    val NavSelectedEnd = Color(0xFF17194D)
+    val NavSelectedIndicator = Color(0xFF604CE0)
 
     // ---------------------------------------------------------
     // PRIMARY ACCENT
     // ---------------------------------------------------------
-    val Accent = Color(0xFF7D82FB)
-    val AccentSoft = Color(0xFF7E84F6)
-    val AccentBright = Color(0xFF8085FB)
-    val AccentEnd = Color(0xFF787EF8)
+    val Accent = Color(0xFF604CE0)
+    val AccentSoft = Color(0xFF6466D8)
+    val AccentBright = Color(0xFF6C6CDE)
+    val AccentEnd = Color(0xFF5C48DE)
 
     // ---------------------------------------------------------
     // TEXT
     // ---------------------------------------------------------
     val TextPrimary = Color(0xFFFFFFFF)
-    val TextSecondary = Color(0xFF9495A7)
-    val TextMuted = Color(0xFF72758F)
-    val TextDisabled = Color(0xFF4F536B)
+    val TextSecondary = Color(0xFFA9AEC2)
+    val TextMuted = Color(0xFF727A93)
+    val TextDisabled = Color(0xFF50586E)
 
     // ---------------------------------------------------------
     // BOTTOM PLAYER
     // ---------------------------------------------------------
-    val PlayerBase = Color(0xFF0B1021)
-    val PlayerCenter = Color(0xFF11132A)
-    val PlayerViolet = Color(0xFF16112D)
-    val PlayerVioletStrong = Color(0xFF1D1033)
-    val PlayerRightViolet = Color(0xFF0F1027)
-    val PlayerBorder = Color(0xFF181C32)
+    val PlayerBase = Color(0xFF080E1D)
+    val PlayerCenter = Color(0xFF070D1B)
+    val PlayerViolet = Color(0xFF0F0C24)
+    val PlayerVioletStrong = Color(0xFF1B0E31)
+    val PlayerRightViolet = Color(0xFF0F0E23)
+    val PlayerBorder = Color(0xFF12182A)
 
     // ---------------------------------------------------------
     // PLAYBACK SLIDERS
     // ---------------------------------------------------------
-    val SeekFill = Color(0xFF8795FA)
-    val SeekFillBright = Color(0xFF8A98FE)
+    val SeekFill = Color(0xFF6466D8)
+    val SeekFillBright = Color(0xFF6C6CDE)
     val SeekTrack = Color(0xFF232737)
-    val VolumeFill = Color(0xFF808AFF)
+    val VolumeFill = Color(0xFF6466D8)
 
     // ---------------------------------------------------------
     // PRIMARY PLAYER CONTROL
@@ -322,12 +322,12 @@ data class OmniThemePalette(
 private val NocturnePrismPalette = OmniThemePalette(
     windowBase = OmniReferenceColors.WindowBase,
     contentBase = OmniReferenceColors.ContentBase,
-    topBarStart = Color(0xFF040716),
-    topBarCenter = Color(0xFF030715),
-    topBarEnd = Color(0xFF020615),
-    mainGlow = Color(0xFF0B2A5C),
-    violetGlow = Color(0xFF25105B),
-    rightGlow = Color(0xFF091A43),
+    topBarStart = Color(0xFF020713),
+    topBarCenter = Color(0xFF010613),
+    topBarEnd = Color(0xFF010612),
+    mainGlow = Color(0xFF07183B),
+    violetGlow = Color(0xFF160D3A),
+    rightGlow = Color(0xFF06112B),
     accent = OmniReferenceColors.Accent,
 )
 

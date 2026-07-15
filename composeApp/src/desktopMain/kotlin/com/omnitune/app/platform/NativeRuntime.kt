@@ -27,7 +27,7 @@ object NativeRuntime {
 
     fun resolveVlcRuntime(): VlcRuntimeSelection? {
         val appDir = resolveApplicationDirectory()
-        val requireBundled = System.getenv("OMNITUNE_QA_REQUIRE_BUNDLED_VLC") == "true"
+        val requireBundled = QaRuntime.requireBundledVlc
         val candidates = buildList {
             add("packaged" to File(appDir, "native/vlc"))
             appDir.parentFile?.let { add("packaged-parent" to File(it, "native/vlc")) }

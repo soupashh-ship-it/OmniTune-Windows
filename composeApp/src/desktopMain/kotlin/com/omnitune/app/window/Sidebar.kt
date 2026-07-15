@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.omnitune.app.platform.SavedQueuePlaylist
 import com.omnitune.app.player.NavScreen
 import com.omnitune.innertube.models.SongItem
 import com.omnitune.innertube.toHighResThumbnail
@@ -64,13 +66,20 @@ fun OmniSidebar(
     hasCurrentSong: Boolean,
     currentSong: SongItem?,
     likedCount: Int,
+    savedPlaylists: List<SavedQueuePlaylist>,
+    currentPlaylistId: String?,
     onNavigate: (NavScreen) -> Unit,
+    onOpenPlaylist: (String) -> Unit,
+    onCreatePlaylist: (String) -> Result<String>,
     width: androidx.compose.ui.unit.Dp,
     modifier: Modifier = Modifier,
 ) {
     val motionPolicy = LocalOmniMotionPolicy.current
-    val librarySubScreens = setOf(NavScreen.Playlists, NavScreen.Album, NavScreen.Artist, NavScreen.Search, NavScreen.Downloads, NavScreen.NowPlaying)
+    val librarySubScreens = setOf(NavScreen.Playlists, NavScreen.Album, NavScreen.Artist, NavScreen.Search, NavScreen.Downloads, NavScreen.NowPlaying, NavScreen.LikedSongs)
     var libraryExpanded by remember { mutableStateOf(activeScreen in librarySubScreens || activeScreen == NavScreen.Library) }
+    var createDialogOpen by remember { mutableStateOf(false) }
+    var newPlaylistName by remember { mutableStateOf("") }
+    var createError by remember { mutableStateOf<String?>(null) }
 
     // Auto-expand when navigating into library sub-screens
     LaunchedEffect(activeScreen) {
@@ -87,11 +96,11 @@ fun OmniSidebar(
             drawRect(
                 brush = Brush.verticalGradient(
                     colorStops = arrayOf(
-                        0.00f to Color(0xFF090B20),
-                        0.20f to Color(0xFF090D23),
-                        0.45f to Color(0xFF071127),
-                        0.72f to Color(0xFF041028),
-                        1.00f to Color(0xFF03102A)
+                        0.00f to Color(0xFF050B18),
+                        0.20f to Color(0xFF050C1B),
+                        0.45f to Color(0xFF050D1E),
+                        0.72f to Color(0xFF050D1D),
+                        1.00f to Color(0xFF050D1D)
                     )
                 )
             )
@@ -100,30 +109,30 @@ fun OmniSidebar(
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color(0xFF4A1E72).copy(alpha = 0.22f),
-                        Color(0xFF4A1E72).copy(alpha = 0.08f),
+                        Color(0xFF2C1552).copy(alpha = 0.12f),
+                        Color(0xFF241344).copy(alpha = 0.045f),
                         Color.Transparent
                     ),
                     center = violetCenter,
-                    radius = size.width * 0.75f
+                    radius = size.width * 0.68f
                 ),
                 center = violetCenter,
-                radius = size.width * 0.75f
+                radius = size.width * 0.68f
             )
 
             val blueCenter = Offset(size.width * 0.72f, size.height * 0.17f)
             drawCircle(
                 brush = Brush.radialGradient(
                     colors = listOf(
-                        Color(0xFF1D56C9).copy(alpha = 0.18f),
-                        Color(0xFF1D56C9).copy(alpha = 0.07f),
+                        Color(0xFF2F36B0).copy(alpha = 0.26f),
+                        Color(0xFF182A72).copy(alpha = 0.10f),
                         Color.Transparent
                     ),
                     center = blueCenter,
-                    radius = size.width * 0.58f
+                    radius = size.width * 0.62f
                 ),
                 center = blueCenter,
-                radius = size.width * 0.58f
+                radius = size.width * 0.62f
             )
         }
         Column(modifier = Modifier.fillMaxSize()) {
@@ -139,12 +148,12 @@ fun OmniSidebar(
                 modifier = Modifier.padding(start = 16.dp, end = 10.dp, top = 13.dp, bottom = 1.dp).fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    modifier = Modifier.size(26.dp).clip(CircleShape).background(OmniGradients.primaryAction),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.MusicNote, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                }
+                Image(
+                    painter = omniTuneIconPainter(),
+                    contentDescription = "OmniTune",
+                    modifier = Modifier.size(28.dp).clip(CircleShape),
+                    contentScale = ContentScale.Crop,
+                )
                 Spacer(Modifier.width(12.dp))
                 Text("OmniTune", style = MaterialTheme.typography.titleLarge, color = Color(0xFFD7DBEE), fontWeight = FontWeight.Medium, fontSize = 18.sp)
             }
@@ -266,7 +275,11 @@ fun OmniSidebar(
                     modifier = Modifier
                         .size(20.dp)
                         .clip(CircleShape)
-                        .clickable { onNavigate(NavScreen.Playlists) },
+                        .clickable {
+                            createError = null
+                            newPlaylistName = ""
+                            createDialogOpen = true
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Add Playlist", tint = TextMuted, modifier = Modifier.size(14.dp))
@@ -275,42 +288,26 @@ fun OmniSidebar(
 
             Spacer(Modifier.height(4.dp))
 
-            // Playlist entries — using gradient boxes as placeholder thumbnails
-            PlaylistItem(
-                gradientColors = listOf(Color(0xFFFF6B35), Color(0xFFFF8C42)),
-                label = "Chill Mornings",
-                isActive = false,
-                onClick = { onNavigate(NavScreen.Playlists) }
-            )
-            PlaylistItem(
-                gradientColors = listOf(Color(0xFF4A1DE0), Color(0xFF7B5EA7)),
-                label = "Night Drive",
-                isActive = false,
-                onClick = { onNavigate(NavScreen.Playlists) }
-            )
-            PlaylistItem(
-                gradientColors = listOf(Color(0xFF2D6A9F), Color(0xFF1E3A5F)),
-                label = "Focus Flow",
-                isActive = false,
-                onClick = { onNavigate(NavScreen.Playlists) }
-            )
-            PlaylistItem(
-                gradientColors = listOf(Color(0xFFE67E22), Color(0xFFD4580A)),
-                label = "Afrobeats Hits",
-                isActive = false,
-                onClick = { onNavigate(NavScreen.Playlists) }
-            )
+            savedPlaylists.take(4).forEachIndexed { index, playlist ->
+                PlaylistItem(
+                    gradientColors = playlistGradient(index),
+                    label = playlist.name,
+                    thumbnail = playlist.coverPath ?: playlist.songs.firstOrNull()?.thumbnail,
+                    isActive = activeScreen == NavScreen.PlaylistDetail && currentPlaylistId == playlist.id,
+                    onClick = { onOpenPlaylist(playlist.id) }
+                )
+            }
             PlaylistItem(
                 gradientColors = listOf(Color(0xFF7C5CFC), Color(0xFF5B3EE8)),
                 label = "Liked Songs",
                 icon = Icons.Default.Favorite,
-                isActive = false,
-                onClick = { onNavigate(NavScreen.Library) }
+                isActive = activeScreen == NavScreen.LikedSongs,
+                onClick = { onNavigate(NavScreen.LikedSongs) }
             )
 
             }
 
-            Column(modifier = Modifier.fillMaxWidth().background(Color(0xFF030D23))) {
+            Column(modifier = Modifier.fillMaxWidth().background(Color(0xFF050D1D))) {
                 HorizontalDivider(color = Color(0xFF8892C7).copy(alpha = 0.08f), thickness = 1.dp)
                 Spacer(Modifier.height(8.dp))
                 Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
@@ -324,6 +321,59 @@ fun OmniSidebar(
                 }
             }
         }
+    }
+
+    if (createDialogOpen) {
+        AlertDialog(
+            onDismissRequest = {
+                createDialogOpen = false
+                createError = null
+            },
+            containerColor = Color(0xFF0D1325),
+            title = { Text("Create playlist", color = TextPrimary) },
+            text = {
+                Column {
+                    TextField(
+                        value = newPlaylistName,
+                        onValueChange = {
+                            newPlaylistName = it.take(100)
+                            createError = null
+                        },
+                        singleLine = true,
+                        placeholder = { Text("Playlist name") },
+                    )
+                    createError?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(it, color = Color(0xFFFF7684), fontSize = 12.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onCreatePlaylist(newPlaylistName)
+                            .onSuccess {
+                                createDialogOpen = false
+                                createError = null
+                                onOpenPlaylist(it)
+                            }
+                            .onFailure { createError = it.message ?: "Could not create playlist." }
+                    },
+                ) {
+                    Text("Create")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        createDialogOpen = false
+                        createError = null
+                    },
+                ) {
+                    Text("Cancel")
+                }
+            },
+        )
     }
 }
 
@@ -353,7 +403,7 @@ private fun NavItem(
                 .fillMaxWidth()
                 .height(31.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .then(if (isHovered && !isActive && enabled) Modifier.background(Surface3) else Modifier)
+                .then(if (isHovered && !isActive && enabled) Modifier.background(Color(0xFF0A1128).copy(alpha = 0.72f)) else Modifier)
                 .hoverable(interactionSource)
                 .clickable(interactionSource = interactionSource, indication = null, enabled = enabled, onClick = onClick)
                 .padding(horizontal = 14.dp),
@@ -418,7 +468,7 @@ private fun LibraryHeader(
             .fillMaxWidth()
             .height(31.dp)
             .clip(RoundedCornerShape(8.dp))
-            .then(if (isActive) Modifier.background(Color(0xFF252450)) else if (isHovered) Modifier.background(Surface3) else Modifier)
+            .then(if (isActive) Modifier.background(OmniReferenceColors.SurfaceSelectedStrong.copy(alpha = 0.58f)) else if (isHovered) Modifier.background(Color(0xFF0A1128).copy(alpha = 0.72f)) else Modifier)
             .hoverable(interactionSource)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onOpen)
             .padding(horizontal = 14.dp),
@@ -462,7 +512,7 @@ private fun LibrarySubItem(
             .fillMaxWidth()
             .height(28.dp)
             .clip(RoundedCornerShape(6.dp))
-            .then(if (isActive) Modifier.background(Color.White.copy(alpha=0.05f)) else if (isHovered) Modifier.background(Surface3) else Modifier)
+            .then(if (isActive) Modifier.background(OmniReferenceColors.SurfaceSelected.copy(alpha = 0.62f)) else if (isHovered) Modifier.background(Color(0xFF0A1128).copy(alpha = 0.72f)) else Modifier)
             .hoverable(interactionSource)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
             .padding(horizontal = 12.dp),
@@ -487,6 +537,7 @@ private fun PlaylistItem(
     label: String,
     isActive: Boolean,
     icon: ImageVector? = null,
+    thumbnail: String? = null,
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -513,7 +564,14 @@ private fun PlaylistItem(
                 .background(androidx.compose.ui.graphics.Brush.linearGradient(gradientColors)),
             contentAlignment = Alignment.Center,
         ) {
-            if (icon != null) {
+            if (!thumbnail.isNullOrBlank()) {
+                AsyncImage(
+                    model = thumbnail.toHighResThumbnail(),
+                    contentDescription = label,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+            } else if (icon != null) {
                 Icon(icon, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(16.dp))
             }
         }
@@ -529,6 +587,13 @@ private fun PlaylistItem(
     }
 }
 
+private fun playlistGradient(index: Int): List<Color> = when (index % 4) {
+    0 -> listOf(Color(0xFFFF7A2F), Color(0xFF6A38FF))
+    1 -> listOf(Color(0xFF4A1DE0), Color(0xFF111B46))
+    2 -> listOf(Color(0xFF315B8F), Color(0xFF0C1833))
+    else -> listOf(Color(0xFFE67E22), Color(0xFF4E1B7A))
+}
+
 
 
 @Composable
@@ -542,13 +607,13 @@ fun OmniReferenceSelectedNavigation(
         modifier = modifier
             .background(
                 brush = Brush.horizontalGradient(
-                    colorStops = arrayOf(
-                        0.00f to Color(0xFF1A0F47),
-                        0.22f to Color(0xFF211253),
-                        0.50f to Color(0xFF201566),
-                        0.76f to Color(0xFF221C7B),
-                        1.00f to Color(0xFF18184C)
-                    )
+                colorStops = arrayOf(
+                    0.00f to OmniReferenceColors.NavSelectedStart,
+                    0.24f to OmniReferenceColors.NavSelectedLeftMiddle,
+                    0.52f to OmniReferenceColors.NavSelectedCenter,
+                    0.76f to OmniReferenceColors.NavSelectedRightMiddle,
+                    1.00f to OmniReferenceColors.NavSelectedEnd
+                )
                 ),
                 shape = shape
             )

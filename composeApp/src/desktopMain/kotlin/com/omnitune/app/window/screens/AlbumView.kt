@@ -36,7 +36,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,42 +66,38 @@ import com.omnitune.innertube.models.Artist
 import com.omnitune.innertube.models.SongItem
 import com.omnitune.innertube.pages.AlbumPage
 import com.omnitune.innertube.toHighResThumbnail
-import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 @Composable
 fun AlbumView(player: PlayerViewModel) {
     val albumId by player.currentAlbumId.collectAsState()
     val service = koinInject<YouTubeService>()
-    val scope = rememberCoroutineScope()
     var page by remember(albumId) { mutableStateOf<AlbumPage?>(null) }
     var error by remember(albumId) { mutableStateOf<String?>(null) }
     val currentSong by player.currentSong.collectAsState()
     val playbackState by player.playbackState.collectAsState()
 
     LaunchedEffect(albumId) {
-        if (albumId != null) {
-            scope.launch {
-                runCatching { service.album(albumId!!) }
-                    .onSuccess { page = it }
-                    .onFailure { error = it.message }
-            }
-        }
+        val id = albumId ?: return@LaunchedEffect
+        runCatching { service.album(id) }
+            .onSuccess { page = it }
+            .onFailure { error = it.message }
     }
 
+    val loadedPage = page
     when {
         albumId == null -> OmniEmptyState("No album selected", "Open an album to view details.")
         error != null -> OmniEmptyState("Couldn't load album", error ?: "Unknown error")
-        page == null -> AlbumLoading()
+        loadedPage == null -> AlbumLoading()
         else -> AlbumReferenceContent(
-            page = page!!,
+            page = loadedPage,
             currentSong = currentSong,
             playbackState = playbackState,
-            onPlayAlbum = { player.playAlbum(page!!.album.browseId) },
+            onPlayAlbum = { player.playAlbum(loadedPage.album.browseId) },
             onSong = { song, index -> player.playSong(song, index) },
             onAdd = { player.addToQueue(it) },
             onLike = { player.toggleLike(it.id) },
-            onDownloadAlbum = { player.downloadSongs(page!!.songs) },
+            onDownloadAlbum = { player.downloadSongs(loadedPage.songs) },
             onOpenArtist = { id -> if (id != null) player.openArtist(id) },
         )
     }

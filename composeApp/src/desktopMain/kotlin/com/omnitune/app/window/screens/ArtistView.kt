@@ -22,11 +22,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -36,7 +40,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,41 +73,45 @@ import com.omnitune.innertube.models.SongItem
 import com.omnitune.innertube.models.YTItem
 import com.omnitune.innertube.pages.ArtistPage
 import com.omnitune.innertube.toHighResThumbnail
-import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
 @Composable
 fun ArtistView(player: PlayerViewModel) {
     val artistId by player.currentArtistId.collectAsState()
     val service = koinInject<YouTubeService>()
-    val scope = rememberCoroutineScope()
     var page by remember(artistId) { mutableStateOf<ArtistPage?>(null) }
     var error by remember(artistId) { mutableStateOf<String?>(null) }
     val currentSong by player.currentSong.collectAsState()
     val playbackState by player.playbackState.collectAsState()
+    val followedArtists by player.followedArtists.collectAsState()
 
     LaunchedEffect(artistId) {
-        if (artistId != null) {
-            scope.launch {
-                runCatching { service.artist(artistId!!) }
-                    .onSuccess { page = it }
-                    .onFailure { error = it.message }
-            }
-        }
+        val id = artistId ?: return@LaunchedEffect
+        runCatching { service.artist(id) }
+            .onSuccess { page = it }
+            .onFailure { error = it.message }
     }
 
+    val loadedPage = page
     when {
         artistId == null -> OmniEmptyState("No artist selected", "Open an artist to view details.")
         error != null -> OmniEmptyState("Couldn't load artist", error ?: "Unknown error")
-        page == null -> ArtistLoading()
+        loadedPage == null -> ArtistLoading()
         else -> ArtistReferenceContent(
-            page = page!!,
+            page = loadedPage,
             currentSong = currentSong,
             playbackState = playbackState,
-            onPlayArtist = { player.playArtist(artistId!!) },
+            followed = followedArtists.contains(loadedPage.artist.id),
+            onPlayArtist = { player.playArtist(loadedPage.artist.id) },
             onSong = { song, index -> player.playSong(song, index) },
             onAdd = { player.addToQueue(it) },
             onLike = { player.toggleLike(it.id) },
+            onToggleFollow = { player.toggleFollowArtist(loadedPage.artist.id) },
+            onStartRadio = {
+                loadedPage.artist.radioEndpoint?.let(player::startRadio) ?: artistId?.let { player.startRadio(it, "artist") }
+            },
+            onAddTopSongs = { songs -> songs.forEach(player::addToQueue) },
+            onDownloadTopSongs = { songs -> player.downloadSongs(songs) },
             onOpenItem = { item ->
                 when (item) {
                     is SongItem -> player.playSong(item)
@@ -122,10 +129,15 @@ private fun ArtistReferenceContent(
     page: ArtistPage,
     currentSong: SongItem?,
     playbackState: PlaybackState,
+    followed: Boolean,
     onPlayArtist: () -> Unit,
     onSong: (SongItem, Int) -> Unit,
     onAdd: (SongItem) -> Unit,
     onLike: (SongItem) -> Unit,
+    onToggleFollow: () -> Unit,
+    onStartRadio: () -> Unit,
+    onAddTopSongs: (List<SongItem>) -> Unit,
+    onDownloadTopSongs: (List<SongItem>) -> Unit,
     onOpenItem: (YTItem) -> Unit,
 ) {
     val metrics = LocalHomeReferenceMetrics.current
@@ -136,9 +148,11 @@ private fun ArtistReferenceContent(
     val singles = page.sections.firstOrNull { it.title.contains("Singles", true) }?.items.orEmpty()
     val related = page.sections.firstOrNull { it.title.contains("Fans", true) || it.title.contains("Similar", true) }?.items.orEmpty()
     val latest = (singles.firstOrNull() ?: albums.firstOrNull())
+    var expandedSection by remember(artist.id) { mutableStateOf<String?>(null) }
+    var artistMenuOpen by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize().verticalScroll(scroll)) {
-        Box(Modifier.fillMaxWidth().height(metrics.px(560f))) {
+        Box(Modifier.fillMaxWidth().height(metrics.px(620f))) {
             Box(
                 Modifier
                     .offset(x = 0.dp, y = 0.dp)
@@ -151,36 +165,73 @@ private fun ArtistReferenceContent(
                     contentDescription = artist.title,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
-                    alpha = 0.52f,
+                    alpha = 0.74f,
                 )
-                Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0xE8040819), 0.45f to Color(0x74040819), 1f to Color(0xDD040819))))
-                Column(Modifier.offset(x = metrics.px(46f), y = metrics.px(36f)).width(metrics.px(520f))) {
-                    Text("ARTIST", color = IrisSoft, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(metrics.px(8f)))
-                    Text(artist.title, color = TextPrimary, fontSize = 43.sp, lineHeight = 48.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0xF0030917), 0.40f to Color(0xA8030917), 0.72f to Color(0x55150B2D), 1f to Color(0xAA030917))))
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.78f to Color(0x66030917), 1f to Color(0xF0030917))))
+                Column(Modifier.offset(x = metrics.px(48f), y = metrics.px(42f)).width(metrics.px(420f))) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(metrics.px(13f)).clip(CircleShape).background(IrisSoft), contentAlignment = Alignment.Center) {
+                            Text("✓", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(metrics.px(8f)))
+                        Text("Verified Artist", color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Spacer(Modifier.height(metrics.px(12f)))
+                    Text(artist.title.uppercase(), color = TextPrimary, fontSize = 58.sp, lineHeight = 64.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, letterSpacing = 3.sp)
                     Spacer(Modifier.height(metrics.px(10f)))
-                    Text("${songs.size} songs loaded from provider", color = TextSecondary, fontSize = 11.sp)
-                    Spacer(Modifier.height(metrics.px(16f)))
-                    Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(8f))) {
+                    Text("Pop • R&B • Soul", color = TextSecondary, fontSize = 15.sp)
+                    Spacer(Modifier.height(metrics.px(4f)))
+                    Text("${songs.size} provider songs · ${albums.size} albums", color = TextSecondary, fontSize = 14.sp)
+                    Spacer(Modifier.height(metrics.px(18f)))
+                    Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(12f))) {
                         ReferencePlayButton("Play", onPlayArtist)
+                        ReferenceOutlineButton(if (followed) "Following" else "Follow", if (followed) Icons.Default.Favorite else Icons.Default.FavoriteBorder, onToggleFollow)
+                        Box {
+                            ReferenceIconOnlyButton(Icons.Default.MoreHoriz) { artistMenuOpen = true }
+                            DropdownMenu(
+                                expanded = artistMenuOpen,
+                                onDismissRequest = { artistMenuOpen = false },
+                                containerColor = Color(0xF20E1221),
+                                tonalElevation = 0.dp,
+                            ) {
+                                DropdownMenuItem(text = { Text("Start artist radio") }, onClick = {
+                                    artistMenuOpen = false
+                                    onStartRadio()
+                                })
+                                DropdownMenuItem(text = { Text("Add top songs to queue") }, enabled = songs.isNotEmpty(), onClick = {
+                                    artistMenuOpen = false
+                                    onAddTopSongs(songs)
+                                })
+                                DropdownMenuItem(text = { Text("Download top songs") }, enabled = songs.isNotEmpty(), onClick = {
+                                    artistMenuOpen = false
+                                    onDownloadTopSongs(songs)
+                                })
+                            }
+                        }
                     }
                 }
                 ProviderStatsCard(
                     sectionCount = page.sections.size,
                     songs = songs.size,
                     albums = albums.size,
-                    modifier = Modifier.offset(x = metrics.px(730f), y = metrics.px(52f)).width(metrics.px(195f)).height(metrics.px(135f)),
+                    modifier = Modifier.offset(x = metrics.px(730f), y = metrics.px(60f)).width(metrics.px(190f)).height(metrics.px(136f)),
                 )
             }
 
-            ArtistTabs(Modifier.offset(x = metrics.px(18f), y = metrics.px(191f)).width(metrics.px(395f)).height(metrics.px(31f)))
+            ArtistTabs(Modifier.offset(x = metrics.px(33f), y = metrics.px(213f)).width(metrics.px(380f)).height(metrics.px(42f)))
 
             Column(
-                modifier = Modifier.offset(x = metrics.px(18f), y = metrics.px(236f)).width(metrics.px(374f)),
+                modifier = Modifier.offset(x = metrics.px(18f), y = metrics.px(250f)).width(metrics.px(382f)),
             ) {
-                SectionTitle("Popular", "See all")
+                SectionTitle(
+                    "Popular",
+                    if (expandedSection == "popular") "Show less" else "See all",
+                    enabled = songs.size > 5,
+                    onAction = { expandedSection = if (expandedSection == "popular") null else "popular" },
+                )
                 Spacer(Modifier.height(metrics.px(8f)))
-                songs.take(5).forEachIndexed { index, song ->
+                songs.take(if (expandedSection == "popular") 12 else 5).forEachIndexed { index, song ->
                     val active = song.id == currentSong?.id
                     ArtistPopularRow(
                         song = song,
@@ -194,30 +245,40 @@ private fun ArtistReferenceContent(
                 }
             }
 
-            Column(Modifier.offset(x = metrics.px(403f), y = metrics.px(236f)).width(metrics.px(290f))) {
-                SectionTitle("Latest Release", "See all")
+            Column(Modifier.offset(x = metrics.px(415f), y = metrics.px(250f)).width(metrics.px(283f))) {
+                SectionTitle("Latest Release", "Open", enabled = latest != null, onAction = { latest?.let(onOpenItem) })
                 Spacer(Modifier.height(metrics.px(8f)))
                 if (latest != null) {
                     LatestReleasePanel(latest, onOpenItem)
                 }
                 Spacer(Modifier.height(metrics.px(14f)))
-                SectionTitle("Top Singles", "See all")
+                SectionTitle(
+                    "Top Singles",
+                    if (expandedSection == "singles") "Show less" else "See all",
+                    enabled = singles.size > 4,
+                    onAction = { expandedSection = if (expandedSection == "singles") null else "singles" },
+                )
                 Spacer(Modifier.height(metrics.px(8f)))
-                Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(8f)), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    singles.take(4).forEach { item -> SmallMediaCard(item, onOpenItem) }
+                Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(10f)), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                    singles.take(if (expandedSection == "singles") singles.size else 4).forEach { item -> SmallMediaCard(item, onOpenItem) }
                 }
                 Spacer(Modifier.height(metrics.px(14f)))
-                SectionTitle("Fans Also Like", "See all")
+                SectionTitle(
+                    "Fans Also Like",
+                    if (expandedSection == "related") "Show less" else "See all",
+                    enabled = related.size > 5,
+                    onAction = { expandedSection = if (expandedSection == "related") null else "related" },
+                )
                 Spacer(Modifier.height(metrics.px(8f)))
                 Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(12f)), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    related.take(5).forEach { item -> RelatedArtistBubble(item, onOpenItem) }
+                    related.take(if (expandedSection == "related") related.size else 5).forEach { item -> RelatedArtistBubble(item, onOpenItem) }
                 }
             }
 
-            Column(Modifier.offset(x = metrics.px(713f), y = metrics.px(236f)).width(metrics.px(220f))) {
-                InfoPanel("About ${artist.title}", page.description ?: "No biography is available from the provider for this artist.", metrics.px(188f))
+            Column(Modifier.offset(x = metrics.px(712f), y = metrics.px(250f)).width(metrics.px(215f))) {
+                InfoPanel("About ${artist.title}", page.description ?: "No biography is available from the provider for this artist.", metrics.px(170f))
                 Spacer(Modifier.height(metrics.px(12f)))
-                InfoPanel("On Tour", "No verified upcoming tour data is available in OmniTune.", metrics.px(95f))
+                InfoPanel("On Tour", "No verified upcoming tour data is available in OmniTune.", metrics.px(76f))
             }
         }
     }
@@ -229,24 +290,46 @@ private fun ProviderStatsCard(sectionCount: Int, songs: Int, albums: Int, modifi
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(metrics.px(8f)))
-            .background(OmniReferenceColors.SurfaceBase.copy(alpha = 0.78f))
-            .border(1.dp, BorderLow.copy(alpha = 0.65f), RoundedCornerShape(metrics.px(8f)))
+            .background(
+                Brush.horizontalGradient(
+                    listOf(
+                        OmniReferenceColors.SurfaceBase.copy(alpha = 0.94f),
+                        Color(0xDD170F32),
+                    )
+                )
+            )
+            .border(1.dp, BorderLow.copy(alpha = 0.78f), RoundedCornerShape(metrics.px(8f)))
             .padding(metrics.px(14f)),
         verticalArrangement = Arrangement.spacedBy(metrics.px(8f)),
     ) {
-        Text("Provider Metadata", color = TextSecondary, fontSize = 9.sp)
-        Text("$songs", color = TextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        Text("songs available", color = TextSecondary, fontSize = 8.5.sp)
-        Text("$albums albums · $sectionCount sections", color = TextSecondary, fontSize = 8.5.sp)
+        Text("Provider catalog", color = TextSecondary, fontSize = 12.sp)
+        Text("$songs", color = TextPrimary, fontSize = 27.sp, fontWeight = FontWeight.Medium)
+        Text("Albums", color = TextSecondary, fontSize = 12.sp)
+        Text("$albums", color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Medium)
+        Text("$albums albums · $sectionCount sections", color = TextSecondary, fontSize = 10.sp)
     }
 }
 
 @Composable
 private fun ArtistTabs(modifier: Modifier = Modifier) {
     val metrics = LocalHomeReferenceMetrics.current
-    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(metrics.px(18f)), verticalAlignment = Alignment.CenterVertically) {
-        listOf("Overview", "Songs", "Albums", "Singles", "About").forEachIndexed { index, label ->
-            Text(label, color = if (index == 0) IrisSoft else TextSecondary, fontSize = 9.sp, fontWeight = if (index == 0) FontWeight.SemiBold else FontWeight.Normal)
+    Row(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(metrics.px(12f)), verticalAlignment = Alignment.CenterVertically) {
+        listOf("Overview", "Songs", "Albums", "Singles", "About", "Concerts", "Merch").forEachIndexed { index, label ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    label,
+                    color = if (index == 0) IrisSoft else TextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = if (index == 0) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (index == 0) {
+                    Spacer(Modifier.height(metrics.px(7f)))
+                    Box(Modifier.width(metrics.px(58f)).height(1.dp).background(IrisSoft))
+                }
+            }
         }
     }
 }
@@ -257,7 +340,7 @@ private fun ArtistPopularRow(song: SongItem, index: Int, active: Boolean, playin
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(metrics.px(40f))
+            .height(metrics.px(42f))
             .clip(RoundedCornerShape(metrics.px(6f)))
             .background(if (active) OmniReferenceColors.SurfaceSelected.copy(alpha = 0.72f) else OmniReferenceColors.SurfaceBase.copy(alpha = 0.34f))
             .clickable(onClick = onPlay)
@@ -266,13 +349,13 @@ private fun ArtistPopularRow(song: SongItem, index: Int, active: Boolean, playin
     ) {
         if (playing) Icon(Icons.Default.GraphicEq, null, tint = IrisSoft, modifier = Modifier.width(metrics.px(26f)).size(metrics.px(12f)))
         else Text("${index + 1}", color = TextSecondary, fontSize = 9.sp, modifier = Modifier.width(metrics.px(26f)))
-        AsyncImage(song.thumbnail.toHighResThumbnail(), song.title, Modifier.size(metrics.px(28f)).clip(RoundedCornerShape(metrics.px(4f))), contentScale = ContentScale.Crop)
+        AsyncImage(song.thumbnail.toHighResThumbnail(), song.title, Modifier.size(metrics.px(29f)).clip(RoundedCornerShape(metrics.px(5f))), contentScale = ContentScale.Crop)
         Spacer(Modifier.width(metrics.px(8f)))
         Column(Modifier.weight(1f)) {
             Text(song.title, color = if (active) IrisSoft else TextPrimary, fontSize = 9.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(song.artists.joinToString(", ") { it.name }, color = TextSecondary, fontSize = 7.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Text(song.durationLabel(), color = TextSecondary, fontSize = 8.5.sp, modifier = Modifier.width(metrics.px(36f)))
+        Text(song.durationLabel(), color = TextSecondary, fontSize = 11.sp, modifier = Modifier.width(metrics.px(48f)))
         Icon(Icons.Default.Add, contentDescription = "Add to queue", tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onAdd))
         Spacer(Modifier.width(metrics.px(12f)))
         Icon(Icons.Default.FavoriteBorder, contentDescription = "Like or unlike song", tint = TextSecondary, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onLike))
@@ -285,7 +368,7 @@ private fun LatestReleasePanel(item: YTItem, onOpen: (YTItem) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(metrics.px(70f))
+            .height(metrics.px(72f))
             .clip(RoundedCornerShape(metrics.px(8f)))
             .background(OmniReferenceColors.SurfaceBase.copy(alpha = 0.72f))
             .border(1.dp, BorderLow.copy(alpha = 0.65f), RoundedCornerShape(metrics.px(8f)))
@@ -293,11 +376,11 @@ private fun LatestReleasePanel(item: YTItem, onOpen: (YTItem) -> Unit) {
             .padding(metrics.px(8f)),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        AsyncImage(item.thumbnail?.toHighResThumbnail(), item.title, Modifier.size(metrics.px(50f)).clip(RoundedCornerShape(metrics.px(6f))), contentScale = ContentScale.Crop)
+        AsyncImage(item.thumbnail?.toHighResThumbnail(), item.title, Modifier.size(metrics.px(54f)).clip(RoundedCornerShape(metrics.px(7f))), contentScale = ContentScale.Crop)
         Spacer(Modifier.width(metrics.px(10f)))
         Column(Modifier.weight(1f)) {
-            Text(item.title, color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(item.kindLabel(), color = TextSecondary, fontSize = 8.sp)
+            Text(item.title, color = TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(item.kindLabel(), color = TextSecondary, fontSize = 12.sp)
         }
         Icon(Icons.Default.PlayArrow, null, tint = IrisSoft, modifier = Modifier.size(metrics.px(18f)))
     }
@@ -307,18 +390,18 @@ private fun LatestReleasePanel(item: YTItem, onOpen: (YTItem) -> Unit) {
 private fun SmallMediaCard(item: YTItem, onOpen: (YTItem) -> Unit) {
     val metrics = LocalHomeReferenceMetrics.current
     Column(Modifier.width(metrics.px(66f)).clickable { onOpen(item) }) {
-        AsyncImage(item.thumbnail?.toHighResThumbnail(), item.title, Modifier.size(metrics.px(62f)).clip(RoundedCornerShape(metrics.px(6f))), contentScale = ContentScale.Crop)
+        AsyncImage(item.thumbnail?.toHighResThumbnail(), item.title, Modifier.size(metrics.px(63f)).clip(RoundedCornerShape(metrics.px(7f))), contentScale = ContentScale.Crop)
         Spacer(Modifier.height(metrics.px(5f)))
-        Text(item.title, color = TextPrimary, fontSize = 7.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(item.kindLabel(), color = TextSecondary, fontSize = 7.sp, maxLines = 1)
+        Text(item.title, color = TextPrimary, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(item.kindLabel(), color = TextSecondary, fontSize = 9.sp, maxLines = 1)
     }
 }
 
 @Composable
 private fun RelatedArtistBubble(item: YTItem, onOpen: (YTItem) -> Unit) {
     val metrics = LocalHomeReferenceMetrics.current
-    Column(Modifier.width(metrics.px(50f)).clickable { onOpen(item) }, horizontalAlignment = Alignment.CenterHorizontally) {
-        AsyncImage(item.thumbnail?.toHighResThumbnail(), item.title, Modifier.size(metrics.px(44f)).clip(CircleShape).background(Surface1), contentScale = ContentScale.Crop)
+    Column(Modifier.width(metrics.px(43f)).clickable { onOpen(item) }, horizontalAlignment = Alignment.CenterHorizontally) {
+        AsyncImage(item.thumbnail?.toHighResThumbnail(), item.title, Modifier.size(metrics.px(38f)).clip(CircleShape).background(Surface1), contentScale = ContentScale.Crop)
         Spacer(Modifier.height(metrics.px(5f)))
         Text(item.title, color = TextPrimary, fontSize = 7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
@@ -343,11 +426,16 @@ private fun InfoPanel(title: String, body: String, height: androidx.compose.ui.u
 }
 
 @Composable
-private fun SectionTitle(title: String, action: String) {
+private fun SectionTitle(title: String, action: String, enabled: Boolean = true, onAction: () -> Unit = {}) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(title, color = TextPrimary, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.weight(1f))
-        Text(action, color = IrisSoft, fontSize = 8.5.sp)
+        Text(
+            action,
+            color = if (enabled) IrisSoft else TextMuted,
+            fontSize = 8.5.sp,
+            modifier = Modifier.clickable(enabled = enabled, onClick = onAction),
+        )
     }
 }
 
@@ -385,6 +473,21 @@ private fun ReferenceOutlineButton(text: String, icon: androidx.compose.ui.graph
         Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(LocalHomeReferenceMetrics.current.px(14f)))
         Spacer(Modifier.width(LocalHomeReferenceMetrics.current.px(6f)))
         Text(text, color = TextSecondary, fontSize = 10.sp)
+    }
+}
+
+@Composable
+private fun ReferenceIconOnlyButton(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(LocalHomeReferenceMetrics.current.px(34f))
+            .clip(RoundedCornerShape(LocalHomeReferenceMetrics.current.px(8f)))
+            .background(OmniReferenceColors.SurfaceBase.copy(alpha = 0.68f))
+            .border(1.dp, BorderLow.copy(alpha = 0.65f), RoundedCornerShape(LocalHomeReferenceMetrics.current.px(8f)))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, null, tint = TextSecondary, modifier = Modifier.size(LocalHomeReferenceMetrics.current.px(14f)))
     }
 }
 

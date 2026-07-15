@@ -2,8 +2,8 @@ package com.omnitune.app.window.components
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
-import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -51,7 +51,7 @@ fun OmniVolumeControl(
     val fraction = (volume.toFloat() / maxVolume).coerceIn(0f, 1f)
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
         Icon(
-            if (volume == 0) Icons.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
+            if (volume == 0) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
             null,
             tint = TextSecondary,
             modifier = Modifier.size(18.dp),

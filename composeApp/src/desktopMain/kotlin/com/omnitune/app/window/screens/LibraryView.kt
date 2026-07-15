@@ -22,11 +22,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MoreHoriz
@@ -132,7 +135,7 @@ fun LibraryView(player: PlayerViewModel) {
                 title = saved.name,
                 author = Artist("OmniTune", null),
                 songCountText = "${saved.songs.size} songs",
-                thumbnail = saved.songs.firstOrNull()?.thumbnail,
+                thumbnail = saved.coverPath ?: saved.songs.firstOrNull()?.thumbnail,
                 playEndpoint = null,
                 shuffleEndpoint = null,
                 radioEndpoint = null,
@@ -151,6 +154,7 @@ fun LibraryView(player: PlayerViewModel) {
         activeTab = tab,
         sort = sort,
         gridView = gridView,
+        likedIds = likedIds,
         likedCount = likedSongs.size,
         librarySongs = visibleRows,
         recentItems = if (showAllRecent) recentItems else recentItems.take(8),
@@ -184,7 +188,7 @@ fun LibraryView(player: PlayerViewModel) {
         onPlaySong = { song, index -> player.playSong(song, index) },
         onAdd = { song -> player.addToQueue(song) },
         onPlayNext = { song -> player.playNext(song) },
-        onLike = { song -> player.toggleLike(song.id) },
+        onLike = { song -> player.toggleLikeSong(song) },
         onNavigateToQueue = { player.navigateTo(com.omnitune.app.player.NavScreen.Queue) },
         onNavigateToDownloads = { player.navigateTo(com.omnitune.app.player.NavScreen.Downloads) },
     )
@@ -195,6 +199,7 @@ private fun LibraryReferenceContent(
     activeTab: LibraryTab,
     sort: LibrarySort,
     gridView: Boolean,
+    likedIds: Set<String>,
     likedCount: Int,
     librarySongs: List<SongItem>,
     recentItems: List<YTItem>,
@@ -267,7 +272,7 @@ private fun LibraryReferenceContent(
                     .height(metrics.px(30f)),
                 horizontalArrangement = Arrangement.spacedBy(metrics.px(4f)),
             ) {
-                ToggleIcon(Icons.Default.ViewList, !gridView, Modifier.weight(1f)) { onGridView(false) }
+                ToggleIcon(Icons.AutoMirrored.Filled.ViewList, !gridView, Modifier.weight(1f)) { onGridView(false) }
                 ToggleIcon(Icons.Default.GridView, gridView, Modifier.weight(1f)) { onGridView(true) }
             }
 
@@ -287,7 +292,7 @@ private fun LibraryReferenceContent(
             ) {
                 val availablePinned = listOf(
                     PinnedCollection("favorites", "Favorites", "$likedCount songs", Icons.Default.Favorite, librarySongs.firstOrNull()?.thumbnail) { onTab(LibraryTab.Favorites) },
-                    PinnedCollection("queue", "Queue", "${librarySongs.size} songs", Icons.Default.QueueMusic, librarySongs.getOrNull(1)?.thumbnail) { onNavigateToQueue() },
+                    PinnedCollection("queue", "Queue", "${librarySongs.size} songs", Icons.AutoMirrored.Filled.QueueMusic, librarySongs.getOrNull(1)?.thumbnail) { onNavigateToQueue() },
                     PinnedCollection("albums", "Albums", "${albums.size} saved", Icons.Default.Album, albums.firstOrNull()?.thumbnail) { onTab(LibraryTab.Albums) },
                     PinnedCollection("artists", "Artists", "${artists.size} artists", Icons.Default.Person, artists.firstOrNull()?.artwork) { onTab(LibraryTab.Artists) },
                     PinnedCollection("playlists", "Playlists", "${playlists.size} saved", Icons.Default.GraphicEq, playlists.firstOrNull()?.thumbnail) { onTab(LibraryTab.Playlists) },
@@ -350,24 +355,73 @@ private fun LibraryReferenceContent(
                     .width(metrics.px(909f)),
                 verticalArrangement = Arrangement.spacedBy(metrics.px(3f)),
             ) {
-                if (librarySongs.isEmpty()) {
-                    TruthfulEmptyLibraryRow(activeTab)
-                } else {
-                    librarySongs.take(8).forEachIndexed { index, song ->
-                        val isActive = song.id == currentSong?.id
-                        LibrarySongTableRow(
-                            song = song,
-                            index = index,
-                            isActive = isActive,
-                            isPlaying = isActive && playbackState == PlaybackState.PLAYING,
-                            onPlay = { onPlaySong(song, index) },
-                            onAdd = { onAdd(song) },
-                            onLike = { onLike(song) },
-                            onMorePlayNext = { onPlayNext(song) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(metrics.px(38f)),
-                        )
+                when (activeTab) {
+                    LibraryTab.Playlists -> {
+                        if (playlists.isEmpty()) {
+                            TruthfulEmptyLibraryRow(activeTab)
+                        } else {
+                            playlists.take(8).forEachIndexed { index, playlist ->
+                                LibraryPlaylistTableRow(
+                                    playlist = playlist,
+                                    index = index,
+                                    onOpen = { onPlayItem(playlist) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(metrics.px(42f)),
+                                )
+                            }
+                        }
+                    }
+                    LibraryTab.Albums -> {
+                        if (albums.isEmpty()) TruthfulEmptyLibraryRow(activeTab)
+                        else albums.take(8).forEachIndexed { index, album ->
+                            LibraryMediaTableRow(
+                                index = index,
+                                title = album.title,
+                                subtitle = album.artists?.joinToString(", ") { it.name ?: "" }.orEmpty().ifBlank { "Album" },
+                                meta = "Album",
+                                artwork = album.thumbnail,
+                                onOpen = { onPlayItem(album) },
+                                modifier = Modifier.fillMaxWidth().height(metrics.px(42f)),
+                            )
+                        }
+                    }
+                    LibraryTab.Artists -> {
+                        if (artists.isEmpty()) TruthfulEmptyLibraryRow(activeTab)
+                        else artists.take(8).forEachIndexed { index, artist ->
+                            LibraryMediaTableRow(
+                                index = index,
+                                title = artist.name,
+                                subtitle = "Artist",
+                                meta = "From your library",
+                                artwork = artist.artwork,
+                                onOpen = null,
+                                modifier = Modifier.fillMaxWidth().height(metrics.px(42f)),
+                            )
+                        }
+                    }
+                    else -> {
+                        if (librarySongs.isEmpty()) {
+                            TruthfulEmptyLibraryRow(activeTab)
+                        } else {
+                            librarySongs.take(8).forEachIndexed { index, song ->
+                                val isActive = song.id == currentSong?.id
+                                LibrarySongTableRow(
+                                    song = song,
+                                    index = index,
+                                    isActive = isActive,
+                                    isPlaying = isActive && playbackState == PlaybackState.PLAYING,
+                                    liked = song.id in likedIds,
+                                    onPlay = { onPlaySong(song, index) },
+                                    onAdd = { onAdd(song) },
+                                    onLike = { onLike(song) },
+                                    onMorePlayNext = { onPlayNext(song) },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(metrics.px(38f)),
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -383,6 +437,7 @@ private data class PinnedCollection(
     val artwork: String?,
     val onClick: () -> Unit,
 )
+
 private val LibraryTab.label: String
     get() = when (this) {
         LibraryTab.Songs -> "Songs"
@@ -604,6 +659,7 @@ private fun LibrarySongTableRow(
     index: Int,
     isActive: Boolean,
     isPlaying: Boolean,
+    liked: Boolean,
     onPlay: () -> Unit,
     onAdd: () -> Unit,
     onLike: () -> Unit,
@@ -638,7 +694,12 @@ private fun LibrarySongTableRow(
         Text(song.album?.name ?: "Single", color = TextSecondary, fontSize = 8.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1.65f))
         Text(song.durationLabel(), color = TextSecondary, fontSize = 8.5.sp, modifier = Modifier.width(metrics.px(74f)))
         Text("Session", color = TextSecondary, fontSize = 8.5.sp, modifier = Modifier.width(metrics.px(96f)))
-        Icon(Icons.Default.Favorite, contentDescription = "Like or unlike song", tint = IrisSoft, modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onLike))
+        Icon(
+            if (liked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+            contentDescription = "Like or unlike song",
+            tint = if (liked) IrisSoft else TextSecondary,
+            modifier = Modifier.size(metrics.px(13f)).clickable(onClick = onLike),
+        )
         Spacer(Modifier.width(metrics.px(14f)))
         Icon(Icons.Default.Add, contentDescription = "Add to queue", tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)).clickable(onClick = onAdd))
         Spacer(Modifier.width(metrics.px(14f)))
@@ -663,6 +724,72 @@ private fun LibrarySongTableRow(
                 })
             }
         }
+    }
+}
+
+@Composable
+private fun LibraryPlaylistTableRow(
+    playlist: PlaylistItem,
+    index: Int,
+    onOpen: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    LibraryMediaTableRow(
+        index = index,
+        title = playlist.title,
+        subtitle = playlist.author?.name ?: "OmniTune playlist",
+        meta = playlist.songCountText ?: "Playlist",
+        artwork = playlist.thumbnail,
+        onOpen = onOpen,
+        modifier = modifier,
+    )
+}
+
+@Composable
+private fun LibraryMediaTableRow(
+    index: Int,
+    title: String,
+    subtitle: String,
+    meta: String,
+    artwork: String?,
+    onOpen: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(metrics.px(6f)))
+            .background(OmniReferenceColors.SurfaceBase.copy(alpha = 0.22f))
+            .border(1.dp, BorderLow.copy(alpha = 0.22f), RoundedCornerShape(metrics.px(6f)))
+            .then(if (onOpen != null) Modifier.clickable(onClick = onOpen) else Modifier)
+            .padding(horizontal = metrics.px(6f)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("${index + 1}", color = TextSecondary, fontSize = 9.sp, modifier = Modifier.width(metrics.px(36f)))
+        if (!artwork.isNullOrBlank()) {
+            AsyncImage(
+                model = artwork.toHighResThumbnail(),
+                contentDescription = title,
+                modifier = Modifier.size(metrics.px(30f)).clip(RoundedCornerShape(metrics.px(5f))),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            Box(
+                Modifier.size(metrics.px(30f)).clip(RoundedCornerShape(metrics.px(5f))).background(OmniReferenceColors.SurfaceSelected.copy(alpha = 0.7f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Default.GraphicEq, null, tint = IrisSoft, modifier = Modifier.size(metrics.px(15f)))
+            }
+        }
+        Spacer(Modifier.width(metrics.px(9f)))
+        Column(Modifier.weight(1.7f)) {
+            Text(title, color = TextPrimary, fontSize = 9.8.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, color = TextSecondary, fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(meta, color = TextSecondary, fontSize = 8.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1.45f))
+        Spacer(Modifier.weight(1.65f))
+        Text("Open", color = IrisSoft, fontSize = 8.7.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(metrics.px(74f)))
+        Spacer(Modifier.width(metrics.px(164f)))
     }
 }
 

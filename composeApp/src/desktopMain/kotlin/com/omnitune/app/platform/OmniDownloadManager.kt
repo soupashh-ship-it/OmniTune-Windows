@@ -27,7 +27,7 @@ import java.io.File
 import java.io.IOException
 import java.io.RandomAccessFile
 import java.net.HttpURLConnection
-import java.net.URL
+import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 
 enum class DownloadState {
@@ -200,7 +200,10 @@ class FileBackedOmniDownloadManager(
     override suspend fun delete(id: String): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
             activeJobs.remove(id)?.cancel()
-            find(id)?.localFilePath?.let { File(it).delete() }
+            find(id)?.localFilePath
+                ?.let(::File)
+                ?.takeIf(::isManagedDownloadFile)
+                ?.delete()
             File(partialPath(id)).delete()
             _tasks.value = _tasks.value.filterNot { it.id == id }
             persist()
@@ -224,7 +227,7 @@ class FileBackedOmniDownloadManager(
     override fun completedDownloadFor(trackId: String): DownloadTask? =
         _tasks.value.firstOrNull {
             it.trackId == trackId &&
-                it.verifiedLocalFile() != null
+                it.verifiedLocalFile()?.let(::isManagedDownloadFile) == true
         }
 
     private fun start(id: String, song: SongItem) {
@@ -275,10 +278,10 @@ class FileBackedOmniDownloadManager(
             ?: error("No downloadable audio format available.")
 
         val extension = extensionFor(resolved.mimeType)
-        val finalFile = File(downloadDir, "${safeFileName(song.title)}-${song.id}.$extension")
+        val finalFile = File(downloadDir, "${safeFileName(song.title)}-${safeFileName(song.id)}.$extension")
         val partialFile = File(partialPath(id))
         val existingBytes = partialFile.takeIf { it.exists() }?.length() ?: 0L
-        val connection = (URL(resolved.url).openConnection() as HttpURLConnection).apply {
+        val connection = (URI(resolved.url).toURL().openConnection() as HttpURLConnection).apply {
             connectTimeout = 20_000
             readTimeout = 30_000
             if (existingBytes > 0L) setRequestProperty("Range", "bytes=$existingBytes-")
@@ -361,9 +364,9 @@ class FileBackedOmniDownloadManager(
             when (task.state) {
                 DownloadState.COMPLETED -> {
                     val file = task.localFilePath?.let { File(it) }
-                    val valid = file?.isFile == true && file.length() > 0L &&
+                    val valid = file?.isFile == true && isManagedDownloadFile(file) && file.length() > 0L &&
                             (task.totalBytes == null || file.length() == task.totalBytes)
-                    if (valid) task.copy(bytesDownloaded = file!!.length())
+                    if (valid) task.copy(bytesDownloaded = file.length())
                     else task.copy(state = DownloadState.FAILED, errorMessage = "Downloaded file is missing, empty, or corrupted.")
                 }
                 DownloadState.DOWNLOADING, DownloadState.RESOLVING, DownloadState.QUEUED -> task.copy(state = DownloadState.PAUSED)
@@ -418,7 +421,13 @@ class FileBackedOmniDownloadManager(
         }
     }
 
-    private fun partialPath(id: String): String = File(downloadDir, "$id.part").absolutePath
+    private fun partialPath(id: String): String = File(downloadDir, "${safeFileName(id)}.part").absolutePath
+
+    private fun isManagedDownloadFile(file: File): Boolean {
+        val downloadsRoot = runCatching { downloadDir.canonicalFile }.getOrElse { return false }
+        val candidate = runCatching { file.canonicalFile }.getOrElse { return false }
+        return candidate == downloadsRoot || candidate.toPath().startsWith(downloadsRoot.toPath())
+    }
 }
 
 class YouTubeDownloadFormatResolver(

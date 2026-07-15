@@ -1,0 +1,16 @@
+{
+  "reference": "C:\\Users\\soupa\\Downloads\\settings\\Settings Omnitune Windows.png",
+  "actual": "docs\\qa\\settings-shell-reconstruction\\pass-1\\current.png",
+  "dimensions_match": true,
+  "size": [
+    1672,
+    941
+  ],
+  "masked_regions": [],
+  "measured_pixels": 1573352,
+  "mean_absolute_rgb_error": 12.49248102141161,
+  "max_pixel_mean_error": 245.33333333333334,
+  "pct_pixels_over_10": 15.572993201775573,
+  "pct_pixels_over_20": 8.218821980078204,
+  "pct_pixels_over_40": 5.731711657658299
+}

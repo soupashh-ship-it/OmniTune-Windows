@@ -92,6 +92,44 @@ class OmniDownloadManagerTest {
     }
 
     @Test
+    fun completedDownloadOutsideManagedDirectoryIsNotTrusted() = withTempAppData { root ->
+        val outside = Files.createTempFile("omnitune-outside-download", ".m4a").toFile().apply {
+            writeBytes(byteArrayOf(1, 2, 3))
+        }
+        try {
+            writeIndex(root, taskJson(trackId = "outside", state = DownloadState.COMPLETED, localPath = outside.absolutePath, bytes = 3L))
+
+            val manager = FileBackedOmniDownloadManager(PlatformContext(root), YouTubeService())
+
+            assertEquals(DownloadState.FAILED, manager.tasks.value.single().state)
+            assertNull(manager.completedLocalFileFor("outside"))
+            assertTrue(outside.exists())
+        } finally {
+            outside.delete()
+        }
+    }
+
+    @Test
+    fun deleteDoesNotRemoveFilesOutsideManagedDownloadsDirectory() = withTempAppData { root ->
+        val outside = Files.createTempFile("omnitune-outside-delete", ".m4a").toFile().apply {
+            writeBytes(byteArrayOf(1))
+        }
+        try {
+            writeIndex(root, taskJson(id = "delete-outside", trackId = "outside-delete", state = DownloadState.COMPLETED, localPath = outside.absolutePath, bytes = 1L))
+            val manager = FileBackedOmniDownloadManager(PlatformContext(root), YouTubeService())
+
+            runBlocking {
+                manager.delete("delete-outside").getOrThrow()
+            }
+
+            assertTrue(outside.exists())
+            assertTrue(manager.tasks.value.isEmpty())
+        } finally {
+            outside.delete()
+        }
+    }
+
+    @Test
     fun corruptIndexIsPreservedAndManagerStartsEmpty() = withTempAppData { root ->
         File(root, "downloads-index.json").writeText("{broken")
 

@@ -4,6 +4,7 @@ import com.omnitune.app.platform.SettingsRepository
 import com.omnitune.app.platform.VlcjAudioEngine
 import com.omnitune.app.platform.PlaybackState
 import com.omnitune.app.platform.PlaybackSession
+import com.omnitune.app.platform.LikedSongRecord
 import com.omnitune.app.platform.DownloadQualityMode
 import com.omnitune.app.platform.DownloadRequest
 import com.omnitune.app.platform.DownloadTask
@@ -36,7 +37,7 @@ import kotlinx.coroutines.CancellationException
 import kotlin.coroutines.CoroutineContext
 
 enum class NavScreen {
-    Home, Browse, Radio, Library, Search, NowPlaying, Queue, Playlists, Settings,
+    Home, Browse, Radio, Library, LikedSongs, Search, NowPlaying, Queue, Playlists, Settings,
     Artist, Album, Downloads, PlaylistDetail
 }
 
@@ -176,6 +177,12 @@ class PlayerViewModel(
     private val _liked = MutableStateFlow(settings.likedSongIds)
     val likedSongs: StateFlow<Set<String>> = _liked.asStateFlow()
 
+    private val _likedSongRecords = MutableStateFlow(settings.likedSongRecords)
+    val likedSongRecords: StateFlow<List<LikedSongRecord>> = _likedSongRecords.asStateFlow()
+
+    private val _followedArtists = MutableStateFlow(settings.followedArtistIds)
+    val followedArtists: StateFlow<Set<String>> = _followedArtists.asStateFlow()
+
     private val _pinnedLibraryCollections = MutableStateFlow(settings.pinnedLibraryCollectionIds)
     val pinnedLibraryCollections: StateFlow<Set<String>> = _pinnedLibraryCollections.asStateFlow()
 
@@ -199,6 +206,7 @@ class PlayerViewModel(
     private var activeRadioContinuation: String? = null
     private var radioContinuationJob: Job? = null
     private var radioContinuationFailures: Int = 0
+    private val playbackRequestGate = PlaybackRequestGate()
 
     private val _playbackHistory = MutableStateFlow(settings.playbackHistory)
     val playbackHistory = _playbackHistory.asStateFlow()
@@ -271,6 +279,11 @@ class PlayerViewModel(
         }
     }
 
+    private fun nextPlaybackRequestToken(): Long = playbackRequestGate.nextToken()
+
+    private fun isCurrentPlaybackRequest(token: Long, item: SongItem): Boolean =
+        playbackRequestGate.isCurrent(token, item, _currentSong.value)
+
     private fun loadDiscoveryData() {
         launch {
             _discoveryLoading.value = true
@@ -318,10 +331,56 @@ class PlayerViewModel(
     fun isLiked(id: String): Boolean = _liked.value.contains(id)
 
     fun toggleLike(id: String) {
-        val set = _liked.value.toMutableSet()
+        if (_liked.value.contains(id)) {
+            settings.unlikeSong(id)
+        } else {
+            val knownSong = findKnownSong(id)
+            if (knownSong != null) {
+                settings.likeSong(knownSong)
+            } else {
+                settings.likedSongIds = settings.likedSongIds + id
+            }
+        }
+        _likedSongRecords.value = settings.likedSongRecords
+        _liked.value = settings.likedSongIds
+        settings.flush()
+    }
+
+    fun toggleLikeSong(song: SongItem) {
+        if (_liked.value.contains(song.id)) {
+            settings.unlikeSong(song.id)
+        } else {
+            settings.likeSong(song)
+        }
+        _likedSongRecords.value = settings.likedSongRecords
+        _liked.value = settings.likedSongIds
+        settings.flush()
+    }
+
+    fun unlikeSongs(ids: Set<String>) {
+        ids.forEach(settings::unlikeSong)
+        _likedSongRecords.value = settings.likedSongRecords
+        _liked.value = settings.likedSongIds
+        settings.flush()
+    }
+
+    private fun findKnownSong(id: String): SongItem? {
+        return sequenceOf(
+            listOfNotNull(_currentSong.value),
+            _queue.value,
+            _discoveryTrending.value,
+            _discoveryNew.value.filterIsInstance<SongItem>(),
+            _searchResults.value.filterIsInstance<SongItem>(),
+            _playlistResults.value.filterIsInstance<SongItem>(),
+            _savedQueuePlaylists.value.flatMap { it.songs },
+        ).flatten().firstOrNull { it.id == id }
+    }
+
+    fun toggleFollowArtist(id: String) {
+        val set = _followedArtists.value.toMutableSet()
         if (set.contains(id)) set.remove(id) else set.add(id)
-        _liked.value = set
-        settings.likedSongIds = set
+        _followedArtists.value = set
+        settings.followedArtistIds = set
         settings.flush()
     }
 
@@ -545,7 +604,8 @@ class PlayerViewModel(
                 _queue.value = songs
                 _queueIndex.value = 0
                 _currentSong.value = songs[0]
-                doPlay(songs[0])
+                val token = nextPlaybackRequestToken()
+                doPlay(songs[0], token)
             }
         }
     }
@@ -565,7 +625,30 @@ class PlayerViewModel(
             }
         }
         _currentSong.value = item
-        launch { doPlay(item) }
+        val token = nextPlaybackRequestToken()
+        launch { doPlay(item, token) }
+    }
+
+    fun playSongList(items: List<SongItem>, startIndex: Int = 0) {
+        val songs = items.distinctBy { it.id }
+        if (songs.isEmpty()) return
+        val safeIndex = startIndex.coerceIn(songs.indices)
+        _queue.value = songs
+        _queueIndex.value = safeIndex
+        _currentSong.value = songs[safeIndex]
+        val token = nextPlaybackRequestToken()
+        launch { doPlay(songs[safeIndex], token) }
+    }
+
+    fun playShuffledSongs(items: List<SongItem>) {
+        val songs = items.distinctBy { it.id }
+        if (songs.isEmpty()) return
+        val shuffled = songs.shuffled()
+        _queue.value = shuffled
+        _queueIndex.value = 0
+        _currentSong.value = shuffled.first()
+        val token = nextPlaybackRequestToken()
+        launch { doPlay(shuffled.first(), token) }
     }
     fun playAlbum(browseId: String) {
         launch {
@@ -575,7 +658,8 @@ class PlayerViewModel(
                 _queue.value = songs
                 _queueIndex.value = 0
                 _currentSong.value = songs[0]
-                doPlay(songs[0])
+                val token = nextPlaybackRequestToken()
+                doPlay(songs[0], token)
             }
         }
     }
@@ -588,7 +672,8 @@ class PlayerViewModel(
                 _queue.value = songs
                 _queueIndex.value = 0
                 _currentSong.value = songs[0]
-                launch { doPlay(songs[0]) }
+                val token = nextPlaybackRequestToken()
+                launch { doPlay(songs[0], token) }
             }
             return
         }
@@ -599,18 +684,21 @@ class PlayerViewModel(
                 _queue.value = songs
                 _queueIndex.value = 0
                 _currentSong.value = songs[0]
-                doPlay(songs[0])
+                val token = nextPlaybackRequestToken()
+                doPlay(songs[0], token)
             }
         }
     }
 
-    private suspend fun doPlay(item: SongItem) {
+    private suspend fun doPlay(item: SongItem, requestToken: Long) {
+        if (!isCurrentPlaybackRequest(requestToken, item)) return
         _lyricsResult.value = LyricsResult.Loading
         lyricsJob?.cancel()
         _streamUrl.value = null
         startListenTracking(item)
         loadRelatedFor(item)
         downloadManager.completedLocalFileFor(item.id)?.absolutePath?.let { localPath ->
+            if (!isCurrentPlaybackRequest(requestToken, item)) return
             _streamUrl.value = localPath
             audioEngine.play(localPath)
             audioEngine.setVolume(_volume.value)
@@ -637,13 +725,16 @@ class PlayerViewModel(
                 break
             }
         }
-        if (url != null) {
-            com.omnitune.app.platform.OmniLogger.info("PlayerVM", "playing URL: ${url!!.take(100)}...")
-            _streamUrl.value = url
-            audioEngine.play(url!!)
+        val resolvedUrl = url
+        if (resolvedUrl != null) {
+            if (!isCurrentPlaybackRequest(requestToken, item)) return
+            com.omnitune.app.platform.OmniLogger.info("PlayerVM", "playing URL: ${resolvedUrl.take(100)}...")
+            _streamUrl.value = resolvedUrl
+            audioEngine.play(resolvedUrl)
             audioEngine.setVolume(_volume.value)
             loadLyrics()
         } else {
+            if (!isCurrentPlaybackRequest(requestToken, item)) return
             finalizeActiveListen(completed = false)
             _lyricsResult.value = LyricsResult.NotFound
             com.omnitune.app.platform.OmniLogger.error("PlayerVM", "all clients failed to resolve URL")
@@ -694,7 +785,8 @@ class PlayerViewModel(
         if (index in q.indices) {
             _queueIndex.value = index
             _currentSong.value = q[index]
-            launch { doPlay(q[index]) }
+            val token = nextPlaybackRequestToken()
+            launch { doPlay(q[index], token) }
             maybeRequestRadioContinuation()
         }
     }
@@ -745,6 +837,51 @@ class PlayerViewModel(
         val saved = settings.saveSongsAsPlaylist(name, songs)
         _savedQueuePlaylists.value = settings.savedQueuePlaylists
         saved.name
+    }
+
+    fun createPlaylist(name: String, description: String = "", tags: List<String> = emptyList()): Result<String> = runCatching {
+        val saved = settings.createPlaylist(name, description, tags)
+        _savedQueuePlaylists.value = settings.savedQueuePlaylists
+        saved.id
+    }
+
+    fun updateSavedPlaylistMetadata(
+        id: String,
+        name: String,
+        description: String,
+        tags: List<String>,
+        coverPath: String?,
+    ): Result<String> = runCatching {
+        val updated = settings.updatePlaylistMetadata(id, name, description, tags, coverPath)
+        _savedQueuePlaylists.value = settings.savedQueuePlaylists
+        updated.name
+    }
+
+    fun addSongToSavedPlaylists(song: SongItem, playlistIds: Set<String>): Result<Int> = runCatching {
+        val updated = settings.addSongToPlaylists(song, playlistIds)
+        _savedQueuePlaylists.value = settings.savedQueuePlaylists
+        updated.size
+    }
+
+    fun removeSongFromSavedPlaylist(playlistId: String, songId: String): Result<String> = runCatching {
+        val updated = settings.removeSongFromPlaylist(playlistId, songId)
+        _savedQueuePlaylists.value = settings.savedQueuePlaylists
+        updated.name
+    }
+
+    fun moveSavedPlaylistSong(playlistId: String, from: Int, to: Int): Result<String> = runCatching {
+        val updated = settings.movePlaylistSong(playlistId, from, to)
+        _savedQueuePlaylists.value = settings.savedQueuePlaylists
+        updated.name
+    }
+
+    fun deleteSavedPlaylist(playlistId: String): Result<Unit> = runCatching {
+        settings.deletePlaylist(playlistId)
+        _savedQueuePlaylists.value = settings.savedQueuePlaylists
+        if (_currentPlaylistId.value == playlistId) {
+            _currentPlaylistId.value = null
+            navigateTo(NavScreen.Playlists)
+        }
     }
 
     fun setDownloadQuality(quality: DownloadQualityMode) {
@@ -874,7 +1011,8 @@ class PlayerViewModel(
                     _queue.value = songs
                     _queueIndex.value = 0
                     _currentSong.value = songs[0]
-                    doPlay(songs[0])
+                    val token = nextPlaybackRequestToken()
+                    doPlay(songs[0], token)
                     maybeRequestRadioContinuation()
                 }
             }.onFailure {
@@ -901,7 +1039,8 @@ class PlayerViewModel(
                     _queue.value = songs
                     _queueIndex.value = 0
                     _currentSong.value = songs[0]
-                    doPlay(songs[0])
+                    val token = nextPlaybackRequestToken()
+                    doPlay(songs[0], token)
                     maybeRequestRadioContinuation()
                 }
             }.onFailure {

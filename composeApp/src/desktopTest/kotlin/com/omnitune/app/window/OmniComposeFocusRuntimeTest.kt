@@ -301,7 +301,11 @@ class OmniComposeFocusRuntimeTest {
                     hasCurrentSong = false,
                     currentSong = null,
                     likedCount = 0,
+                    savedPlaylists = emptyList(),
+                    currentPlaylistId = null,
                     onNavigate = { navigations += it },
+                    onOpenPlaylist = {},
+                    onCreatePlaylist = { Result.success("test-playlist") },
                     width = 230.dp,
                     modifier = Modifier.height(700.dp),
                 )
@@ -324,7 +328,11 @@ class OmniComposeFocusRuntimeTest {
                     hasCurrentSong = false,
                     currentSong = null,
                     likedCount = 0,
+                    savedPlaylists = emptyList(),
+                    currentPlaylistId = null,
                     onNavigate = {},
+                    onOpenPlaylist = {},
+                    onCreatePlaylist = { Result.success("test-playlist") },
                     width = 230.dp,
                     modifier = Modifier.height(700.dp),
                 )
