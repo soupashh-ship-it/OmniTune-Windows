@@ -47,12 +47,13 @@ class SettingsRepository(
 ) {
 
     private val jsonStore = JsonFileStore(prefs, platformContext)
+    private val localDatabase = platformContext?.let { OmniLocalDatabase(java.io.File(it.databasePath)) }
     private val settingsPreferences = SettingsPreferences(prefs)
     private val libraryPreferences = LibraryPreferences(prefs)
-    private val likedSongsPersistence = LikedSongsPersistence(prefs, jsonStore)
-    private val playbackHistoryPersistence = PlaybackHistoryPersistence(jsonStore)
+    private val likedSongsPersistence = LikedSongsPersistence(prefs, jsonStore, localDatabase)
+    private val playbackHistoryPersistence = PlaybackHistoryPersistence(jsonStore, localDatabase)
     private val playlistCoverStore = PlaylistCoverStore(platformContext)
-    private val playlistPersistence = PlaylistPersistence(jsonStore, ::flush, playlistCoverStore)
+    private val playlistPersistence = PlaylistPersistence(jsonStore, ::flush, playlistCoverStore, localDatabase)
 
     val miniPlayerAlwaysOnTopFlow: StateFlow<Boolean> = settingsPreferences.miniPlayerAlwaysOnTopFlow
     val appearanceThemeFlow: StateFlow<String> = settingsPreferences.appearanceThemeFlow

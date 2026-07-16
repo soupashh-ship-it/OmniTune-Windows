@@ -58,6 +58,8 @@ import androidx.compose.ui.unit.sp
 import com.omnitune.app.player.NavScreen
 import com.omnitune.app.player.PlayerViewModel
 import com.omnitune.app.platform.AppInfo
+import com.omnitune.app.platform.CrashReportManager
+import com.omnitune.app.platform.DesktopNotificationService
 import com.omnitune.app.platform.DownloadQualityMode
 import com.omnitune.app.platform.PlatformContext
 import com.omnitune.app.platform.ReleaseUpdateChecker
@@ -75,6 +77,7 @@ fun SettingsView() {
     val settings = koinInject<SettingsRepository>()
     val platform = koinInject<PlatformContext>()
     val player = koinInject<PlayerViewModel>()
+    val notifications = koinInject<DesktopNotificationService>()
     val metrics = LocalHomeReferenceMetrics.current
     val scroll = rememberScrollState()
 
@@ -86,6 +89,7 @@ fun SettingsView() {
     var repeat by remember { mutableStateOf(settings.repeatMode) }
     var downloadQuality by remember { mutableStateOf(settings.downloadQualityMode) }
     var globalShortcuts by remember { mutableStateOf(settings.globalShortcutsEnabled) }
+    var productUpdates by remember { mutableStateOf(settings.productUpdateNotifications) }
     var statusMessage by remember { mutableStateOf("") }
     var checkingForUpdates by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -105,6 +109,7 @@ fun SettingsView() {
         theme = "nocturne"
         downloadQuality = DownloadQualityMode.PROVIDER_DEFAULT
         globalShortcuts = true
+        productUpdates = true
         settings.volume = volume
         settings.reduceMotionEnabled = reduceMotion
         settings.miniPlayerAlwaysOnTop = miniOnTop
@@ -113,6 +118,7 @@ fun SettingsView() {
         settings.appearanceTheme = theme
         settings.downloadQualityMode = downloadQuality
         settings.globalShortcutsEnabled = globalShortcuts
+        settings.productUpdateNotifications = productUpdates
         settings.flush()
         statusMessage = "Defaults restored"
     }
@@ -273,19 +279,41 @@ fun SettingsView() {
 
     val notificationsCard: @Composable (Modifier) -> Unit = { modifier ->
         SettingsCard("Notifications", null, modifier) {
-            Text(
-                "Windows notification delivery is not enabled in this build, so OmniTune does not expose notification toggles yet.",
-                color = TextSecondary,
-                fontSize = 8.5.sp,
-                lineHeight = 12.sp,
-            )
-            Spacer(Modifier.height(metrics.px(10f)))
+            val supported = notifications.isSupported()
+            if (supported) {
+                Text(
+                    "OmniTune can show local Windows tray notifications for supported app events.",
+                    color = TextSecondary,
+                    fontSize = 8.5.sp,
+                    lineHeight = 12.sp,
+                )
+                Spacer(Modifier.height(metrics.px(8f)))
+                SettingsSwitch("Product updates", "Notify when Check for Updates finds a newer release", productUpdates) {
+                    productUpdates = it
+                    settings.productUpdateNotifications = it
+                    settings.flush()
+                    statusMessage = "Product update notifications ${if (it) "enabled" else "disabled"}"
+                }
+                SettingsChevronLine("Send test notification", "Uses Windows tray notification delivery") {
+                    statusMessage = if (notifications.show("OmniTune", "Desktop notifications are working.")) {
+                        "Test notification sent"
+                    } else {
+                        "Could not send notification on this desktop session"
+                    }
+                }
+            } else {
+                Text(
+                    "Windows notification delivery is unavailable in this desktop session.",
+                    color = TextSecondary,
+                    fontSize = 8.5.sp,
+                    lineHeight = 12.sp,
+                )
+            }
+            Spacer(Modifier.height(metrics.px(8f)))
             SettingsLine("New music alerts", "Not available")
             SettingsLine("Recommendations", "Not available")
             SettingsLine("Concert alerts", "Not available")
-            SettingsChevronLine("Product updates", "Use About → Check for Updates") {
-                statusMessage = "Use About → Check for Updates for current release status"
-            }
+            SettingsLine("Weekly digest", "Not available")
         }
     }
 
@@ -334,6 +362,9 @@ fun SettingsView() {
                                     statusMessage = "OmniTune ${result.currentVersion} is current"
                                 }
                                 is UpdateCheckResult.UpdateAvailable -> {
+                                    if (productUpdates) {
+                                        notifications.show("OmniTune update available", "Version ${result.latestVersion} is ready to install.")
+                                    }
                                     statusMessage = "Downloading OmniTune ${result.latestVersion} installer..."
                                     runCatching {
                                         updateChecker.downloadInstaller(result, File(platform.appDataDir, "updates"))
@@ -371,6 +402,38 @@ fun SettingsView() {
                             checkingForUpdates = false
                         }
                     }
+                }
+            }
+            Spacer(Modifier.height(metrics.px(10f)))
+            Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(8f)), verticalAlignment = Alignment.CenterVertically) {
+                ReferenceButton(
+                    "Export Diagnostics",
+                    Modifier.width(metrics.px(118f)).height(metrics.px(28f)),
+                ) {
+                    runCatching {
+                        CrashReportManager.exportDiagnostics(platform)
+                    }.onSuccess { export ->
+                        val opened = openFile(export.parentFile)
+                        statusMessage = if (opened) {
+                            "Diagnostics exported: ${export.name}"
+                        } else {
+                            "Diagnostics exported to ${export.absolutePath}"
+                        }
+                    }.onFailure { error ->
+                        statusMessage = "Diagnostics export failed: ${error.message ?: "unknown error"}"
+                    }
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Crash reports", color = TextPrimary, fontSize = 8.8.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(if (CrashReportManager.hasCrashReports(platform)) "Available" else "None recorded", color = TextSecondary, fontSize = 7.8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Spacer(Modifier.height(metrics.px(8f)))
+            SettingsChevronLine("Report issue", "Open prefilled GitHub issue") {
+                statusMessage = if (openUri(CrashReportManager.githubIssueUri(platform).toString())) {
+                    "Opened GitHub issue report"
+                } else {
+                    "Could not open GitHub issue report"
                 }
             }
         }

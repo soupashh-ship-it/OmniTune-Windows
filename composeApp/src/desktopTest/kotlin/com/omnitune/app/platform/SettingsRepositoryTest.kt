@@ -227,6 +227,162 @@ class SettingsRepositoryTest {
     }
 
     @Test
+    fun sqliteBackedPlaylistsAndLikedSongsPersistAcrossRepositoryRecreation() {
+        val prefs = Preferences.userRoot().node("omnitune-tests/${UUID.randomUUID()}")
+        val root = Files.createTempDirectory("omnitune-sqlite-settings-test").toFile()
+        try {
+            val repo = SettingsRepository(prefs, PlatformContext(root))
+            val playlist = repo.createPlaylist("SQLite Mix", "Stored in local DB")
+            repo.addSongToPlaylists(song("db-one"), setOf(playlist.id))
+            repo.likeSong(song("db-liked"), likedAt = 1234L)
+
+            val restored = SettingsRepository(repoPrefs(repo), PlatformContext(root))
+
+            assertTrue(File(root, "omnitune.db").isFile)
+            assertEquals(listOf("SQLite Mix"), restored.savedQueuePlaylists.map { it.name })
+            assertEquals(listOf("db-one"), restored.savedQueuePlaylists.single().songs.map { it.id })
+            assertEquals(listOf("db-liked"), restored.likedSongRecords.map { it.song.id })
+            assertEquals(listOf(1234L), restored.likedSongRecords.map { it.likedAt })
+        } finally {
+            runCatching {
+                prefs.removeNode()
+                prefs.flush()
+            }
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun existingJsonPlaylistsAndLikedSongsMigrateIntoSqlite() {
+        val prefs = Preferences.userRoot().node("omnitune-tests/${UUID.randomUUID()}")
+        val root = Files.createTempDirectory("omnitune-sqlite-migration-test").toFile()
+        try {
+            File(root, "savedQueuePlaylists.json").writeText(
+                JSONArray()
+                    .put(
+                        JSONObject()
+                            .put("id", "json-playlist")
+                            .put("name", "JSON Playlist")
+                            .put("createdAt", 10L)
+                            .put("description", "migrated")
+                            .put("tags", JSONArray().put("Focus"))
+                            .put("coverPath", JSONObject.NULL)
+                            .put("songs", JSONArray().put(songJson("json-song")))
+                    )
+                    .toString()
+            )
+            File(root, "likedSongs.json").writeText(
+                JSONArray()
+                    .put(JSONObject().put("likedAt", 20L).put("song", songJson("json-liked")))
+                    .toString()
+            )
+
+            val repo = SettingsRepository(prefs, PlatformContext(root))
+
+            assertEquals(listOf("json-playlist"), repo.savedQueuePlaylists.map { it.id })
+            assertEquals(listOf("json-song"), repo.savedQueuePlaylists.single().songs.map { it.id })
+            assertEquals(listOf("json-liked"), repo.likedSongRecords.map { it.song.id })
+
+            File(root, "savedQueuePlaylists.json").delete()
+            File(root, "likedSongs.json").delete()
+
+            val restoredFromDbOnly = SettingsRepository(repoPrefs(repo), PlatformContext(root))
+            assertEquals(listOf("json-playlist"), restoredFromDbOnly.savedQueuePlaylists.map { it.id })
+            assertEquals(listOf("json-liked"), restoredFromDbOnly.likedSongRecords.map { it.song.id })
+        } finally {
+            runCatching {
+                prefs.removeNode()
+                prefs.flush()
+            }
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun sqliteBackedPlaybackHistoryAndSessionsPersistAcrossRepositoryRecreation() {
+        val prefs = Preferences.userRoot().node("omnitune-tests/${UUID.randomUUID()}")
+        val root = Files.createTempDirectory("omnitune-sqlite-history-test").toFile()
+        try {
+            val repo = SettingsRepository(prefs, PlatformContext(root))
+            val entry = repo.recordMeaningfulPlayback(
+                song = song("db-history"),
+                startedAt = 10L,
+                accumulatedPlayedMs = 31_000L,
+                trackDurationMs = 240_000L,
+                completed = false,
+            )
+            assertNotNull(entry)
+
+            val restored = SettingsRepository(repoPrefs(repo), PlatformContext(root))
+
+            assertEquals(listOf("db-history"), restored.playbackHistory.map { it.song.id })
+            assertEquals(1, restored.playbackSessions.size)
+            assertEquals(31_000L, restored.playbackSessions.first().totalListeningMs)
+        } finally {
+            runCatching {
+                prefs.removeNode()
+                prefs.flush()
+            }
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun existingJsonPlaybackHistoryAndSessionsMigrateIntoSqlite() {
+        val prefs = Preferences.userRoot().node("omnitune-tests/${UUID.randomUUID()}")
+        val root = Files.createTempDirectory("omnitune-sqlite-history-migration-test").toFile()
+        try {
+            File(root, "playbackHistory.json").writeText(
+                JSONArray()
+                    .put(
+                        JSONObject()
+                            .put("id", "json-history")
+                            .put("playedAt", 10L)
+                            .put("startedAt", 9L)
+                            .put("accumulatedPlayedMs", 31_000L)
+                            .put("trackDurationMs", 240_000L)
+                            .put("completed", false)
+                            .put("playCount", 1)
+                            .put("sessionId", "json-session")
+                            .put("song", songJson("json-history-song"))
+                    )
+                    .toString()
+            )
+            File(root, "playbackSessions.json").writeText(
+                JSONArray()
+                    .put(
+                        JSONObject()
+                            .put("id", "json-session")
+                            .put("startedAt", 1L)
+                            .put("lastActivityAt", 2L)
+                            .put("endedAt", JSONObject.NULL)
+                            .put("totalListeningMs", 31_000L)
+                            .put("playCount", 1)
+                            .put("uniqueTrackCount", 1)
+                    )
+                    .toString()
+            )
+
+            val repo = SettingsRepository(prefs, PlatformContext(root))
+            assertEquals(listOf("json-history-song"), repo.playbackHistory.map { it.song.id })
+            assertEquals(listOf("json-session"), repo.playbackSessions.map { it.id })
+
+            File(root, "playbackHistory.json").delete()
+            File(root, "playbackSessions.json").delete()
+
+            val restoredFromDbOnly = SettingsRepository(repoPrefs(repo), PlatformContext(root))
+            assertEquals(listOf("json-history-song"), restoredFromDbOnly.playbackHistory.map { it.song.id })
+            assertEquals(listOf("json-session"), restoredFromDbOnly.playbackSessions.map { it.id })
+        } finally {
+            runCatching {
+                prefs.removeNode()
+                prefs.flush()
+            }
+            root.deleteRecursively()
+        }
+    }
+
+    @Test
     fun corruptJsonStoresFallBackToPreferencesAndArePreserved() {
         val prefs = Preferences.userRoot().node("omnitune-tests/${UUID.randomUUID()}")
         val root = Files.createTempDirectory("omnitune-settings-corrupt-test").toFile()

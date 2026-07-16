@@ -31,6 +31,10 @@ class PlatformContext(
         File(appDataDir, "logs").apply { mkdirs() }
     }
 
+    val crashReportsDir: File by lazy {
+        File(appDataDir, "crash-reports").apply { mkdirs() }
+    }
+
     private fun defaultAppDataDir(): File = NativeRuntime.defaultLocalAppDataDir()
 
     private fun migrateLegacyAppDataIfNeeded(target: File) {

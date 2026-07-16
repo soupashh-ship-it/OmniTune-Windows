@@ -8,9 +8,17 @@ internal class PlaylistPersistence(
     private val jsonStore: JsonFileStore,
     private val flush: () -> Unit,
     private val playlistCoverStore: PlaylistCoverStore = PlaylistCoverStore(null),
+    private val localDatabase: OmniLocalDatabase? = null,
 ) {
+    init {
+        migrateToDatabaseIfNeeded()
+    }
+
     var savedQueuePlaylists: List<SavedQueuePlaylist>
-        get() = readPlaylistList()
+        get() = localDatabase
+            ?.takeIf { it.isMigrated(DOMAIN) }
+            ?.readPlaylists()
+            ?: readPlaylistListFromJson()
         set(value) {
             val array = JSONArray()
             value.forEach { playlist ->
@@ -30,6 +38,8 @@ internal class PlaylistPersistence(
                 )
             }
             jsonStore.writeJsonStore("savedQueuePlaylists.json", "savedQueuePlaylists.v1", array.toString())
+            localDatabase?.replacePlaylists(value)
+            localDatabase?.markMigrated(DOMAIN)
         }
 
     fun saveQueueAsPlaylist(name: String, songs: List<SongItem>): SavedQueuePlaylist =
@@ -124,7 +134,14 @@ internal class PlaylistPersistence(
         flush()
     }
 
-    private fun readPlaylistList(): List<SavedQueuePlaylist> = jsonStore.readRecoverableJsonList(
+    private fun migrateToDatabaseIfNeeded() {
+        val db = localDatabase ?: return
+        if (db.isMigrated(DOMAIN)) return
+        db.replacePlaylists(readPlaylistListFromJson())
+        db.markMigrated(DOMAIN)
+    }
+
+    private fun readPlaylistListFromJson(): List<SavedQueuePlaylist> = jsonStore.readRecoverableJsonList(
         fileName = "savedQueuePlaylists.json",
         fallbackPreferenceKey = "savedQueuePlaylists.v1",
     ) { stored ->
@@ -146,5 +163,9 @@ internal class PlaylistPersistence(
                 },
             ).takeIf { it.id.isNotBlank() && it.name.isNotBlank() }
         }.distinctBy { it.id }
+    }
+
+    private companion object {
+        const val DOMAIN = "playlists"
     }
 }

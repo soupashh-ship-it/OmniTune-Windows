@@ -139,6 +139,7 @@ kotlin {
 
             implementation(libs.vlcj)
             implementation(libs.jmtc)
+            implementation(libs.sqlite.jdbc)
 
             implementation(project(":innertube"))
             implementation(project(":kugou"))

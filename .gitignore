@@ -43,3 +43,7 @@ desktop.ini
 
 # Runtime QA download output contains generated media and local paths.
 docs/qa/runtime-download-artifacts/
+
+# Local visual QA captures are generated evidence. Curated screenshots should
+# be copied deliberately into docs/assets/screenshots or a named docs/qa report.
+docs/qa/screenshots/

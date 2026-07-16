@@ -7,6 +7,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.*
 import kotlin.math.roundToInt
 import com.omnitune.app.di.initKoin
+import com.omnitune.app.platform.CrashReportManager
 import com.omnitune.app.platform.NativeRuntime
 import com.omnitune.app.platform.PlaybackState
 import com.omnitune.app.platform.QaRuntime
@@ -45,6 +46,7 @@ fun main() {
             val platformContext: com.omnitune.app.platform.PlatformContext = koinInject()
             LaunchedEffect(Unit) {
                 com.omnitune.app.platform.OmniLogger.init(platformContext)
+                CrashReportManager.install(platformContext)
             }
             val audioEngine: VlcjAudioEngine = koinInject()
             val settings: SettingsRepository = koinInject()

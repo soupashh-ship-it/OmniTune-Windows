@@ -287,6 +287,43 @@ class OmniDownloadManagerTest {
         }
     }
 
+    @Test
+    fun existingJsonDownloadIndexMigratesIntoSqlite() = withTempAppData { root ->
+        val downloaded = File(root, "downloads/migrated.m4a").apply {
+            parentFile.mkdirs()
+            writeBytes(byteArrayOf(1, 2, 3, 4))
+        }
+        writeIndex(
+            root,
+            taskJson(
+                id = "migrated-download",
+                trackId = "migrated-track",
+                state = DownloadState.COMPLETED,
+                localPath = downloaded.absolutePath,
+                bytes = 4L,
+            )
+        )
+
+        val manager = FileBackedOmniDownloadManager(
+            PlatformContext(root),
+            YouTubeService(),
+            formatResolver = StaticDownloadResolver("https://example.invalid/audio.m4a", 4L),
+        )
+
+        assertEquals(DownloadState.COMPLETED, manager.tasks.value.single().state)
+        assertEquals(downloaded.absolutePath, manager.completedLocalFileFor("migrated-track")?.absolutePath)
+
+        File(root, "downloads-index.json").delete()
+        val restoredFromDbOnly = FileBackedOmniDownloadManager(
+            PlatformContext(root),
+            YouTubeService(),
+            formatResolver = StaticDownloadResolver("https://example.invalid/audio.m4a", 4L),
+        )
+
+        assertEquals(DownloadState.COMPLETED, restoredFromDbOnly.tasks.value.single().state)
+        assertEquals(downloaded.absolutePath, restoredFromDbOnly.completedLocalFileFor("migrated-track")?.absolutePath)
+    }
+
     private fun withTempAppData(block: (File) -> Unit) {
         val root = Files.createTempDirectory("omnitune-download-test").toFile()
         try {

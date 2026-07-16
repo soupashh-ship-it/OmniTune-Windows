@@ -138,6 +138,7 @@ class FileBackedOmniDownloadManager(
     private val activeJobs = ConcurrentHashMap<String, Job>()
     private val indexFile = File(platform.appDataDir, "downloads-index.json")
     private val downloadDir = platform.downloadsDir
+    private val localDatabase = OmniLocalDatabase(File(platform.databasePath))
 
     private val _tasks = MutableStateFlow<List<DownloadTask>>(restoreTasks())
     override val tasks: StateFlow<List<DownloadTask>> = _tasks.asStateFlow()
@@ -345,7 +346,24 @@ class FileBackedOmniDownloadManager(
     }
 
     private fun restoreTasks(): List<DownloadTask> {
-        val restored = runCatching {
+        val restored = if (localDatabase.isMigrated(DOWNLOADS_DOMAIN)) {
+            runCatching { localDatabase.readDownloads() }
+                .onFailure { OmniLogger.error("Downloads", "Failed to read downloads from SQLite; falling back to JSON index.", it) }
+                .getOrElse { readTasksFromJsonIndex() }
+        } else {
+            readTasksFromJsonIndex().also {
+                localDatabase.replaceDownloads(it)
+                localDatabase.markMigrated(DOWNLOADS_DOMAIN)
+            }
+        }
+
+        return sanitizeRestoredTasks(restored).also { restoredTasks ->
+            persistTasks(restoredTasks)
+        }
+    }
+
+    private fun readTasksFromJsonIndex(): List<DownloadTask> =
+        runCatching {
             if (!indexFile.isFile) return@runCatching emptyList()
             parseTaskIndex(indexFile.readText())
         }.onFailure { error ->
@@ -360,7 +378,8 @@ class FileBackedOmniDownloadManager(
             }.getOrDefault(emptyList())
         }
 
-        return restored.map { task ->
+    private fun sanitizeRestoredTasks(restored: List<DownloadTask>): List<DownloadTask> =
+        restored.map { task ->
             when (task.state) {
                 DownloadState.COMPLETED -> {
                     val file = task.localFilePath?.let { File(it) }
@@ -372,15 +391,7 @@ class FileBackedOmniDownloadManager(
                 DownloadState.DOWNLOADING, DownloadState.RESOLVING, DownloadState.QUEUED -> task.copy(state = DownloadState.PAUSED)
                 else -> task
             }
-        }.also { restoredTasks ->
-            runCatching {
-                indexFile.parentFile?.mkdirs()
-                val array = JSONArray()
-                restoredTasks.forEach { array.put(it.toJson()) }
-                AtomicFileStore.writeText(indexFile, array.toString())
-            }
         }
-    }
 
     private fun parseTaskIndex(raw: String): List<DownloadTask> {
         val array = JSONArray(raw)
@@ -402,10 +413,16 @@ class FileBackedOmniDownloadManager(
     }
 
     private fun persist() {
+        persistTasks(_tasks.value)
+    }
+
+    private fun persistTasks(tasks: List<DownloadTask>) {
         indexFile.parentFile?.mkdirs()
         val array = JSONArray()
-        _tasks.value.forEach { array.put(it.toJson()) }
+        tasks.forEach { array.put(it.toJson()) }
         AtomicFileStore.writeText(indexFile, array.toString())
+        localDatabase.replaceDownloads(tasks)
+        localDatabase.markMigrated(DOWNLOADS_DOMAIN)
     }
 
     private fun preserveCorruptIndex() {
@@ -427,6 +444,10 @@ class FileBackedOmniDownloadManager(
         val downloadsRoot = runCatching { downloadDir.canonicalFile }.getOrElse { return false }
         val candidate = runCatching { file.canonicalFile }.getOrElse { return false }
         return candidate == downloadsRoot || candidate.toPath().startsWith(downloadsRoot.toPath())
+    }
+
+    private companion object {
+        const val DOWNLOADS_DOMAIN = "downloads"
     }
 }
 

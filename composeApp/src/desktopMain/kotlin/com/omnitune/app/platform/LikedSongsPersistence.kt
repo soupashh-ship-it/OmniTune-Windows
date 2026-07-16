@@ -7,13 +7,26 @@ import java.util.prefs.Preferences
 internal class LikedSongsPersistence(
     private val prefs: Preferences,
     private val jsonStore: JsonFileStore,
+    private val localDatabase: OmniLocalDatabase? = null,
 ) {
+    init {
+        migrateToDatabaseIfNeeded()
+    }
+
     var likedSongIds: Set<String>
-        get() = (prefs.get("likedSongIds", "") ?: "").split(",").filter { it.isNotBlank() }.toSet()
+        get() = localDatabase
+            ?.takeIf { it.isMigrated(DOMAIN) }
+            ?.readLikedSongs()
+            ?.map { it.song.id }
+            ?.toSet()
+            ?: (prefs.get("likedSongIds", "") ?: "").split(",").filter { it.isNotBlank() }.toSet()
         set(value) { prefs.put("likedSongIds", value.joinToString(",")) }
 
     var likedSongRecords: List<LikedSongRecord>
-        get() = readLikedSongRecords()
+        get() = localDatabase
+            ?.takeIf { it.isMigrated(DOMAIN) }
+            ?.readLikedSongs()
+            ?: readLikedSongRecordsFromJson()
         set(value) {
             val distinct = value.distinctBy { it.song.id }
             val array = JSONArray()
@@ -25,10 +38,19 @@ internal class LikedSongsPersistence(
                 )
             }
             jsonStore.writeJsonStore("likedSongs.json", "likedSongs.v1", array.toString())
+            localDatabase?.replaceLikedSongs(distinct)
+            localDatabase?.markMigrated(DOMAIN)
             likedSongIds = distinct.map { it.song.id }.toSet()
         }
 
-    fun readLikedSongRecords(): List<LikedSongRecord> {
+    private fun migrateToDatabaseIfNeeded() {
+        val db = localDatabase ?: return
+        if (db.isMigrated(DOMAIN)) return
+        db.replaceLikedSongs(readLikedSongRecordsFromJson())
+        db.markMigrated(DOMAIN)
+    }
+
+    private fun readLikedSongRecordsFromJson(): List<LikedSongRecord> {
         val records = jsonStore.readRecoverableJsonList(
             fileName = "likedSongs.json",
             fallbackPreferenceKey = "likedSongs.v1",
@@ -44,5 +66,9 @@ internal class LikedSongsPersistence(
             }.distinctBy { it.song.id }
         }
         return records.ifEmpty { emptyList() }
+    }
+
+    private companion object {
+        const val DOMAIN = "liked_songs"
     }
 }

@@ -5,14 +5,21 @@ import org.json.JSONObject
 
 internal class PlaybackHistoryPersistence(
     private val jsonStore: JsonFileStore,
+    private val localDatabase: OmniLocalDatabase? = null,
 ) {
+    init {
+        migrateToDatabaseIfNeeded()
+    }
+
     var playbackHistory: List<PlaybackHistoryEntry>
-        get() = readPlaybackHistory()
+        get() = localDatabase
+            ?.takeIf { it.isMigrated(HISTORY_DOMAIN) }
+            ?.readPlaybackHistory()
+            ?: readPlaybackHistoryFromJson()
         set(value) {
+            val distinct = value.distinctBy { it.song.id }.take(200)
             val array = JSONArray()
-            value
-                .distinctBy { it.song.id }
-                .take(200)
+            distinct
                 .forEach { entry ->
                     array.put(
                         JSONObject()
@@ -28,15 +35,19 @@ internal class PlaybackHistoryPersistence(
                     )
                 }
             jsonStore.writeJsonStore("playbackHistory.json", "playbackHistory.v1", array.toString())
+            localDatabase?.replacePlaybackHistory(distinct)
+            localDatabase?.markMigrated(HISTORY_DOMAIN)
         }
 
     var playbackSessions: List<PlaybackSession>
-        get() = readPlaybackSessions()
+        get() = localDatabase
+            ?.takeIf { it.isMigrated(SESSIONS_DOMAIN) }
+            ?.readPlaybackSessions()
+            ?: readPlaybackSessionsFromJson()
         set(value) {
+            val distinct = value.distinctBy { it.id }.take(100)
             val array = JSONArray()
-            value
-                .distinctBy { it.id }
-                .take(100)
+            distinct
                 .forEach { session ->
                     array.put(
                         JSONObject()
@@ -50,9 +61,23 @@ internal class PlaybackHistoryPersistence(
                     )
                 }
             jsonStore.writeJsonStore("playbackSessions.json", "playbackSessions.v1", array.toString())
+            localDatabase?.replacePlaybackSessions(distinct)
+            localDatabase?.markMigrated(SESSIONS_DOMAIN)
         }
 
-    fun readPlaybackHistory(): List<PlaybackHistoryEntry> = jsonStore.readRecoverableJsonList(
+    private fun migrateToDatabaseIfNeeded() {
+        val db = localDatabase ?: return
+        if (!db.isMigrated(HISTORY_DOMAIN)) {
+            db.replacePlaybackHistory(readPlaybackHistoryFromJson())
+            db.markMigrated(HISTORY_DOMAIN)
+        }
+        if (!db.isMigrated(SESSIONS_DOMAIN)) {
+            db.replacePlaybackSessions(readPlaybackSessionsFromJson())
+            db.markMigrated(SESSIONS_DOMAIN)
+        }
+    }
+
+    private fun readPlaybackHistoryFromJson(): List<PlaybackHistoryEntry> = jsonStore.readRecoverableJsonList(
         fileName = "playbackHistory.json",
         fallbackPreferenceKey = "playbackHistory.v1",
     ) { stored ->
@@ -74,7 +99,7 @@ internal class PlaybackHistoryPersistence(
         }.distinctBy { it.id }
     }
 
-    fun readPlaybackSessions(): List<PlaybackSession> = jsonStore.readRecoverableJsonList(
+    private fun readPlaybackSessionsFromJson(): List<PlaybackSession> = jsonStore.readRecoverableJsonList(
         fileName = "playbackSessions.json",
         fallbackPreferenceKey = "playbackSessions.v1",
     ) { stored ->
@@ -91,5 +116,10 @@ internal class PlaybackHistoryPersistence(
                 uniqueTrackCount = obj.optInt("uniqueTrackCount"),
             ).takeIf { it.id.isNotBlank() }
         }.distinctBy { it.id }
+    }
+
+    private companion object {
+        const val HISTORY_DOMAIN = "playback_history"
+        const val SESSIONS_DOMAIN = "playback_sessions"
     }
 }

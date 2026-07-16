@@ -211,6 +211,41 @@ After starting a verified silent update, OmniTune exits so the installer can rep
 
 This is a verified silent installer handoff from the in-app update check. It is not yet a service-style background updater that polls and installs without user action.
 
+## MSIX path
+
+MSIX packaging is available for future Store/sideload evaluation:
+
+```powershell
+.\scripts\release\build-msix-package.ps1
+```
+
+See:
+
+```text
+docs/release/msix-packaging.md
+```
+
+The branded Inno Setup installer remains the preferred public release asset until the MSIX identity, signing, and Store strategy are finalized.
+
+## Signing preflight
+
+Before building a signed public release, run:
+
+```powershell
+.\scripts\release\test-signing-prerequisites.ps1
+```
+
+Required environment:
+
+```powershell
+$env:OMNITUNE_SIGNTOOL = "C:\Program Files (x86)\Windows Kits\10\bin\<sdk-version>\x64\signtool.exe"
+$env:OMNITUNE_SIGN_CERT_PATH = "C:\secure\OmniTune-CodeSigning.pfx"
+$env:OMNITUNE_SIGN_CERT_PASSWORD = "<from secret manager>"
+$env:OMNITUNE_TIMESTAMP_URL = "http://timestamp.digicert.com"
+```
+
+This verifies that `signtool.exe` exists, the certificate file is readable, the certificate contains a private key, and it has not expired.
+
 ## User-data preservation verification
 
 Before install/update:
