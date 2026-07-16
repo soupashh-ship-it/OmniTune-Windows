@@ -27,6 +27,11 @@ class ReleaseUpdateCheckerTest {
                   "name": "OmniTune-Setup-0.2.1-windows-x64.exe",
                   "browser_download_url": "https://example.invalid/OmniTune-Setup-0.2.1-windows-x64.exe",
                   "size": 123
+                },
+                {
+                  "name": "OmniTune-Setup-0.2.1-windows-x64.exe.sha256",
+                  "browser_download_url": "https://example.invalid/OmniTune-Setup-0.2.1-windows-x64.exe.sha256",
+                  "size": 100
                 }
               ]
             }
@@ -36,7 +41,8 @@ class ReleaseUpdateCheckerTest {
         assertEquals("0.2.1", metadata.version)
         assertEquals("https://github.com/soupashh-ship-it/OmniTune-Windows/releases/tag/v0.2.1", metadata.htmlUrl)
         assertTrue(metadata.prerelease)
-        assertEquals("OmniTune-Setup-0.2.1-windows-x64.exe", metadata.assets.single().name)
+        assertEquals("OmniTune-Setup-0.2.1-windows-x64.exe", metadata.assets.first().name)
+        assertEquals("OmniTune-Setup-0.2.1-windows-x64.exe.sha256", metadata.assets.last().name)
     }
 
     @Test
@@ -59,6 +65,7 @@ class ReleaseUpdateCheckerTest {
 
         assertTrue(update is UpdateCheckResult.UpdateAvailable)
         assertEquals("OmniTune-Setup-0.2.1-windows-x64.exe", update.installerAsset?.name)
+        assertEquals(null, update.checksumAsset?.name)
         assertTrue(current is UpdateCheckResult.Current)
     }
 
@@ -88,10 +95,14 @@ class ReleaseUpdateCheckerTest {
                 ReleaseAsset("OmniTune-0.2.5-windows-x64.msi", "https://example.invalid/app.msi", 1),
                 ReleaseAsset("OmniTune-Setup-0.2.5-windows-x64.exe", "https://example.invalid/app.exe", 1),
                 ReleaseAsset("OmniTune-Setup-0.2.5-windows-x64-custom.exe", "https://example.invalid/custom.exe", 1),
+                ReleaseAsset("OmniTune-Setup-0.2.5-windows-x64-custom.exe.sha256", "https://example.invalid/custom.exe.sha256", 1),
             ),
         )
 
-        assertEquals("OmniTune-Setup-0.2.5-windows-x64-custom.exe", metadata.preferredWindowsInstallerAsset()?.name)
+        val installer = metadata.preferredWindowsInstallerAsset()
+        assertEquals("OmniTune-Setup-0.2.5-windows-x64-custom.exe", installer?.name)
+        requireNotNull(installer)
+        assertEquals("OmniTune-Setup-0.2.5-windows-x64-custom.exe.sha256", metadata.checksumAssetFor(installer)?.name)
     }
 
     @Test

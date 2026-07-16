@@ -195,7 +195,21 @@ The app downloads the selected asset to:
 %LOCALAPPDATA%\OmniTuneData\updates
 ```
 
-Then it opens the installer for the user. This is an assisted updater, not a silent automatic updater. The installer remains responsible for replacing the installed binaries while preserving `%LOCALAPPDATA%\OmniTuneData`.
+If the release also provides a matching `<installer>.sha256` asset, OmniTune verifies the downloaded installer before execution. Verified custom Inno installers are launched with:
+
+```text
+/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS
+```
+
+Verified MSI installers are launched through:
+
+```text
+msiexec.exe /i <installer> /qn /norestart
+```
+
+After starting a verified silent update, OmniTune exits so the installer can replace application files cleanly. If checksum verification is unavailable or silent installation is unsupported for the selected asset, OmniTune falls back to opening the installer manually.
+
+This is a verified silent installer handoff from the in-app update check. It is not yet a service-style background updater that polls and installs without user action.
 
 ## User-data preservation verification
 

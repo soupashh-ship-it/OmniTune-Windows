@@ -63,6 +63,7 @@ import com.omnitune.app.platform.PlatformContext
 import com.omnitune.app.platform.ReleaseUpdateChecker
 import com.omnitune.app.platform.SettingsRepository
 import com.omnitune.app.platform.UpdateCheckResult
+import com.omnitune.app.platform.UpdateInstallerLauncher
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import java.awt.Desktop
@@ -336,12 +337,23 @@ fun SettingsView() {
                                     statusMessage = "Downloading OmniTune ${result.latestVersion} installer..."
                                     runCatching {
                                         updateChecker.downloadInstaller(result, File(platform.appDataDir, "updates"))
-                                    }.onSuccess { installer ->
+                                    }.onSuccess { downloaded ->
+                                        val installer = downloaded.file
+                                        val silentStarted = downloaded.checksumVerified &&
+                                            UpdateInstallerLauncher.launchSilentUpdate(installer)
+                                        if (silentStarted) {
+                                            statusMessage = "Verified update ${result.latestVersion}; installing in background..."
+                                            return@onSuccess
+                                        }
+
                                         val opened = openFile(installer)
-                                        statusMessage = if (opened) {
-                                            "Downloaded update ${result.latestVersion}; installer opened"
-                                        } else {
-                                            "Downloaded update ${result.latestVersion} to ${installer.absolutePath}"
+                                        statusMessage = when {
+                                            opened && downloaded.checksumVerified ->
+                                                "Verified update ${result.latestVersion}; installer opened"
+                                            opened ->
+                                                "Downloaded update ${result.latestVersion}; installer opened"
+                                            else ->
+                                                "Downloaded update ${result.latestVersion} to ${installer.absolutePath}"
                                         }
                                     }.onFailure { error ->
                                         val opened = openUri(result.releaseUrl)

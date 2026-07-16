@@ -18,6 +18,8 @@ val composeAppImageDir = layout.buildDirectory.dir("compose/binaries/main/app/Om
 
 val prepareWindowsAppResources by tasks.registering(Copy::class) {
     into(windowsAppResourcesDir)
+    inputs.property("omniTuneVersion", omniTuneVersion)
+    inputs.property("latestReleaseApiUrl", "https://api.github.com/repos/soupashh-ship-it/OmniTune-Windows/releases")
 
     from(rootProject.file("THIRD_PARTY_NOTICES.txt")) {
         into("licenses")

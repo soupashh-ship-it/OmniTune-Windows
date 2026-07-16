@@ -9,6 +9,7 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.security.MessageDigest
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.time.Duration
@@ -20,6 +21,7 @@ sealed class UpdateCheckResult {
         val latestVersion: String,
         val releaseUrl: String,
         val installerAsset: ReleaseAsset?,
+        val checksumAsset: ReleaseAsset?,
     ) : UpdateCheckResult()
 
     data class Failed(val message: String) : UpdateCheckResult()
@@ -36,6 +38,11 @@ data class ReleaseMetadata(
     val htmlUrl: String,
     val prerelease: Boolean,
     val assets: List<ReleaseAsset> = emptyList(),
+)
+
+data class DownloadedUpdateInstaller(
+    val file: File,
+    val checksumVerified: Boolean,
 )
 
 class ReleaseUpdateChecker(
@@ -65,7 +72,7 @@ class ReleaseUpdateChecker(
         }
     }
 
-    suspend fun downloadInstaller(update: UpdateCheckResult.UpdateAvailable, updatesDir: File): File =
+    suspend fun downloadInstaller(update: UpdateCheckResult.UpdateAvailable, updatesDir: File): DownloadedUpdateInstaller =
         withContext(Dispatchers.IO) {
             val asset = update.installerAsset ?: error("No Windows installer asset was found for ${update.latestVersion}.")
             updatesDir.mkdirs()
@@ -89,8 +96,13 @@ class ReleaseUpdateChecker(
                 temp.delete()
                 error("Downloaded installer size mismatch.")
             }
-            Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-            target
+            moveReplacing(temp, target)
+
+            val verified = update.checksumAsset?.let { checksumAsset ->
+                verifySha256(target, checksumAsset)
+            } ?: false
+
+            DownloadedUpdateInstaller(target, verified)
         }
 
     internal fun parseGitHubReleaseResponse(json: String): ReleaseMetadata {
@@ -136,6 +148,9 @@ class ReleaseUpdateChecker(
                 latestVersion = latest.version,
                 releaseUrl = latest.htmlUrl,
                 installerAsset = latest.preferredWindowsInstallerAsset(),
+                checksumAsset = latest.preferredWindowsInstallerAsset()?.let { installer ->
+                    latest.checksumAssetFor(installer)
+                },
             )
         } else {
             UpdateCheckResult.Current(
@@ -159,6 +174,61 @@ class ReleaseUpdateChecker(
             )
         }
     }
+
+    private fun moveReplacing(source: File, target: File) {
+        runCatching {
+            Files.move(source.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        }.getOrElse {
+            Files.move(source.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+    }
+
+    private fun verifySha256(file: File, checksumAsset: ReleaseAsset): Boolean {
+        val expected = downloadText(checksumAsset)
+            .lineSequence()
+            .firstOrNull { it.isNotBlank() }
+            ?.trim()
+            ?.substringBefore(" ")
+            ?.trim()
+            ?.lowercase()
+            ?: error("Checksum asset ${checksumAsset.name} is empty.")
+
+        val actual = sha256(file)
+        if (!expected.matches(Regex("[a-f0-9]{64}"))) {
+            error("Checksum asset ${checksumAsset.name} does not contain a SHA-256 digest.")
+        }
+        if (actual != expected) {
+            error("Downloaded installer checksum mismatch.")
+        }
+        return true
+    }
+
+    private fun downloadText(asset: ReleaseAsset): String {
+        val request = HttpRequest.newBuilder(URI(asset.downloadUrl))
+            .timeout(Duration.ofSeconds(30))
+            .header("Accept", "text/plain")
+            .header("User-Agent", "OmniTune-Windows/${currentVersion.ifBlank { "development" }}")
+            .GET()
+            .build()
+        val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+        if (response.statusCode() !in 200..299) {
+            error("GitHub checksum download returned HTTP ${response.statusCode()}.")
+        }
+        return response.body()
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                if (read > 0) digest.update(buffer, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
 }
 
 internal fun ReleaseMetadata.preferredWindowsInstallerAsset(): ReleaseAsset? {
@@ -170,6 +240,11 @@ internal fun ReleaseMetadata.preferredWindowsInstallerAsset(): ReleaseAsset? {
         ?: candidates.firstOrNull { it.name.contains("Setup", ignoreCase = true) && it.name.endsWith(".exe", ignoreCase = true) }
         ?: candidates.firstOrNull { it.name.endsWith(".exe", ignoreCase = true) }
         ?: candidates.firstOrNull { it.name.endsWith(".msi", ignoreCase = true) }
+}
+
+internal fun ReleaseMetadata.checksumAssetFor(installer: ReleaseAsset): ReleaseAsset? {
+    val expectedName = "${installer.name}.sha256"
+    return assets.firstOrNull { it.name.equals(expectedName, ignoreCase = true) }
 }
 
 internal fun sanitizeUpdateFileName(name: String): String {
