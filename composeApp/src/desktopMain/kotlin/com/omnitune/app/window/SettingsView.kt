@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,7 +60,10 @@ import com.omnitune.app.player.PlayerViewModel
 import com.omnitune.app.platform.AppInfo
 import com.omnitune.app.platform.DownloadQualityMode
 import com.omnitune.app.platform.PlatformContext
+import com.omnitune.app.platform.ReleaseUpdateChecker
 import com.omnitune.app.platform.SettingsRepository
+import com.omnitune.app.platform.UpdateCheckResult
+import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 import java.awt.Desktop
 import java.io.File
@@ -80,17 +84,11 @@ fun SettingsView() {
     var shuffle by remember { mutableStateOf(settings.shuffleEnabled) }
     var repeat by remember { mutableStateOf(settings.repeatMode) }
     var downloadQuality by remember { mutableStateOf(settings.downloadQualityMode) }
-    var normalizeVolume by remember { mutableStateOf(settings.normalizeVolumePreference) }
-    var spatialAudio by remember { mutableStateOf(settings.spatialAudioPreference) }
-    var gapless by remember { mutableStateOf(settings.gaplessPlaybackPreference) }
-    var newMusicNotifications by remember { mutableStateOf(settings.newMusicNotifications) }
-    var recommendationNotifications by remember { mutableStateOf(settings.recommendationNotifications) }
-    var productUpdateNotifications by remember { mutableStateOf(settings.productUpdateNotifications) }
-    var weeklyDigestNotifications by remember { mutableStateOf(settings.weeklyDigestNotifications) }
-    var concertAlertNotifications by remember { mutableStateOf(settings.concertAlertNotifications) }
-    var autoDownloadPlaylists by remember { mutableStateOf(settings.autoDownloadPlaylists) }
     var globalShortcuts by remember { mutableStateOf(settings.globalShortcutsEnabled) }
     var statusMessage by remember { mutableStateOf("") }
+    var checkingForUpdates by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val updateChecker = remember { ReleaseUpdateChecker() }
     val qualityModes = listOf(
         DownloadQualityMode.PROVIDER_DEFAULT,
         DownloadQualityMode.SMALLER_FILE,
@@ -105,15 +103,6 @@ fun SettingsView() {
         repeat = 0
         theme = "nocturne"
         downloadQuality = DownloadQualityMode.PROVIDER_DEFAULT
-        normalizeVolume = false
-        spatialAudio = false
-        gapless = true
-        newMusicNotifications = true
-        recommendationNotifications = true
-        productUpdateNotifications = true
-        weeklyDigestNotifications = true
-        concertAlertNotifications = false
-        autoDownloadPlaylists = false
         globalShortcuts = true
         settings.volume = volume
         settings.reduceMotionEnabled = reduceMotion
@@ -122,15 +111,6 @@ fun SettingsView() {
         settings.repeatMode = repeat
         settings.appearanceTheme = theme
         settings.downloadQualityMode = downloadQuality
-        settings.normalizeVolumePreference = normalizeVolume
-        settings.spatialAudioPreference = spatialAudio
-        settings.gaplessPlaybackPreference = gapless
-        settings.newMusicNotifications = newMusicNotifications
-        settings.recommendationNotifications = recommendationNotifications
-        settings.productUpdateNotifications = productUpdateNotifications
-        settings.weeklyDigestNotifications = weeklyDigestNotifications
-        settings.concertAlertNotifications = concertAlertNotifications
-        settings.autoDownloadPlaylists = autoDownloadPlaylists
         settings.globalShortcutsEnabled = globalShortcuts
         settings.flush()
         statusMessage = "Defaults restored"
@@ -186,18 +166,8 @@ fun SettingsView() {
                 statusMessage = "Download quality set to ${downloadQuality.readableLabel()}"
             }
             SettingsLine("Current mode", downloadQuality.readableLabel())
-            SettingsSwitch("Normalize Volume", "Stored preference for future leveling support", normalizeVolume) {
-                normalizeVolume = it
-                settings.normalizeVolumePreference = it
-                settings.flush()
-                statusMessage = "Normalize volume preference ${if (it) "enabled" else "disabled"}"
-            }
-            SettingsSwitch("Spatial Audio", "Persist spatial-output preference for supported playback paths", spatialAudio) {
-                spatialAudio = it
-                settings.spatialAudioPreference = it
-                settings.flush()
-                statusMessage = "Spatial audio preference ${if (it) "enabled" else "disabled"}"
-            }
+            SettingsLine("Volume leveling", "Not available in this build")
+            SettingsLine("Spatial output", "Not available in this build")
         }
     }
 
@@ -228,12 +198,7 @@ fun SettingsView() {
                 )
                 Text("200", color = TextSecondary, fontSize = 8.sp)
             }
-            SettingsSwitch("Gapless Playback", "Persist gapless playback preference", gapless) {
-                gapless = it
-                settings.gaplessPlaybackPreference = it
-                settings.flush()
-                statusMessage = "Gapless playback preference ${if (it) "enabled" else "disabled"}"
-            }
+            SettingsLine("Gapless playback", "Not available in this build")
             SettingsSegment("Repeat", listOf("Off", "All", "One"), repeat.coerceIn(0, 2)) {
                 repeat = it
                 settings.repeatMode = it
@@ -298,12 +263,7 @@ fun SettingsView() {
                 settings.flush()
                 statusMessage = "Mini player always-on-top ${if (it) "enabled" else "disabled"}"
             }
-            SettingsSwitch("Auto download playlists", "Persist automatic playlist-download preference", autoDownloadPlaylists) {
-                autoDownloadPlaylists = it
-                settings.autoDownloadPlaylists = it
-                settings.flush()
-                statusMessage = "Auto-download playlists preference ${if (it) "enabled" else "disabled"}"
-            }
+            SettingsLine("Auto-download playlists", "Not available in this build")
             SettingsChevronLine("Files present", "${platform.downloadsDir.listFiles()?.size ?: 0}") {
                 statusMessage = if (openFile(platform.downloadsDir)) "Opened downloads folder" else "Could not open downloads folder"
             }
@@ -312,31 +272,18 @@ fun SettingsView() {
 
     val notificationsCard: @Composable (Modifier) -> Unit = { modifier ->
         SettingsCard("Notifications", null, modifier) {
-            SettingsSwitch("New Music", "Persist in-app notification preference", newMusicNotifications) {
-                newMusicNotifications = it
-                settings.newMusicNotifications = it
-                settings.flush()
-            }
-            SettingsSwitch("Recommendations", "Persist recommendation prompt preference", recommendationNotifications) {
-                recommendationNotifications = it
-                settings.recommendationNotifications = it
-                settings.flush()
-            }
-            SettingsSwitch("Concert Alerts", "Persist concert-alert notification preference", concertAlertNotifications) {
-                concertAlertNotifications = it
-                settings.concertAlertNotifications = it
-                settings.flush()
-                statusMessage = "Concert alerts preference ${if (it) "enabled" else "disabled"}"
-            }
-            SettingsSwitch("Product Updates", "Persist release notice preference", productUpdateNotifications) {
-                productUpdateNotifications = it
-                settings.productUpdateNotifications = it
-                settings.flush()
-            }
-            SettingsSwitch("Weekly Digest", "Persist listening-summary preference", weeklyDigestNotifications) {
-                weeklyDigestNotifications = it
-                settings.weeklyDigestNotifications = it
-                settings.flush()
+            Text(
+                "Windows notification delivery is not enabled in this build, so OmniTune does not expose notification toggles yet.",
+                color = TextSecondary,
+                fontSize = 8.5.sp,
+                lineHeight = 12.sp,
+            )
+            Spacer(Modifier.height(metrics.px(10f)))
+            SettingsLine("New music alerts", "Not available")
+            SettingsLine("Recommendations", "Not available")
+            SettingsLine("Concert alerts", "Not available")
+            SettingsChevronLine("Product updates", "Use About → Check for Updates") {
+                statusMessage = "Use About → Check for Updates for current release status"
             }
         }
     }
@@ -373,11 +320,32 @@ fun SettingsView() {
                     Text("Version ${AppInfo.version} • Desktop Compose build", color = TextSecondary, fontSize = 8.5.sp)
                     Text(platform.appDataDir.absolutePath, color = IrisSoft, fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                ReferenceButton("Check for Updates", Modifier.width(metrics.px(118f)).height(metrics.px(28f))) {
-                    statusMessage = if (openUri(AppInfo.releasesUrl)) {
-                        "Opened GitHub releases"
-                    } else {
-                        "Could not open browser"
+                ReferenceButton(
+                    if (checkingForUpdates) "Checking..." else "Check for Updates",
+                    Modifier.width(metrics.px(118f)).height(metrics.px(28f)),
+                ) {
+                    if (!checkingForUpdates) {
+                        checkingForUpdates = true
+                        statusMessage = "Checking latest OmniTune release..."
+                        scope.launch {
+                            when (val result = updateChecker.checkLatest()) {
+                                is UpdateCheckResult.Current -> {
+                                    statusMessage = "OmniTune ${result.currentVersion} is current"
+                                }
+                                is UpdateCheckResult.UpdateAvailable -> {
+                                    val opened = openUri(result.releaseUrl)
+                                    statusMessage = if (opened) {
+                                        "Update ${result.latestVersion} available; opened release page"
+                                    } else {
+                                        "Update ${result.latestVersion} available; could not open browser"
+                                    }
+                                }
+                                is UpdateCheckResult.Failed -> {
+                                    statusMessage = "Update check failed: ${result.message}"
+                                }
+                            }
+                            checkingForUpdates = false
+                        }
                     }
                 }
             }
@@ -696,7 +664,9 @@ private fun openFile(file: File): Boolean {
 private fun openUri(uri: String): Boolean {
     return runCatching {
         if (!Desktop.isDesktopSupported()) return false
-        Desktop.getDesktop().browse(URI(uri))
+        val parsed = URI(uri)
+        if (parsed.scheme !in setOf("https", "http")) return false
+        Desktop.getDesktop().browse(parsed)
         true
     }.getOrDefault(false)
 }

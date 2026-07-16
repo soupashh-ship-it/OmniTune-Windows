@@ -143,6 +143,22 @@ $manifest = [ordered]@{
         libvlc = (Test-Path (Join-Path $appImage "native\vlc\libvlc.dll"))
         plugins = (Test-Path (Join-Path $appImage "native\vlc\plugins"))
     }
+    branding = [ordered]@{
+        displayName = "OmniTune"
+        vendor = "OmniTune"
+        menuGroup = "OmniTune"
+        iconFile = "composeApp/src/desktopMain/resources/icon.ico"
+        iconExists = (Test-Path (Join-Path $projectRoot "composeApp/src/desktopMain/resources/icon.ico"))
+        installerUi = "jpackage default Windows installer UI; app/shortcut/uninstall branding uses package metadata and icon"
+    }
+    upgrade = [ordered]@{
+        upgradeUuid = "7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d"
+        sameVersionRepairNote = "Stock jpackage MSI/EXE may reject same-version reinstall. Use scripts/install-omnitune-update.ps1 for uninstall/reinstall update flow when rebuilding the same version."
+    }
+    userData = [ordered]@{
+        root = "%LOCALAPPDATA%\\OmniTuneData"
+        installPolicy = "Application data is stored outside the installation directory and should survive install, uninstall, repair, and upgrade operations."
+    }
     signed = [bool]$Sign
 }
 

@@ -47,6 +47,42 @@ class PlayerQueueControllerTest {
         assertEquals(2, controller.queueIndex.value)
     }
 
+    @Test
+    fun shufflePrevious_returnsPriorShuffledItemInsteadOfRandomItem() {
+        val controller = PlayerQueueController(testSettings())
+        controller.setQueue(listOf(song("a"), song("b"), song("c"), song("d")), 0)
+        controller.toggleShuffle()
+
+        val firstNext = controller.nextIndex()
+        assertTrue(firstNext != null)
+        controller.navigateToIndex(firstNext!!)
+
+        val secondNext = controller.nextIndex()
+        assertTrue(secondNext != null)
+        controller.navigateToIndex(secondNext!!)
+
+        val previous = controller.previousIndex()
+
+        assertEquals(firstNext, previous)
+    }
+
+    @Test
+    fun shuffleNext_afterPreviousReturnsForwardItem() {
+        val controller = PlayerQueueController(testSettings())
+        controller.setQueue(listOf(song("a"), song("b"), song("c"), song("d")), 0)
+        controller.toggleShuffle()
+
+        val next = controller.nextIndex()
+        assertTrue(next != null)
+        controller.navigateToIndex(next!!)
+
+        val previous = controller.previousIndex()
+        assertEquals(0, previous)
+        controller.navigateToIndex(previous!!)
+
+        assertEquals(next, controller.nextIndex())
+    }
+
     private fun testSettings(): SettingsRepository =
         SettingsRepository(Preferences.userRoot().node("/omnitune-tests/player-queue-${System.nanoTime()}"))
 

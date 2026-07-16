@@ -50,7 +50,8 @@ class SettingsRepository(
     private val settingsPreferences = SettingsPreferences(prefs)
     private val likedSongsPersistence = LikedSongsPersistence(prefs, jsonStore)
     private val playbackHistoryPersistence = PlaybackHistoryPersistence(jsonStore)
-    private val playlistPersistence = PlaylistPersistence(jsonStore, ::flush)
+    private val playlistCoverStore = PlaylistCoverStore(platformContext)
+    private val playlistPersistence = PlaylistPersistence(jsonStore, ::flush, playlistCoverStore)
 
     val miniPlayerAlwaysOnTopFlow: StateFlow<Boolean> = settingsPreferences.miniPlayerAlwaysOnTopFlow
     val appearanceThemeFlow: StateFlow<String> = settingsPreferences.appearanceThemeFlow

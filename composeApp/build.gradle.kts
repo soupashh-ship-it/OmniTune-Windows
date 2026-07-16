@@ -56,6 +56,7 @@ val prepareWindowsAppResources by tasks.registering(Copy::class) {
             releaseTag=v$omniTuneVersion
             releaseUrl=https://github.com/soupashh-ship-it/OmniTune-Windows/releases/tag/v$omniTuneVersion
             releasesUrl=https://github.com/soupashh-ship-it/OmniTune-Windows/releases
+            latestReleaseApiUrl=https://api.github.com/repos/soupashh-ship-it/OmniTune-Windows/releases/latest
             """.trimIndent() + "\n"
         )
         val nativeRoot = outputDir.resolve("native/vlc")

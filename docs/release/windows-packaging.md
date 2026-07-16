@@ -113,6 +113,119 @@ The Windows installer is configured as a GUI application with:
 - directory chooser,
 - OmniTune icon.
 
+## Custom branded installer path
+
+OmniTune also has an Inno Setup installer path for richer Windows installer behavior:
+
+```powershell
+.\scripts\release\build-inno-installer.ps1
+```
+
+This path uses:
+
+```text
+installer/inno/OmniTune.iss
+```
+
+It provides:
+
+- OmniTune setup icon;
+- generated OmniTune wizard branding artwork;
+- Start menu shortcut;
+- optional desktop shortcut;
+- same-version reinstall/overwrite behavior through a stable Inno `AppId`;
+- install location under `%LOCALAPPDATA%\OmniTune`;
+- user data preserved under `%LOCALAPPDATA%\OmniTuneData`.
+
+Prepare-only validation, without Inno Setup:
+
+```powershell
+.\scripts\release\build-inno-installer.ps1 -SkipTests -PrepareOnly
+```
+
+Required local tool:
+
+```powershell
+winget install --id JRSoftware.InnoSetup -e
+```
+
+After installing Inno Setup 6, build:
+
+```powershell
+.\scripts\release\build-inno-installer.ps1 -SkipTests
+```
+
+If `ISCC.exe` is not on `PATH`, pass it explicitly:
+
+```powershell
+.\scripts\release\build-inno-installer.ps1 -SkipTests -InnoCompiler "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+```
+
+The custom installer output is:
+
+```text
+build/release/windows/inno/OmniTune-Setup-<version>-windows-x64-custom.exe
+```
+
+Important:
+
+- The custom installer solves the stock jpackage same-version reinstall friction.
+- It does not delete `%LOCALAPPDATA%\OmniTuneData`.
+- It still needs Authenticode signing for public trust.
+
+## User-data preservation verification
+
+Before install/update:
+
+```powershell
+.\scripts\verify-install-data-preservation.ps1 -Mode Before
+```
+
+Install/update:
+
+```powershell
+.\scripts\install-omnitune-update.ps1 -InstallerPath .\build\release\windows\OmniTune-Setup-0.2.0-windows-x64.exe -ExpectedVersion 0.2.0
+```
+
+After install/update:
+
+```powershell
+.\scripts\verify-install-data-preservation.ps1 -Mode After
+```
+
+Use `-HashDownloads` when you want downloaded media files hashed too.
+
+## Tooling still needed for signed public releases
+
+Install Inno Setup:
+
+```powershell
+winget install --id JRSoftware.InnoSetup -e
+```
+
+Install Windows SDK signing tools:
+
+```powershell
+winget install --id Microsoft.WindowsSDK.10.0.26100 -e
+```
+
+Then set signing environment variables:
+
+```powershell
+$env:OMNITUNE_SIGNTOOL = "C:\Program Files (x86)\Windows Kits\10\bin\<sdk-version>\x64\signtool.exe"
+$env:OMNITUNE_SIGN_CERT_PATH = "C:\secure\OmniTune-CodeSigning.pfx"
+$env:OMNITUNE_SIGN_CERT_PASSWORD = "<from secret manager>"
+$env:OMNITUNE_TIMESTAMP_URL = "http://timestamp.digicert.com"
+```
+
+Build signed custom installer:
+
+```powershell
+.\scripts\release\build-inno-installer.ps1 -Sign
+```
+
+The repository cannot include a real certificate or password.
+
 ## Clean-install QA
 
 Required manual QA before public release:

@@ -7,6 +7,7 @@ import org.json.JSONObject
 internal class PlaylistPersistence(
     private val jsonStore: JsonFileStore,
     private val flush: () -> Unit,
+    private val playlistCoverStore: PlaylistCoverStore = PlaylistCoverStore(null),
 ) {
     var savedQueuePlaylists: List<SavedQueuePlaylist>
         get() = readPlaylistList()
@@ -80,7 +81,7 @@ internal class PlaylistPersistence(
             name = trimmed,
             description = description.trim().take(300),
             tags = PlaylistPersistenceRules.sanitizeTags(tags),
-            coverPath = coverPath?.trim()?.takeIf { it.isNotBlank() },
+            coverPath = playlistCoverStore.importCover(existing.id, coverPath),
         )
         savedQueuePlaylists = PlaylistPersistenceRules.prependReplacingId(updated, playlists)
         flush()

@@ -280,7 +280,7 @@ fun main() {
                     Item("Mini Player", onClick = { showMini = true })
                     Separator()
                     Item("Quit", onClick = {
-                        audioEngine.release()
+                        audioEngine.releaseBlocking()
                         exitApplication()
                     })
                 }

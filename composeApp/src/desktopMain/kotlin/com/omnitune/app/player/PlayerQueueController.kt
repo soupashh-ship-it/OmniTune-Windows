@@ -32,8 +32,12 @@ internal class PlayerQueueController(
     )
     val repeatMode: StateFlow<RepeatMode> = repeatState.asStateFlow()
 
+    private val shuffleBackStack = mutableListOf<Int>()
+    private val shuffleForwardStack = mutableListOf<Int>()
+
     fun toggleShuffle() {
         shuffleState.value = !shuffleState.value
+        clearShuffleHistory()
         settings.shuffleEnabled = shuffleState.value
         settings.flush()
     }
@@ -57,6 +61,7 @@ internal class PlayerQueueController(
         val safeIndex = startIndex.coerceIn(items.indices)
         queueItems.value = items
         queueIndexState.value = safeIndex
+        clearShuffleHistory()
         return items[safeIndex]
     }
 
@@ -74,10 +79,19 @@ internal class PlayerQueueController(
             queueItems.value = queueItems.value + item
             queueIndexState.value = queueItems.value.lastIndex
         }
+        clearShuffleHistory()
         return item
     }
 
     fun selectIndex(index: Int): SongItem? {
+        val q = queueItems.value
+        if (index !in q.indices) return null
+        queueIndexState.value = index
+        clearShuffleHistory()
+        return q[index]
+    }
+
+    fun navigateToIndex(index: Int): SongItem? {
         val q = queueItems.value
         if (index !in q.indices) return null
         queueIndexState.value = index
@@ -89,8 +103,15 @@ internal class PlayerQueueController(
         if (q.isEmpty()) return null
         val idx = queueIndexState.value
         if (shuffleState.value && q.size > 1) {
-            var next = idx
-            while (next == idx) next = (0 until q.size).random()
+            if (idx !in q.indices) return q.indices.random()
+            val next = shuffleForwardStack.removeLastOrNull()
+                ?.takeIf { it in q.indices && it != idx }
+                ?: run {
+                    var candidate = idx
+                    while (candidate == idx) candidate = q.indices.random()
+                    candidate
+                }
+            shuffleBackStack.add(idx)
             return next
         }
         return when {
@@ -105,15 +126,18 @@ internal class PlayerQueueController(
         if (q.isEmpty()) return null
         val idx = queueIndexState.value
         if (shuffleState.value && q.size > 1) {
-            var prev = idx
-            while (prev == idx) prev = (0 until q.size).random()
-            return prev
+            val previous = shuffleBackStack.removeLastOrNull()
+                ?.takeIf { it in q.indices && it != idx }
+                ?: return null
+            if (idx in q.indices) shuffleForwardStack.add(idx)
+            return previous
         }
         return if (idx > 0) idx - 1 else null
     }
 
     fun addToQueue(item: SongItem) {
         queueItems.value = queueItems.value + item
+        clearShuffleHistory()
     }
 
     fun playNext(item: SongItem) {
@@ -124,6 +148,7 @@ internal class PlayerQueueController(
         if (queueIndexState.value >= insertAt) {
             queueIndexState.value = queueIndexState.value + 1
         }
+        clearShuffleHistory()
     }
 
     fun removeFromQueue(index: Int): QueueRemovalResult? {
@@ -131,6 +156,7 @@ internal class PlayerQueueController(
         if (index !in list.indices) return null
         list.removeAt(index)
         queueItems.value = list
+        clearShuffleHistory()
         return when {
             queueIndexState.value == index -> {
                 queueIndexState.value = -1
@@ -150,6 +176,7 @@ internal class PlayerQueueController(
         val item = list.removeAt(from)
         list.add(to, item)
         queueItems.value = list
+        clearShuffleHistory()
 
         val currentIdx = queueIndexState.value
         if (currentIdx == from) queueIndexState.value = to
@@ -160,5 +187,11 @@ internal class PlayerQueueController(
     fun clearQueue() {
         queueItems.value = emptyList()
         queueIndexState.value = -1
+        clearShuffleHistory()
+    }
+
+    private fun clearShuffleHistory() {
+        shuffleBackStack.clear()
+        shuffleForwardStack.clear()
     }
 }

@@ -146,44 +146,63 @@ class SettingsRepositoryTest {
     }
 
     @Test
-    fun playlistCreateEditAddRemoveReorderDeletePersist() = isolatedRepository { repo ->
-        val one = song("one")
-        val two = song("two")
-        val three = song("three")
+    fun playlistCreateEditAddRemoveReorderDeletePersist() {
+        val prefs = Preferences.userRoot().node("omnitune-tests/${UUID.randomUUID()}")
+        val root = Files.createTempDirectory("omnitune-playlist-cover-test").toFile()
+        val repo = SettingsRepository(prefs, PlatformContext(appDataRoot = root))
+        try {
+            val one = song("one")
+            val two = song("two")
+            val three = song("three")
+            val sourceCover = File(root, "external-source/source-cover.png").apply {
+                parentFile.mkdirs()
+                writeBytes(byteArrayOf(1, 2, 3, 4))
+            }
 
-        val created = repo.createPlaylist("Late Set", "Night listening", listOf("Chill", "chill", "Late Night"))
-        assertEquals("Late Set", created.name)
-        assertEquals(listOf("Chill", "Late Night"), created.tags)
+            val created = repo.createPlaylist("Late Set", "Night listening", listOf("Chill", "chill", "Late Night"))
+            assertEquals("Late Set", created.name)
+            assertEquals(listOf("Chill", "Late Night"), created.tags)
 
-        assertEquals(1, repo.addSongToPlaylists(one, setOf(created.id)).size)
-        assertEquals(0, repo.addSongToPlaylists(one, setOf(created.id)).size)
-        repo.addSongToPlaylists(two, setOf(created.id))
-        repo.addSongToPlaylists(three, setOf(created.id))
-        assertEquals(listOf("one", "two", "three"), repo.savedQueuePlaylists.single().songs.map { it.id })
+            assertEquals(1, repo.addSongToPlaylists(one, setOf(created.id)).size)
+            assertEquals(0, repo.addSongToPlaylists(one, setOf(created.id)).size)
+            repo.addSongToPlaylists(two, setOf(created.id))
+            repo.addSongToPlaylists(three, setOf(created.id))
+            assertEquals(listOf("one", "two", "three"), repo.savedQueuePlaylists.single().songs.map { it.id })
 
-        repo.movePlaylistSong(created.id, 2, 0)
-        assertEquals(listOf("three", "one", "two"), repo.savedQueuePlaylists.single().songs.map { it.id })
+            repo.movePlaylistSong(created.id, 2, 0)
+            assertEquals(listOf("three", "one", "two"), repo.savedQueuePlaylists.single().songs.map { it.id })
 
-        repo.removeSongFromPlaylist(created.id, "one")
-        assertEquals(listOf("three", "two"), repo.savedQueuePlaylists.single().songs.map { it.id })
+            repo.removeSongFromPlaylist(created.id, "one")
+            assertEquals(listOf("three", "two"), repo.savedQueuePlaylists.single().songs.map { it.id })
 
-        repo.updatePlaylistMetadata(
-            id = created.id,
-            name = "Late Set Edited",
-            description = "Updated description",
-            tags = listOf("Soul", "Downtempo"),
-            coverPath = "C:/covers/late.png",
-        )
+            repo.updatePlaylistMetadata(
+                id = created.id,
+                name = "Late Set Edited",
+                description = "Updated description",
+                tags = listOf("Soul", "Downtempo"),
+                coverPath = sourceCover.absolutePath,
+            )
 
-        val restored = SettingsRepository(repoPrefs(repo)).savedQueuePlaylists.single()
-        assertEquals("Late Set Edited", restored.name)
-        assertEquals("Updated description", restored.description)
-        assertEquals(listOf("Soul", "Downtempo"), restored.tags)
-        assertEquals("C:/covers/late.png", restored.coverPath)
-        assertEquals(listOf("three", "two"), restored.songs.map { it.id })
+            val restored = SettingsRepository(repoPrefs(repo), PlatformContext(appDataRoot = root)).savedQueuePlaylists.single()
+            val restoredCover = restored.coverPath?.let(::File)
+            assertEquals("Late Set Edited", restored.name)
+            assertEquals("Updated description", restored.description)
+            assertEquals(listOf("Soul", "Downtempo"), restored.tags)
+            assertNotNull(restoredCover)
+            assertTrue(restoredCover.isFile)
+            assertTrue(restoredCover.canonicalPath.startsWith(File(root, "playlist-covers").canonicalPath))
+            assertEquals(sourceCover.readBytes().toList(), restoredCover.readBytes().toList())
+            assertEquals(listOf("three", "two"), restored.songs.map { it.id })
 
-        repo.deletePlaylist(created.id)
-        assertTrue(repo.savedQueuePlaylists.isEmpty())
+            repo.deletePlaylist(created.id)
+            assertTrue(repo.savedQueuePlaylists.isEmpty())
+        } finally {
+            runCatching {
+                prefs.removeNode()
+                prefs.flush()
+            }
+            root.deleteRecursively()
+        }
     }
 
     @Test

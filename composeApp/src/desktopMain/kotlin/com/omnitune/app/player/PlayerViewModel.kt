@@ -623,7 +623,7 @@ class PlayerViewModel(
     }
 
     fun playQueueIndex(index: Int) {
-        val song = queueController.selectIndex(index) ?: return
+        val song = queueController.navigateToIndex(index) ?: return
         _currentSong.value = song
         val token = nextPlaybackRequestToken()
         launch { doPlay(song, token) }

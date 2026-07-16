@@ -18,6 +18,7 @@ class AppInfoTest {
         assertEquals("v$expectedVersion", AppInfo.releaseTag)
         assertTrue(AppInfo.releaseUrl.endsWith("/releases/tag/v$expectedVersion"))
         assertTrue(AppInfo.releasesUrl.endsWith("/releases"))
+        assertTrue(AppInfo.latestReleaseApiUrl.endsWith("/releases/latest"))
     }
 
     private fun findGradleProperties(): File {

@@ -7,7 +7,10 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 
 enum class PlaybackState {
     IDLE, BUFFERING, PLAYING, PAUSED, STOPPED, ERROR
@@ -30,9 +33,10 @@ class VlcjAudioEngine(
     private val factory: MediaPlayerFactory
     private val player: MediaPlayer
 
-    private val vlcDispatcher = Executors.newSingleThreadExecutor { r ->
+    private val vlcExecutor: ExecutorService = Executors.newSingleThreadExecutor { r ->
         Thread(r, "vlc-dispatcher").also { it.isDaemon = true }
-    }.asCoroutineDispatcher()
+    }
+    private val vlcDispatcher = vlcExecutor.asCoroutineDispatcher()
 
     private val _playbackState = MutableStateFlow(PlaybackState.IDLE)
     val playbackState: StateFlow<PlaybackState> = _playbackState.asStateFlow()
@@ -46,9 +50,13 @@ class VlcjAudioEngine(
     var onTrackFinished: (() -> Unit)? = null
 
     private var pollJob: Job? = null
+    private val releaseCoordinator = ReleaseCoordinator()
     @Volatile
     private var isReleased = false
     private var isErrorState = false
+    private val shutdownHook = Thread {
+        releaseBlocking()
+    }
 
     init {
         factory = MediaPlayerFactory(
@@ -61,30 +69,32 @@ class VlcjAudioEngine(
         setupEventListeners()
         startPositionPoller()
         
-        Runtime.getRuntime().addShutdownHook(Thread {
-            releaseSync()
-        })
+        Runtime.getRuntime().addShutdownHook(shutdownHook)
     }
 
     private fun releaseSync() {
-        if (isReleased) return
+        if (!releaseCoordinator.begin()) return
         isReleased = true
         try {
             pollJob?.cancel()
+            onTrackFinished = null
             runCatching { player.controls().stop() }
             player.release()
             factory.release()
             _playbackState.value = PlaybackState.STOPPED
-            vlcDispatcher.close()
         } catch (e: Exception) {
             OmniLogger.error("VlcjAudioEngine", "Failed to release VLC resources cleanly.", e)
+        } finally {
+            releaseCoordinator.complete()
+            runCatching { Runtime.getRuntime().removeShutdownHook(shutdownHook) }
+            vlcDispatcher.close()
         }
     }
 
     private fun startPositionPoller() {
         pollJob?.cancel()
         pollJob = scope.launch(Dispatchers.Default) {
-            while (isActive && !isReleased) {
+            while (isActive && !releaseCoordinator.releaseRequested) {
                 val state = _playbackState.value
                 if (state == PlaybackState.PLAYING || state == PlaybackState.PAUSED) {
                     runCatching {
@@ -150,9 +160,9 @@ class VlcjAudioEngine(
     }
 
     fun play(url: String) {
-        if (isReleased) return
+        if (releaseCoordinator.releaseRequested) return
         scope.launch(vlcDispatcher) {
-            if (isReleased) return@launch
+            if (releaseCoordinator.releaseRequested) return@launch
             isErrorState = false
             _error.value = null
             player.media().play(url)
@@ -160,42 +170,42 @@ class VlcjAudioEngine(
     }
 
     fun pause() {
-        if (isReleased) return
+        if (releaseCoordinator.releaseRequested) return
         scope.launch(vlcDispatcher) {
-            if (isReleased) return@launch
+            if (releaseCoordinator.releaseRequested) return@launch
             player.controls().pause()
         }
     }
 
     fun resume() {
-        if (isReleased) return
+        if (releaseCoordinator.releaseRequested) return
         scope.launch(vlcDispatcher) {
-            if (isReleased) return@launch
+            if (releaseCoordinator.releaseRequested) return@launch
             player.controls().play()
         }
     }
 
     fun stop() {
-        if (isReleased) return
+        if (releaseCoordinator.releaseRequested) return
         scope.launch(vlcDispatcher) {
-            if (isReleased) return@launch
+            if (releaseCoordinator.releaseRequested) return@launch
             player.controls().stop()
             _playbackState.value = PlaybackState.STOPPED
         }
     }
 
     fun seek(timeMs: Long) {
-        if (isReleased) return
+        if (releaseCoordinator.releaseRequested) return
         scope.launch(vlcDispatcher) {
-            if (isReleased) return@launch
+            if (releaseCoordinator.releaseRequested) return@launch
             player.controls().setTime(clampSeekTarget(timeMs, player.status().length()))
         }
     }
 
     fun seekRelative(deltaMs: Long) {
-        if (isReleased) return
+        if (releaseCoordinator.releaseRequested) return
         scope.launch(vlcDispatcher) {
-            if (isReleased) return@launch
+            if (releaseCoordinator.releaseRequested) return@launch
             val current = player.status().time()
             if (current >= 0) {
                 player.controls().setTime(clampSeekTarget(current + deltaMs, player.status().length()))
@@ -204,27 +214,77 @@ class VlcjAudioEngine(
     }
 
     fun setVolume(vol: Int) {
-        if (isReleased) return
+        if (releaseCoordinator.releaseRequested) return
         scope.launch(vlcDispatcher) {
-            if (isReleased) return@launch
+            if (releaseCoordinator.releaseRequested) return@launch
             player.audio().setVolume(vol.coerceIn(0, 200))
         }
     }
 
     fun setRate(rate: Float) {
-        if (isReleased) return
+        if (releaseCoordinator.releaseRequested) return
         scope.launch(vlcDispatcher) {
-            if (isReleased) return@launch
+            if (releaseCoordinator.releaseRequested) return@launch
             player.controls().setRate(rate)
         }
     }
 
     fun release() {
-        if (isReleased) return
-        runBlocking {
-            withContext(vlcDispatcher) {
+        if (releaseCoordinator.releaseRequested) return
+        scope.launch(vlcDispatcher) {
+            releaseSync()
+        }
+    }
+
+    fun releaseBlocking(timeoutMs: Long = 3_000L): Boolean {
+        if (releaseCoordinator.releaseCompleted) return true
+        if (releaseCoordinator.releaseRequested) return false
+        val future = try {
+            vlcExecutor.submit<Boolean> {
                 releaseSync()
+                true
             }
+        } catch (e: Exception) {
+            OmniLogger.error("VlcjAudioEngine", "Could not schedule VLC release.", e)
+            return releaseCoordinator.releaseCompleted
+        }
+        return try {
+            future.get(timeoutMs.coerceAtLeast(1L), TimeUnit.MILLISECONDS)
+        } catch (e: TimeoutException) {
+            OmniLogger.error("VlcjAudioEngine", "Timed out while releasing VLC resources.", e)
+            future.cancel(true)
+            false
+        } catch (e: Exception) {
+            OmniLogger.error("VlcjAudioEngine", "Failed while releasing VLC resources.", e)
+            false
+        }
+    }
+}
+
+internal class ReleaseCoordinator {
+    private val lock = Any()
+
+    @Volatile
+    var releaseRequested: Boolean = false
+        private set
+
+    @Volatile
+    var releaseCompleted: Boolean = false
+        private set
+
+    fun begin(): Boolean = synchronized(lock) {
+        if (releaseRequested || releaseCompleted) {
+            false
+        } else {
+            releaseRequested = true
+            true
+        }
+    }
+
+    fun complete() {
+        synchronized(lock) {
+            releaseRequested = true
+            releaseCompleted = true
         }
     }
 }
