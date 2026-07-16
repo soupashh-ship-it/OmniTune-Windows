@@ -6,13 +6,9 @@ import com.omnitune.app.platform.PlaybackState
 import com.omnitune.app.platform.PlaybackSession
 import com.omnitune.app.platform.LikedSongRecord
 import com.omnitune.app.platform.DownloadQualityMode
-import com.omnitune.app.platform.DownloadRequest
-import com.omnitune.app.platform.DownloadTask
 import com.omnitune.app.platform.OmniDownloadManager
 import com.omnitune.app.platform.completedLocalFileFor
 import com.omnitune.app.service.YouTubeService
-import com.omnitune.innertube.models.Album
-import com.omnitune.innertube.models.Artist
 import com.omnitune.innertube.models.SongItem
 import com.omnitune.innertube.models.YouTubeClient
 import com.omnitune.innertube.models.YTItem
@@ -31,7 +27,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.CancellationException
 import kotlin.coroutines.CoroutineContext
 
 enum class NavScreen {
@@ -127,16 +122,36 @@ class PlayerViewModel(
     val playbackState: StateFlow<PlaybackState> = audioEngine.playbackState
     val position = audioEngine.position
     val playerError: StateFlow<String?> = audioEngine.error
-    val downloadTasks: StateFlow<List<DownloadTask>> = downloadManager.tasks
-
-    private val _downloadQuality = MutableStateFlow(settings.downloadQualityMode)
-    val downloadQuality: StateFlow<DownloadQualityMode> = _downloadQuality.asStateFlow()
+    private val downloadController = PlayerDownloadController(
+        scope = this,
+        settings = settings,
+        downloadManager = downloadManager,
+        playSong = { playSong(it) },
+    )
+    val downloadTasks = downloadController.downloadTasks
+    val downloadQuality: StateFlow<DownloadQualityMode> = downloadController.downloadQuality
 
     private val queueController = PlayerQueueController(settings)
     val queue: StateFlow<List<SongItem>> = queueController.queue
     val queueIndex: StateFlow<Int> = queueController.queueIndex
     val shuffleMode: StateFlow<Boolean> = queueController.shuffleMode
     val repeatMode: StateFlow<RepeatMode> = queueController.repeatMode
+    private val relatedController = PlayerRelatedController(
+        scope = this,
+        youTubeService = youTubeService,
+        currentSong = { _currentSong.value },
+        currentPlaylistId = { _currentPlaylistId.value },
+    )
+    val discoveryRelated: StateFlow<List<YTItem>> = relatedController.discoveryRelated
+    val relatedLoading: StateFlow<Boolean> = relatedController.relatedLoading
+    val relatedError: StateFlow<String?> = relatedController.relatedError
+    private val radioController = PlayerRadioController(
+        scope = this,
+        youTubeService = youTubeService,
+        queueController = queueController,
+        setCurrentSong = { _currentSong.value = it },
+        startPlayback = { startPlaybackFromController(it) },
+    )
 
     private val _liked = MutableStateFlow(settings.likedSongIds)
     val likedSongs: StateFlow<Set<String>> = _liked.asStateFlow()
@@ -175,20 +190,6 @@ class PlayerViewModel(
         navigateTo = { screen -> navigateTo(screen) },
     )
 
-    private val _discoveryRelated = MutableStateFlow<List<com.omnitune.innertube.models.YTItem>>(emptyList())
-    val discoveryRelated: StateFlow<List<com.omnitune.innertube.models.YTItem>> = _discoveryRelated.asStateFlow()
-    private val _relatedLoading = MutableStateFlow(false)
-    val relatedLoading: StateFlow<Boolean> = _relatedLoading.asStateFlow()
-    private val _relatedError = MutableStateFlow<String?>(null)
-    val relatedError: StateFlow<String?> = _relatedError.asStateFlow()
-    private var relatedJob: Job? = null
-    private var relatedRequestToken: Long = 0L
-
-    private var activeRadioSessionId: Long = 0L
-    private var activeRadioEndpoint: WatchEndpoint? = null
-    private var activeRadioContinuation: String? = null
-    private var radioContinuationJob: Job? = null
-    private var radioContinuationFailures: Int = 0
     private val playbackRequestGate = PlaybackRequestGate()
 
     private val _playbackHistory = MutableStateFlow(settings.playbackHistory)
@@ -557,13 +558,18 @@ class PlayerViewModel(
         }
     }
 
+    private suspend fun startPlaybackFromController(item: SongItem) {
+        val token = nextPlaybackRequestToken()
+        doPlay(item, token)
+    }
+
     private suspend fun doPlay(item: SongItem, requestToken: Long) {
         if (!isCurrentPlaybackRequest(requestToken, item)) return
         _lyricsResult.value = LyricsResult.Loading
         lyricsJob?.cancel()
         _streamUrl.value = null
         startListenTracking(item)
-        loadRelatedFor(item)
+        relatedController.loadRelatedFor(item)
         downloadManager.completedLocalFileFor(item.id)?.absolutePath?.let { localPath ->
             if (!isCurrentPlaybackRequest(requestToken, item)) return
             _streamUrl.value = localPath
@@ -613,38 +619,7 @@ class PlayerViewModel(
     }
 
     fun retryRelated() {
-        currentSong.value?.let(::loadRelatedFor)
-    }
-
-    private fun loadRelatedFor(item: SongItem) {
-        val token = ++relatedRequestToken
-        relatedJob?.cancel()
-        _discoveryRelated.value = emptyList()
-        _relatedLoading.value = true
-        _relatedError.value = null
-        relatedJob = launch {
-            runCatching {
-                val nextRes = youTubeService.next(WatchEndpoint(videoId = item.id, playlistId = _currentPlaylistId.value))
-                val relEndpoint = nextRes.relatedEndpoint ?: return@runCatching emptyList<YTItem>()
-                val page = youTubeService.related(relEndpoint)
-                RelatedContentPolicy.clean(
-                    currentSongId = item.id,
-                    items = page.songs + page.albums + page.artists + page.playlists,
-                )
-            }.onSuccess { related ->
-                if (token != relatedRequestToken || _currentSong.value?.id != item.id) return@onSuccess
-                _discoveryRelated.value = related
-                _relatedLoading.value = false
-                _relatedError.value = null
-            }.onFailure { throwable ->
-                if (throwable is CancellationException) return@onFailure
-                if (token != relatedRequestToken || _currentSong.value?.id != item.id) return@onFailure
-                _discoveryRelated.value = emptyList()
-                _relatedLoading.value = false
-                _relatedError.value = "Couldn't load related tracks."
-                com.omnitune.app.platform.OmniLogger.error("PlayerVM", "Failed to load related tracks: ${throwable.message}", throwable)
-            }
-        }
+        relatedController.retryRelated()
     }
 
     fun playQueueIndex(index: Int) {
@@ -652,7 +627,7 @@ class PlayerViewModel(
         _currentSong.value = song
         val token = nextPlaybackRequestToken()
         launch { doPlay(song, token) }
-        maybeRequestRadioContinuation()
+        radioController.maybeRequestContinuation()
     }
 
     fun nextTrack() {
@@ -698,61 +673,43 @@ class PlayerViewModel(
         playlistController.deleteSavedPlaylist(playlistId)
 
     fun setDownloadQuality(quality: DownloadQualityMode) {
-        _downloadQuality.value = quality
-        settings.downloadQualityMode = quality
-        settings.flush()
+        downloadController.setDownloadQuality(quality)
     }
 
     fun downloadSong(item: SongItem, quality: DownloadQualityMode? = null) {
-        launch {
-            downloadManager.enqueue(DownloadRequest(item, quality ?: _downloadQuality.value))
-        }
+        downloadController.downloadSong(item, quality)
     }
 
     fun downloadSongs(items: List<SongItem>, quality: DownloadQualityMode? = null) {
-        launch {
-            val selectedQuality = quality ?: _downloadQuality.value
-            items.distinctBy { it.id }.forEach { item ->
-                downloadManager.enqueue(DownloadRequest(item, selectedQuality))
-            }
-        }
+        downloadController.downloadSongs(items, quality)
     }
 
     fun playDownload(id: String) {
-        val task = downloadTasks.value.firstOrNull { it.id == id } ?: return
-        val item = SongItem(
-            id = task.trackId,
-            title = task.title,
-            artists = listOf(Artist(task.artist, null)),
-            album = task.album?.let { Album(it, "") },
-            duration = null,
-            thumbnail = task.artworkUrl.orEmpty(),
-        )
-        playSong(item)
+        downloadController.playDownload(id)
     }
 
     fun pauseDownload(id: String) {
-        launch { downloadManager.pause(id) }
+        downloadController.pauseDownload(id)
     }
 
     fun resumeDownload(id: String) {
-        launch { downloadManager.resume(id) }
+        downloadController.resumeDownload(id)
     }
 
     fun retryDownload(id: String) {
-        launch { downloadManager.retry(id) }
+        downloadController.retryDownload(id)
     }
 
     fun deleteDownload(id: String) {
-        launch { downloadManager.delete(id) }
+        downloadController.deleteDownload(id)
     }
 
     fun pauseAllDownloads() {
-        launch { downloadManager.pauseAll() }
+        downloadController.pauseAllDownloads()
     }
 
     fun resumeAllDownloads() {
-        launch { downloadManager.resumeAll() }
+        downloadController.resumeAllDownloads()
     }
 
     fun playNext(item: SongItem) {
@@ -773,120 +730,18 @@ class PlayerViewModel(
 
     fun clearQueue() {
         finalizeActiveListen(completed = false)
-        cancelRadioSession()
+        radioController.cancelSession()
         queueController.clearQueue()
         _currentSong.value = null
         audioEngine.stop()
     }
 
     fun startRadio(seedId: String, type: String) {
-        val playlistId = when (type) {
-            "song" -> "RDAMVM$seedId"
-            "artist" -> "RDEM$seedId"
-            "album" -> "RDAMPL$seedId"
-            else -> "RDAMVM$seedId"
-        }
-        val sessionId = beginRadioSession()
-        launch {
-            runCatching {
-                val result = youTubeService.next(WatchEndpoint(videoId = seedId, playlistId = playlistId))
-                val songs = RadioSessionPolicy.initialQueue(seedId, result.items)
-                if (songs.isNotEmpty()) {
-                    if (sessionId != activeRadioSessionId) return@runCatching
-                    activeRadioEndpoint = result.endpoint
-                    activeRadioContinuation = result.continuation
-                    radioContinuationFailures = 0
-                    val first = queueController.setQueue(songs) ?: return@runCatching
-                    _currentSong.value = first
-                    val token = nextPlaybackRequestToken()
-                    doPlay(first, token)
-                    maybeRequestRadioContinuation()
-                }
-            }.onFailure {
-                if (sessionId != activeRadioSessionId) return@onFailure
-                activeRadioContinuation = null
-                radioContinuationFailures = RadioSessionPolicy.MaxContinuationFailures
-                com.omnitune.app.platform.OmniLogger.error("PlayerVM", "Failed to start radio: ${it.message}", it)
-            }
-        }
+        radioController.startRadio(seedId, type)
     }
 
     fun startRadio(endpoint: WatchEndpoint) {
-        val sessionId = beginRadioSession()
-        launch {
-            runCatching {
-                val result = youTubeService.next(endpoint)
-                RadioSessionPolicy.initialQueue(endpoint.videoId, result.items) to result
-            }.onSuccess { (songs, result) ->
-                if (sessionId != activeRadioSessionId) return@onSuccess
-                if (songs.isNotEmpty()) {
-                    activeRadioEndpoint = result.endpoint
-                    activeRadioContinuation = result.continuation
-                    radioContinuationFailures = 0
-                    val first = queueController.setQueue(songs) ?: return@onSuccess
-                    _currentSong.value = first
-                    val token = nextPlaybackRequestToken()
-                    doPlay(first, token)
-                    maybeRequestRadioContinuation()
-                }
-            }.onFailure {
-                if (sessionId != activeRadioSessionId) return@onFailure
-                activeRadioContinuation = null
-                radioContinuationFailures = RadioSessionPolicy.MaxContinuationFailures
-                com.omnitune.app.platform.OmniLogger.error("PlayerVM", "Failed to start endpoint radio: ${it.message}", it)
-            }
-        }
-    }
-
-    private fun beginRadioSession(): Long {
-        activeRadioSessionId += 1
-        radioContinuationJob?.cancel()
-        radioContinuationJob = null
-        activeRadioEndpoint = null
-        activeRadioContinuation = null
-        radioContinuationFailures = 0
-        return activeRadioSessionId
-    }
-
-    private fun cancelRadioSession() {
-        activeRadioSessionId += 1
-        radioContinuationJob?.cancel()
-        radioContinuationJob = null
-        activeRadioEndpoint = null
-        activeRadioContinuation = null
-        radioContinuationFailures = 0
-    }
-
-    private fun maybeRequestRadioContinuation() {
-        val endpoint = activeRadioEndpoint ?: return
-        val continuation = activeRadioContinuation ?: return
-        val sessionId = activeRadioSessionId
-        val inFlight = radioContinuationJob?.isActive == true
-        if (!RadioSessionPolicy.shouldRequestContinuation(queueController.queueItems.value.size, queueController.queueIndexState.value, inFlight, radioContinuationFailures)) return
-
-        radioContinuationJob = launch {
-            runCatching {
-                youTubeService.next(endpoint, continuation)
-            }.onSuccess { result ->
-                if (sessionId != activeRadioSessionId) return@onSuccess
-                val beforeSize = queueController.queueItems.value.size
-                val nextQueue = RadioSessionPolicy.appendContinuation(queueController.queueItems.value, result.items, queueController.queueIndexState.value)
-                if (nextQueue.size > beforeSize) {
-                    queueController.queueItems.value = nextQueue
-                    activeRadioEndpoint = result.endpoint
-                    activeRadioContinuation = result.continuation
-                    radioContinuationFailures = 0
-                } else {
-                    activeRadioContinuation = result.continuation ?: activeRadioContinuation
-                    radioContinuationFailures++
-                }
-            }.onFailure { throwable ->
-                if (throwable is CancellationException) return@onFailure
-                if (sessionId != activeRadioSessionId) return@onFailure
-                radioContinuationFailures++
-                com.omnitune.app.platform.OmniLogger.error("PlayerVM", "Radio continuation failed: ${throwable.message}", throwable)
-            }
-        }
+        radioController.startRadio(endpoint)
     }
 
     fun togglePlayPause() {
@@ -899,7 +754,7 @@ class PlayerViewModel(
 
     fun stop() {
         finalizeActiveListen(completed = false)
-        cancelRadioSession()
+        radioController.cancelSession()
         audioEngine.stop()
         _currentSong.value = null
         queueController.queueIndexState.value = -1
