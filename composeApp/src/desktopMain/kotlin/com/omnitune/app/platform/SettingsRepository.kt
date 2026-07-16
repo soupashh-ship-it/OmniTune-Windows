@@ -1,7 +1,5 @@
 package com.omnitune.app.platform
 
-import com.omnitune.innertube.models.Album
-import com.omnitune.innertube.models.Artist
 import com.omnitune.innertube.models.SongItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -53,6 +51,8 @@ class SettingsRepository(
 ) {
 
     private val jsonStore = JsonFileStore(prefs, platformContext)
+    private val likedSongsPersistence = LikedSongsPersistence(prefs, jsonStore)
+    private val playbackHistoryPersistence = PlaybackHistoryPersistence(jsonStore)
 
     private val _miniPlayerAlwaysOnTopFlow = MutableStateFlow(prefs.getBoolean("miniPlayerAlwaysOnTop", true))
     val miniPlayerAlwaysOnTopFlow: StateFlow<Boolean> = _miniPlayerAlwaysOnTopFlow.asStateFlow()
@@ -106,24 +106,12 @@ class SettingsRepository(
         }
 
     var likedSongIds: Set<String>
-        get() = (prefs.get("likedSongIds", "") ?: "").split(",").filter { it.isNotBlank() }.toSet()
-        set(value) { prefs.put("likedSongIds", value.joinToString(",")) }
+        get() = likedSongsPersistence.likedSongIds
+        set(value) { likedSongsPersistence.likedSongIds = value }
 
     var likedSongRecords: List<LikedSongRecord>
-        get() = readLikedSongRecords()
-        set(value) {
-            val distinct = value.distinctBy { it.song.id }
-            val array = JSONArray()
-            distinct.forEach { record ->
-                array.put(
-                    JSONObject()
-                        .put("likedAt", record.likedAt)
-                        .put("song", record.song.toJson())
-                )
-            }
-            jsonStore.writeJsonStore("likedSongs.json", "likedSongs.v1", array.toString())
-            likedSongIds = distinct.map { it.song.id }.toSet()
-        }
+        get() = likedSongsPersistence.likedSongRecords
+        set(value) { likedSongsPersistence.likedSongRecords = value }
 
     fun likeSong(song: SongItem, likedAt: Long = System.currentTimeMillis()): LikedSongRecord {
         val current = likedSongRecords
@@ -267,7 +255,7 @@ class SettingsRepository(
                         })
                         .put("coverPath", playlist.coverPath ?: JSONObject.NULL)
                         .put("songs", JSONArray().also { songs ->
-                            playlist.songs.forEach { songs.put(it.toJson()) }
+                            playlist.songs.forEach { songs.put(SongJsonCodec.toJson(it)) }
                         })
                 )
             }
@@ -369,52 +357,12 @@ class SettingsRepository(
     }
 
     var playbackHistory: List<PlaybackHistoryEntry>
-        get() = readPlaybackHistory()
-        set(value) {
-            val array = JSONArray()
-            value
-                .distinctBy { it.song.id }
-                .take(200)
-                .forEach { entry ->
-                    array.put(
-                        JSONObject()
-                            .put("id", entry.id)
-                            .put("playedAt", entry.playedAt)
-                            .put("startedAt", entry.startedAt)
-                            .put("accumulatedPlayedMs", entry.accumulatedPlayedMs)
-                            .put("trackDurationMs", entry.trackDurationMs)
-                            .put("completed", entry.completed)
-                            .put("playCount", entry.playCount)
-                            .put("sessionId", entry.sessionId)
-                            .put("song", entry.song.toJson())
-                    )
-            }
-            val json = array.toString()
-            jsonStore.writeJsonStore("playbackHistory.json", "playbackHistory.v1", json)
-        }
+        get() = playbackHistoryPersistence.playbackHistory
+        set(value) { playbackHistoryPersistence.playbackHistory = value }
 
     var playbackSessions: List<PlaybackSession>
-        get() = readPlaybackSessions()
-        set(value) {
-            val array = JSONArray()
-            value
-                .distinctBy { it.id }
-                .take(100)
-                .forEach { session ->
-                    array.put(
-                        JSONObject()
-                            .put("id", session.id)
-                            .put("startedAt", session.startedAt)
-                            .put("lastActivityAt", session.lastActivityAt)
-                            .put("endedAt", session.endedAt ?: JSONObject.NULL)
-                            .put("totalListeningMs", session.totalListeningMs)
-                            .put("playCount", session.playCount)
-                            .put("uniqueTrackCount", session.uniqueTrackCount)
-                    )
-            }
-            val json = array.toString()
-            jsonStore.writeJsonStore("playbackSessions.json", "playbackSessions.v1", json)
-        }
+        get() = playbackHistoryPersistence.playbackSessions
+        set(value) { playbackHistoryPersistence.playbackSessions = value }
 
     fun isMeaningfulListen(accumulatedPlayedMs: Long, durationMs: Long): Boolean {
         val threshold = when {
@@ -513,106 +461,10 @@ class SettingsRepository(
                     (0 until tagsJson.length()).mapNotNull { tagsJson.optString(it).takeIf(String::isNotBlank) }
                 }.orEmpty(),
                 coverPath = obj.optString("coverPath").takeIf { it.isNotBlank() },
-                songs = (0 until songsJson.length()).mapNotNull { songsJson.optJSONObject(it)?.toSongItem() },
+                songs = (0 until songsJson.length()).mapNotNull {
+                    songsJson.optJSONObject(it)?.let(SongJsonCodec::fromJson)
+                },
             ).takeIf { it.id.isNotBlank() && it.name.isNotBlank() }
         }.distinctBy { it.id }
-    }
-
-    private fun readLikedSongRecords(): List<LikedSongRecord> {
-        val records = jsonStore.readRecoverableJsonList(
-            fileName = "likedSongs.json",
-            fallbackPreferenceKey = "likedSongs.v1",
-        ) { stored ->
-            val array = JSONArray(stored)
-            (0 until array.length()).mapNotNull { index ->
-                val obj = array.optJSONObject(index) ?: return@mapNotNull null
-                val song = obj.optJSONObject("song")?.toSongItem() ?: return@mapNotNull null
-                LikedSongRecord(
-                    song = song,
-                    likedAt = obj.optLong("likedAt", System.currentTimeMillis()),
-                ).takeIf { it.song.id.isNotBlank() }
-            }.distinctBy { it.song.id }
-        }
-        if (records.isNotEmpty()) return records
-        return emptyList()
-    }
-
-    private fun readPlaybackHistory(): List<PlaybackHistoryEntry> = jsonStore.readRecoverableJsonList(
-        fileName = "playbackHistory.json",
-        fallbackPreferenceKey = "playbackHistory.v1",
-    ) { stored ->
-        val array = JSONArray(stored)
-        (0 until array.length()).mapNotNull { index ->
-            val obj = array.optJSONObject(index) ?: return@mapNotNull null
-            val song = obj.optJSONObject("song")?.toSongItem() ?: return@mapNotNull null
-            PlaybackHistoryEntry(
-                id = obj.optString("id"),
-                playedAt = obj.optLong("playedAt"),
-                song = song,
-                startedAt = obj.optLong("startedAt", obj.optLong("playedAt")),
-                accumulatedPlayedMs = obj.optLong("accumulatedPlayedMs"),
-                trackDurationMs = obj.optLong("trackDurationMs"),
-                completed = obj.optBoolean("completed", false),
-                playCount = obj.optInt("playCount", 1),
-                sessionId = obj.optString("sessionId"),
-            ).takeIf { it.id.isNotBlank() && it.song.id.isNotBlank() }
-        }.distinctBy { it.id }
-    }
-
-    private fun readPlaybackSessions(): List<PlaybackSession> = jsonStore.readRecoverableJsonList(
-        fileName = "playbackSessions.json",
-        fallbackPreferenceKey = "playbackSessions.v1",
-    ) { stored ->
-        val array = JSONArray(stored)
-        (0 until array.length()).mapNotNull { index ->
-            val obj = array.optJSONObject(index) ?: return@mapNotNull null
-            PlaybackSession(
-                id = obj.optString("id"),
-                startedAt = obj.optLong("startedAt"),
-                lastActivityAt = obj.optLong("lastActivityAt"),
-                endedAt = if (obj.isNull("endedAt")) null else obj.optLong("endedAt"),
-                totalListeningMs = obj.optLong("totalListeningMs"),
-                playCount = obj.optInt("playCount"),
-                uniqueTrackCount = obj.optInt("uniqueTrackCount"),
-            ).takeIf { it.id.isNotBlank() }
-        }.distinctBy { it.id }
-    }
-
-    private fun SongItem.toJson(): JSONObject = JSONObject()
-        .put("id", id)
-        .put("title", title)
-        .put("thumbnail", thumbnail)
-        .put("duration", duration ?: JSONObject.NULL)
-        .put("explicit", explicit)
-        .put("artists", JSONArray().also { array ->
-            artists.forEach { artist ->
-                array.put(JSONObject().put("name", artist.name).put("id", artist.id ?: JSONObject.NULL))
-            }
-        })
-        .put(
-            "album",
-            album?.let { JSONObject().put("name", it.name).put("id", it.id) } ?: JSONObject.NULL
-        )
-
-    private fun JSONObject.toSongItem(): SongItem {
-        val artistsJson = optJSONArray("artists") ?: JSONArray()
-        val parsedArtists = (0 until artistsJson.length()).mapNotNull { index ->
-            artistsJson.optJSONObject(index)?.let {
-                Artist(
-                    name = it.optString("name"),
-                    id = it.optString("id").takeIf(String::isNotBlank),
-                )
-            }
-        }.ifEmpty { listOf(Artist("Unknown artist", null)) }
-        val albumJson = optJSONObject("album")
-        return SongItem(
-            id = optString("id"),
-            title = optString("title"),
-            artists = parsedArtists,
-            album = albumJson?.let { Album(it.optString("name"), it.optString("id")) },
-            duration = if (isNull("duration")) null else optInt("duration"),
-            thumbnail = optString("thumbnail"),
-            explicit = optBoolean("explicit", false),
-        )
     }
 }

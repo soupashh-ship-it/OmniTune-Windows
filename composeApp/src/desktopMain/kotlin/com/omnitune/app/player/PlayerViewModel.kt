@@ -11,7 +11,6 @@ import com.omnitune.app.platform.DownloadTask
 import com.omnitune.app.platform.OmniDownloadManager
 import com.omnitune.app.platform.completedLocalFileFor
 import com.omnitune.app.service.YouTubeService
-import com.omnitune.innertube.YouTube
 import com.omnitune.innertube.models.Album
 import com.omnitune.innertube.models.Artist
 import com.omnitune.innertube.models.SongItem
@@ -30,7 +29,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.async
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
@@ -102,30 +100,8 @@ class PlayerViewModel(
     private val navigation = PlayerNavigationController()
     val navScreen: StateFlow<NavScreen> = navigation.navScreen
 
-    private val _searchResults = MutableStateFlow<List<YTItem>>(emptyList())
-    val searchResults: StateFlow<List<YTItem>> = _searchResults.asStateFlow()
-
-    private val _searchLoading = MutableStateFlow(false)
-    val searchLoading: StateFlow<Boolean> = _searchLoading.asStateFlow()
-
-    private val _searchError = MutableStateFlow<String?>(null)
-    val searchError: StateFlow<String?> = _searchError.asStateFlow()
-    private var activeSearchJob: Job? = null
-    private var activeSearchToken: Long = 0L
-
-    private val _playlistResults = MutableStateFlow<List<YTItem>>(emptyList())
-    val playlistResults: StateFlow<List<YTItem>> = _playlistResults.asStateFlow()
-
     private val _currentPlaylistId = MutableStateFlow<String?>(null)
     val currentPlaylistId: StateFlow<String?> = _currentPlaylistId.asStateFlow()
-
-    private val _playlistLoading = MutableStateFlow(false)
-    val playlistLoading: StateFlow<Boolean> = _playlistLoading.asStateFlow()
-
-    private val _playlistError = MutableStateFlow<String?>(null)
-    val playlistError: StateFlow<String?> = _playlistError.asStateFlow()
-    private var activePlaylistSearchJob: Job? = null
-    private var activePlaylistSearchToken: Long = 0L
 
     private val _currentSong = MutableStateFlow<SongItem?>(null)
     val currentSong: StateFlow<SongItem?> = _currentSong.asStateFlow()
@@ -156,23 +132,11 @@ class PlayerViewModel(
     private val _downloadQuality = MutableStateFlow(settings.downloadQualityMode)
     val downloadQuality: StateFlow<DownloadQualityMode> = _downloadQuality.asStateFlow()
 
-    private val _queue = MutableStateFlow<List<SongItem>>(emptyList())
-    val queue: StateFlow<List<SongItem>> = _queue.asStateFlow()
-
-    private val _queueIndex = MutableStateFlow(-1)
-    val queueIndex: StateFlow<Int> = _queueIndex.asStateFlow()
-
-    private val _shuffle = MutableStateFlow(settings.shuffleEnabled)
-    val shuffleMode: StateFlow<Boolean> = _shuffle.asStateFlow()
-
-    private val _repeat = MutableStateFlow(
-        when (settings.repeatMode) {
-            1 -> RepeatMode.ALL
-            2 -> RepeatMode.ONE
-            else -> RepeatMode.OFF
-        }
-    )
-    val repeatMode: StateFlow<RepeatMode> = _repeat.asStateFlow()
+    private val queueController = PlayerQueueController(settings)
+    val queue: StateFlow<List<SongItem>> = queueController.queue
+    val queueIndex: StateFlow<Int> = queueController.queueIndex
+    val shuffleMode: StateFlow<Boolean> = queueController.shuffleMode
+    val repeatMode: StateFlow<RepeatMode> = queueController.repeatMode
 
     private val _liked = MutableStateFlow(settings.likedSongIds)
     val likedSongs: StateFlow<Set<String>> = _liked.asStateFlow()
@@ -188,6 +152,18 @@ class PlayerViewModel(
 
     private val _recentSearches = MutableStateFlow(settings.recentSearches)
     val recentSearches: StateFlow<List<String>> = _recentSearches.asStateFlow()
+    private val searchController = PlayerSearchController(
+        scope = this,
+        youTubeService = youTubeService,
+        settings = settings,
+        recentSearches = _recentSearches,
+    )
+    val searchResults: StateFlow<List<YTItem>> = searchController.searchResults
+    val searchLoading: StateFlow<Boolean> = searchController.searchLoading
+    val searchError: StateFlow<String?> = searchController.searchError
+    val playlistResults: StateFlow<List<YTItem>> = searchController.playlistResults
+    val playlistLoading: StateFlow<Boolean> = searchController.playlistLoading
+    val playlistError: StateFlow<String?> = searchController.playlistError
 
     private val _savedQueuePlaylists = MutableStateFlow(settings.savedQueuePlaylists)
     val savedQueuePlaylists = _savedQueuePlaylists.asStateFlow()
@@ -307,32 +283,20 @@ class PlayerViewModel(
 
     fun onTrackFinished() {
         finalizeActiveListen(completed = true)
-        val mode = _repeat.value
-        if (mode == RepeatMode.ONE && _queueIndex.value >= 0) {
-            playQueueIndex(_queueIndex.value)
+        val mode = queueController.repeatState.value
+        if (mode == RepeatMode.ONE && queueController.queueIndexState.value >= 0) {
+            playQueueIndex(queueController.queueIndexState.value)
             return
         }
         nextTrack()
     }
 
     fun toggleShuffle() {
-        _shuffle.value = !_shuffle.value
-        settings.shuffleEnabled = _shuffle.value
-        settings.flush()
+        queueController.toggleShuffle()
     }
 
     fun cycleRepeat() {
-        _repeat.value = when (_repeat.value) {
-            RepeatMode.OFF -> RepeatMode.ALL
-            RepeatMode.ALL -> RepeatMode.ONE
-            RepeatMode.ONE -> RepeatMode.OFF
-        }
-        settings.repeatMode = when (_repeat.value) {
-            RepeatMode.OFF -> 0
-            RepeatMode.ALL -> 1
-            RepeatMode.ONE -> 2
-        }
-        settings.flush()
+        queueController.cycleRepeat()
     }
 
     fun isLiked(id: String): Boolean = _liked.value.contains(id)
@@ -374,11 +338,11 @@ class PlayerViewModel(
     private fun findKnownSong(id: String): SongItem? {
         return sequenceOf(
             listOfNotNull(_currentSong.value),
-            _queue.value,
+            queueController.queueItems.value,
             _discoveryTrending.value,
             _discoveryNew.value.filterIsInstance<SongItem>(),
-            _searchResults.value.filterIsInstance<SongItem>(),
-            _playlistResults.value.filterIsInstance<SongItem>(),
+            searchResults.value.filterIsInstance<SongItem>(),
+            playlistResults.value.filterIsInstance<SongItem>(),
             _savedQueuePlaylists.value.flatMap { it.songs },
         ).flatten().firstOrNull { it.id == id }
     }
@@ -481,72 +445,11 @@ class PlayerViewModel(
     }
 
     fun search(query: String) {
-        val trimmed = query.trim()
-        if (trimmed.isBlank()) return
-        settings.addRecentSearch(trimmed)
-        settings.flush()
-        _recentSearches.value = settings.recentSearches
-        val searchToken = ++activeSearchToken
-        activeSearchJob?.cancel()
-        activeSearchJob = launch {
-            _searchLoading.value = true
-            _searchError.value = null
-            _searchResults.value = emptyList()
-            val searchResults = runCatching {
-                val songs = async { runCatching { youTubeService.search(trimmed, YouTube.SearchFilter.FILTER_SONG).items } }
-                val artists = async { runCatching { youTubeService.search(trimmed, YouTube.SearchFilter.FILTER_ARTIST).items } }
-                val albums = async { runCatching { youTubeService.search(trimmed, YouTube.SearchFilter.FILTER_ALBUM).items } }
-                val playlists = async { runCatching { youTubeService.search(trimmed, YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST).items } }
-                listOf(songs.await(), artists.await(), albums.await(), playlists.await())
-            }
-
-            if (searchToken == activeSearchToken) {
-                searchResults.onSuccess { categoryResults ->
-                    val successes = categoryResults.mapNotNull { it.getOrNull() }
-                    val failures = categoryResults.mapNotNull { it.exceptionOrNull() }
-                        .filterNot { it is CancellationException }
-                    val combined = successes.flatten()
-                        .distinctBy { "${it::class.simpleName}:${it.id}" }
-
-                    _searchResults.value = combined
-                    if (combined.isEmpty() && failures.isNotEmpty()) {
-                        _searchError.value = failures.first().message ?: "Search failed"
-                    }
-                }.onFailure {
-                    if (it !is CancellationException) {
-                        _searchError.value = it.message ?: "Search failed"
-                    }
-                }
-                _searchLoading.value = false
-            }
-        }
+        searchController.search(query)
     }
 
     fun searchPlaylists(query: String) {
-        val trimmed = query.trim()
-        if (trimmed.isBlank()) return
-        val searchToken = ++activePlaylistSearchToken
-        activePlaylistSearchJob?.cancel()
-        activePlaylistSearchJob = launch {
-            _playlistLoading.value = true
-            _playlistError.value = null
-            _playlistResults.value = emptyList()
-            runCatching {
-                val result = youTubeService.search(trimmed, YouTube.SearchFilter.FILTER_FEATURED_PLAYLIST)
-                result.items
-            }.onSuccess {
-                if (searchToken == activePlaylistSearchToken) {
-                    _playlistResults.value = it.distinctBy { item -> "${item::class.simpleName}:${item.id}" }
-                }
-            }.onFailure {
-                if (searchToken == activePlaylistSearchToken && it !is CancellationException) {
-                    _playlistError.value = it.message
-                }
-            }
-            if (searchToken == activePlaylistSearchToken) {
-                _playlistLoading.value = false
-            }
-        }
+        searchController.searchPlaylists(query)
     }
 
     private fun resolveFormatUrl(player: PlayerResponse, videoId: String, client: YouTubeClient): String? {
@@ -582,11 +485,10 @@ class PlayerViewModel(
             val songsSection = artist?.sections?.firstOrNull { it.title.contains("Songs", ignoreCase = true) }
             val songs = songsSection?.items?.filterIsInstance<com.omnitune.innertube.models.SongItem>()
             if (!songs.isNullOrEmpty()) {
-                _queue.value = songs
-                _queueIndex.value = 0
-                _currentSong.value = songs[0]
+                val first = queueController.setQueue(songs) ?: return@launch
+                _currentSong.value = first
                 val token = nextPlaybackRequestToken()
-                doPlay(songs[0], token)
+                doPlay(first, token)
             }
         }
     }
@@ -594,16 +496,9 @@ class PlayerViewModel(
     fun playSong(item: SongItem, index: Int = -1) {
         if (index >= 0) {
             val songs = searchResults.value.filterIsInstance<SongItem>()
-            _queue.value = songs
-            _queueIndex.value = index
+            queueController.setQueue(songs, index)
         } else {
-            val existing = _queue.value.indexOfFirst { it.id == item.id }
-            if (existing >= 0) {
-                _queueIndex.value = existing
-            } else {
-                _queue.value = _queue.value + item
-                _queueIndex.value = _queue.value.lastIndex
-            }
+            queueController.selectExistingOrAppend(item)
         }
         _currentSong.value = item
         val token = nextPlaybackRequestToken()
@@ -613,34 +508,27 @@ class PlayerViewModel(
     fun playSongList(items: List<SongItem>, startIndex: Int = 0) {
         val songs = items.distinctBy { it.id }
         if (songs.isEmpty()) return
-        val safeIndex = startIndex.coerceIn(songs.indices)
-        _queue.value = songs
-        _queueIndex.value = safeIndex
-        _currentSong.value = songs[safeIndex]
+        val selected = queueController.setQueue(songs, startIndex) ?: return
+        _currentSong.value = selected
         val token = nextPlaybackRequestToken()
-        launch { doPlay(songs[safeIndex], token) }
+        launch { doPlay(selected, token) }
     }
 
     fun playShuffledSongs(items: List<SongItem>) {
-        val songs = items.distinctBy { it.id }
-        if (songs.isEmpty()) return
-        val shuffled = songs.shuffled()
-        _queue.value = shuffled
-        _queueIndex.value = 0
-        _currentSong.value = shuffled.first()
+        val selected = queueController.setShuffledQueue(items) ?: return
+        _currentSong.value = selected
         val token = nextPlaybackRequestToken()
-        launch { doPlay(shuffled.first(), token) }
+        launch { doPlay(selected, token) }
     }
     fun playAlbum(browseId: String) {
         launch {
             val album = runCatching { youTubeService.album(browseId) }.getOrNull()
             val songs = album?.songs
             if (!songs.isNullOrEmpty()) {
-                _queue.value = songs
-                _queueIndex.value = 0
-                _currentSong.value = songs[0]
+                val first = queueController.setQueue(songs) ?: return@launch
+                _currentSong.value = first
                 val token = nextPlaybackRequestToken()
-                doPlay(songs[0], token)
+                doPlay(first, token)
             }
         }
     }
@@ -650,11 +538,10 @@ class PlayerViewModel(
         if (local != null) {
             val songs = local.songs
             if (songs.isNotEmpty()) {
-                _queue.value = songs
-                _queueIndex.value = 0
-                _currentSong.value = songs[0]
+                val first = queueController.setQueue(songs) ?: return
+                _currentSong.value = first
                 val token = nextPlaybackRequestToken()
-                launch { doPlay(songs[0], token) }
+                launch { doPlay(first, token) }
             }
             return
         }
@@ -662,11 +549,10 @@ class PlayerViewModel(
             val playlist = runCatching { youTubeService.playlist(playlistId) }.getOrNull()
             val songs = playlist?.songs
             if (!songs.isNullOrEmpty()) {
-                _queue.value = songs
-                _queueIndex.value = 0
-                _currentSong.value = songs[0]
+                val first = queueController.setQueue(songs) ?: return@launch
+                _currentSong.value = first
                 val token = nextPlaybackRequestToken()
-                doPlay(songs[0], token)
+                doPlay(first, token)
             }
         }
     }
@@ -762,54 +648,27 @@ class PlayerViewModel(
     }
 
     fun playQueueIndex(index: Int) {
-        val q = _queue.value
-        if (index in q.indices) {
-            _queueIndex.value = index
-            _currentSong.value = q[index]
-            val token = nextPlaybackRequestToken()
-            launch { doPlay(q[index], token) }
-            maybeRequestRadioContinuation()
-        }
+        val song = queueController.selectIndex(index) ?: return
+        _currentSong.value = song
+        val token = nextPlaybackRequestToken()
+        launch { doPlay(song, token) }
+        maybeRequestRadioContinuation()
     }
 
     fun nextTrack() {
-        val q = _queue.value
-        if (q.isEmpty()) return
-        val idx = _queueIndex.value
-        if (_shuffle.value && q.size > 1) {
-            var next = idx
-            while (next == idx) next = (0 until q.size).random()
-            playQueueIndex(next)
-            return
-        }
-        if (idx < q.lastIndex) {
-            playQueueIndex(idx + 1)
-        } else if (_repeat.value == RepeatMode.ALL) {
-            playQueueIndex(0)
-        }
+        queueController.nextIndex()?.let(::playQueueIndex)
     }
 
     fun previousTrack() {
-        val q = _queue.value
-        if (q.isEmpty()) return
-        val idx = _queueIndex.value
-        if (_shuffle.value && q.size > 1) {
-            var prev = idx
-            while (prev == idx) prev = (0 until q.size).random()
-            playQueueIndex(prev)
-            return
-        }
-        if (idx > 0) {
-            playQueueIndex(idx - 1)
-        }
+        queueController.previousIndex()?.let(::playQueueIndex)
     }
 
     fun addToQueue(item: SongItem) {
-        _queue.value = _queue.value + item
+        queueController.addToQueue(item)
     }
 
     fun saveQueueAsPlaylist(name: String): Result<String> =
-        playlistController.saveQueueAsPlaylist(name, _queue.value)
+        playlistController.saveQueueAsPlaylist(name, queueController.queueItems.value)
 
     fun saveSongsAsPlaylist(name: String, songs: List<SongItem>): Result<String> =
         playlistController.saveSongsAsPlaylist(name, songs)
@@ -897,50 +756,25 @@ class PlayerViewModel(
     }
 
     fun playNext(item: SongItem) {
-        val list = _queue.value.toMutableList()
-        val insertAt = (_queueIndex.value + 1).coerceIn(0, list.size)
-        list.add(insertAt, item)
-        _queue.value = list
-        if (_queueIndex.value >= insertAt) {
-            _queueIndex.value = _queueIndex.value + 1
-        }
+        queueController.playNext(item)
     }
 
     fun removeFromQueue(index: Int) {
-        val list = _queue.value.toMutableList()
-        if (index in list.indices) {
-            list.removeAt(index)
-            _queue.value = list
-            if (_queueIndex.value == index) {
-                _currentSong.value = null
-                _queueIndex.value = -1
-                audioEngine.stop()
-            } else if (_queueIndex.value > index) {
-                _queueIndex.value = _queueIndex.value - 1
-            }
+        val result = queueController.removeFromQueue(index) ?: return
+        if (result.removedCurrent) {
+            _currentSong.value = null
+            audioEngine.stop()
         }
     }
 
     fun moveQueueItem(from: Int, to: Int) {
-        val list = _queue.value.toMutableList()
-        if (from in list.indices && to in list.indices) {
-            val item = list.removeAt(from)
-            list.add(to, item)
-            _queue.value = list
-            
-            val currentIdx = _queueIndex.value
-            if (currentIdx == from) _queueIndex.value = to
-            else if (currentIdx in (from + 1)..to) _queueIndex.value = currentIdx - 1
-            else if (currentIdx in to..<from) _queueIndex.value = currentIdx + 1
-        }
+        queueController.moveQueueItem(from, to)
     }
 
     fun clearQueue() {
         finalizeActiveListen(completed = false)
         cancelRadioSession()
-        _queue.value = emptyList()
-        _queueIndex.value = -1
-
+        queueController.clearQueue()
         _currentSong.value = null
         audioEngine.stop()
     }
@@ -962,11 +796,10 @@ class PlayerViewModel(
                     activeRadioEndpoint = result.endpoint
                     activeRadioContinuation = result.continuation
                     radioContinuationFailures = 0
-                    _queue.value = songs
-                    _queueIndex.value = 0
-                    _currentSong.value = songs[0]
+                    val first = queueController.setQueue(songs) ?: return@runCatching
+                    _currentSong.value = first
                     val token = nextPlaybackRequestToken()
-                    doPlay(songs[0], token)
+                    doPlay(first, token)
                     maybeRequestRadioContinuation()
                 }
             }.onFailure {
@@ -990,11 +823,10 @@ class PlayerViewModel(
                     activeRadioEndpoint = result.endpoint
                     activeRadioContinuation = result.continuation
                     radioContinuationFailures = 0
-                    _queue.value = songs
-                    _queueIndex.value = 0
-                    _currentSong.value = songs[0]
+                    val first = queueController.setQueue(songs) ?: return@onSuccess
+                    _currentSong.value = first
                     val token = nextPlaybackRequestToken()
-                    doPlay(songs[0], token)
+                    doPlay(first, token)
                     maybeRequestRadioContinuation()
                 }
             }.onFailure {
@@ -1030,17 +862,17 @@ class PlayerViewModel(
         val continuation = activeRadioContinuation ?: return
         val sessionId = activeRadioSessionId
         val inFlight = radioContinuationJob?.isActive == true
-        if (!RadioSessionPolicy.shouldRequestContinuation(_queue.value.size, _queueIndex.value, inFlight, radioContinuationFailures)) return
+        if (!RadioSessionPolicy.shouldRequestContinuation(queueController.queueItems.value.size, queueController.queueIndexState.value, inFlight, radioContinuationFailures)) return
 
         radioContinuationJob = launch {
             runCatching {
                 youTubeService.next(endpoint, continuation)
             }.onSuccess { result ->
                 if (sessionId != activeRadioSessionId) return@onSuccess
-                val beforeSize = _queue.value.size
-                val nextQueue = RadioSessionPolicy.appendContinuation(_queue.value, result.items, _queueIndex.value)
+                val beforeSize = queueController.queueItems.value.size
+                val nextQueue = RadioSessionPolicy.appendContinuation(queueController.queueItems.value, result.items, queueController.queueIndexState.value)
                 if (nextQueue.size > beforeSize) {
-                    _queue.value = nextQueue
+                    queueController.queueItems.value = nextQueue
                     activeRadioEndpoint = result.endpoint
                     activeRadioContinuation = result.continuation
                     radioContinuationFailures = 0
@@ -1070,7 +902,7 @@ class PlayerViewModel(
         cancelRadioSession()
         audioEngine.stop()
         _currentSong.value = null
-        _queueIndex.value = -1
+        queueController.queueIndexState.value = -1
         _streamUrl.value = null
     }
 
