@@ -2,7 +2,7 @@
 
 ## Packaging architecture
 
-OmniTune Windows uses the Compose Desktop native distribution pipeline, backed by `jpackage`, to create normal Windows installers.
+OmniTune Windows keeps the Compose Desktop native distribution pipeline, backed by `jpackage`, for compatibility artifacts. The preferred public installer is the custom Inno Setup installer because it provides OmniTune branding and better same-version reinstall/update behavior.
 
 Primary commands:
 
@@ -19,7 +19,7 @@ Release wrapper:
 
 The wrapper runs desktop compile/assemble/tests, builds EXE and MSI installers, copies them into `build/release/windows`, generates SHA-256 checksum files, and writes `release-manifest.json`.
 
-Current public artifact naming:
+Compatibility artifact naming:
 
 ```text
 OmniTune-Setup-<version>-windows-x64.exe
@@ -31,7 +31,7 @@ OmniTune-<version>-windows-x64.msi
 The canonical app/package version is:
 
 ```properties
-omnitune.version=0.2.0
+omnitune.version=<current release version>
 ```
 
 in `gradle.properties`. `composeApp/build.gradle.kts` reads this value for the native installer version.
@@ -93,7 +93,7 @@ If `-Sign` is omitted, the script builds unsigned installers and records `"signe
 
 ## Release packaging policy
 
-The production Windows installer path is the Compose Desktop release native-distribution pipeline:
+The compatibility Windows installer path is the Compose Desktop release native-distribution pipeline:
 
 ```powershell
 .\gradlew.bat :composeApp:packageReleaseExe
@@ -104,7 +104,7 @@ Release ProGuard minification is intentionally disabled in `composeApp/build.gra
 
 The VLC `plugins/plugins.dat` cache file is excluded from packaged output so VLC can build/use plugin discovery appropriate to the installed path instead of a stale cache generated on the build machine.
 
-The Windows installer is configured as a GUI application with:
+The jpackage Windows installer is configured as a GUI application with:
 
 - no console window,
 - per-user install preference,
@@ -169,9 +169,33 @@ build/release/windows/inno/OmniTune-Setup-<version>-windows-x64-custom.exe
 
 Important:
 
+- This is the preferred public release asset when available.
 - The custom installer solves the stock jpackage same-version reinstall friction.
 - It does not delete `%LOCALAPPDATA%\OmniTuneData`.
 - It still needs Authenticode signing for public trust.
+
+## In-app update behavior
+
+Settings > About > Check for Updates queries the GitHub releases API endpoint:
+
+```text
+https://api.github.com/repos/soupashh-ship-it/OmniTune-Windows/releases
+```
+
+This endpoint includes prerelease/beta releases. When an update is available, OmniTune chooses the preferred Windows installer asset in this order:
+
+1. `*-custom.exe`
+2. setup `.exe`
+3. any `.exe`
+4. `.msi`
+
+The app downloads the selected asset to:
+
+```text
+%LOCALAPPDATA%\OmniTuneData\updates
+```
+
+Then it opens the installer for the user. This is an assisted updater, not a silent automatic updater. The installer remains responsible for replacing the installed binaries while preserving `%LOCALAPPDATA%\OmniTuneData`.
 
 ## User-data preservation verification
 
@@ -184,7 +208,7 @@ Before install/update:
 Install/update:
 
 ```powershell
-.\scripts\install-omnitune-update.ps1 -InstallerPath .\build\release\windows\OmniTune-Setup-0.2.0-windows-x64.exe -ExpectedVersion 0.2.0
+.\scripts\install-omnitune-update.ps1 -InstallerPath .\build\release\windows\inno\OmniTune-Setup-<version>-windows-x64-custom.exe -ExpectedVersion <version>
 ```
 
 After install/update:

@@ -333,11 +333,23 @@ fun SettingsView() {
                                     statusMessage = "OmniTune ${result.currentVersion} is current"
                                 }
                                 is UpdateCheckResult.UpdateAvailable -> {
-                                    val opened = openUri(result.releaseUrl)
-                                    statusMessage = if (opened) {
-                                        "Update ${result.latestVersion} available; opened release page"
-                                    } else {
-                                        "Update ${result.latestVersion} available; could not open browser"
+                                    statusMessage = "Downloading OmniTune ${result.latestVersion} installer..."
+                                    runCatching {
+                                        updateChecker.downloadInstaller(result, File(platform.appDataDir, "updates"))
+                                    }.onSuccess { installer ->
+                                        val opened = openFile(installer)
+                                        statusMessage = if (opened) {
+                                            "Downloaded update ${result.latestVersion}; installer opened"
+                                        } else {
+                                            "Downloaded update ${result.latestVersion} to ${installer.absolutePath}"
+                                        }
+                                    }.onFailure { error ->
+                                        val opened = openUri(result.releaseUrl)
+                                        statusMessage = if (opened) {
+                                            "Update ${result.latestVersion} available; download failed, opened release page"
+                                        } else {
+                                            "Update ${result.latestVersion} available; download failed: ${error.message}"
+                                        }
                                     }
                                 }
                                 is UpdateCheckResult.Failed -> {

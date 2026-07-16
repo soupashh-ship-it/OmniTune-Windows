@@ -64,6 +64,7 @@ import com.omnitune.app.window.CoolBlue
 import com.omnitune.app.window.ErrorRed
 import com.omnitune.app.window.IrisSoft
 import com.omnitune.app.window.LocalHomeReferenceMetrics
+import com.omnitune.app.window.OmniResponsiveLayout
 import com.omnitune.app.window.OmniGradients
 import com.omnitune.app.window.OmniReferenceColors
 import com.omnitune.app.window.SuccessGreen
@@ -158,7 +159,7 @@ private fun DownloadsReferenceContent(
     val usedBytes = (totalBytes - freeBytes).coerceAtLeast(0)
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val showRail = maxWidth >= 920.dp
+        val showRail = OmniResponsiveLayout.shouldShowRightRail(maxWidth.value)
         Column(
             Modifier
                 .fillMaxSize()

@@ -43,4 +43,28 @@ class VlcjAudioEngineTest {
         assertTrue(coordinator.releaseCompleted)
         assertFalse(coordinator.begin())
     }
+
+    @Test
+    fun releaseCoordinatorWaitsForInProgressCompletion() {
+        val coordinator = ReleaseCoordinator()
+
+        assertTrue(coordinator.begin())
+        val worker = Thread {
+            Thread.sleep(25)
+            coordinator.complete()
+        }
+        worker.start()
+
+        assertTrue(coordinator.waitForCompletion(1_000))
+        worker.join()
+    }
+
+    @Test
+    fun releaseCoordinatorWaitTimesOutWhenReleaseDoesNotComplete() {
+        val coordinator = ReleaseCoordinator()
+
+        assertTrue(coordinator.begin())
+
+        assertFalse(coordinator.waitForCompletion(10))
+    }
 }

@@ -8,6 +8,15 @@ enum class OmniDesktopSizeClass {
 }
 
 object OmniResponsiveLayout {
+    const val DefaultSidebarWidthDp: Float = 260f
+    const val DefaultPageHorizontalPaddingDp: Float = 48f
+
+    fun safeContentWidth(
+        windowWidthDp: Float,
+        sidebarWidthDp: Float = DefaultSidebarWidthDp,
+        horizontalPaddingDp: Float = DefaultPageHorizontalPaddingDp,
+    ): Float = (windowWidthDp - sidebarWidthDp - (horizontalPaddingDp * 2f)).coerceAtLeast(0f)
+
     fun sizeClassForContentWidth(widthDp: Float): OmniDesktopSizeClass = when {
         widthDp >= 1320f -> OmniDesktopSizeClass.Large
         widthDp >= 1040f -> OmniDesktopSizeClass.Expanded
@@ -27,4 +36,7 @@ object OmniResponsiveLayout {
         2 -> 820f
         else -> 520f
     }
+
+    fun shouldShowRightRail(contentWidthDp: Float): Boolean =
+        sizeClassForContentWidth(contentWidthDp) >= OmniDesktopSizeClass.Expanded
 }

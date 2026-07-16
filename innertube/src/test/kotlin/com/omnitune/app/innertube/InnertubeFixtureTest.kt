@@ -27,6 +27,11 @@ class InnertubeFixtureTest {
     @OptIn(ExperimentalSerializationApi::class)
     private fun mockClient(fixtureName: String): HttpClient {
         val content = File("src/test/resources/fixtures/$fixtureName").readText()
+        return mockClientWithContent(content)
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    private fun mockClientWithContent(content: String): HttpClient {
         val mockEngine = MockEngine { request ->
             respond(
                 content = content,
@@ -129,6 +134,29 @@ class InnertubeFixtureTest {
         try {
             val result = YouTube.playlist("RDCLAK5uy_m-z0R29Fv0o80Qj5oXwE5nF0M7yN-Q4OQ")
             assertTrue(result.isFailure, "Playlist parsing should return failure on malformed JSON")
+        } finally {
+            YouTube.innerTube.httpClient = originalClient
+        }
+    }
+
+    @Test
+    fun `search with missing result sections returns empty result instead of throwing`() = runBlocking {
+        YouTube.innerTube.httpClient = mockClientWithContent("""{"contents":{}}""")
+        try {
+            val result = YouTube.search("schema drift", YouTube.SearchFilter.FILTER_SONG)
+            val items = result.getOrThrow().items
+            assertTrue(items.isEmpty(), "Search should degrade to an empty list when result sections are missing")
+        } finally {
+            YouTube.innerTube.httpClient = originalClient
+        }
+    }
+
+    @Test
+    fun `playlist with missing header returns failure instead of uncaught parser crash`() = runBlocking {
+        YouTube.innerTube.httpClient = mockClientWithContent("""{"contents":{}}""")
+        try {
+            val result = YouTube.playlist("VLschema-drift")
+            assertTrue(result.isFailure, "Playlist should return a controlled failure when required header data is missing")
         } finally {
             YouTube.innerTube.httpClient = originalClient
         }

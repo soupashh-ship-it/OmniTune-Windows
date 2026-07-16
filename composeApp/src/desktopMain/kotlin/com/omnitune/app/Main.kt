@@ -288,7 +288,7 @@ fun main() {
 
             DisposableEffect(Unit) {
                 onDispose {
-                    audioEngine.release()
+                    audioEngine.releaseBlocking()
                 }
             }
         }

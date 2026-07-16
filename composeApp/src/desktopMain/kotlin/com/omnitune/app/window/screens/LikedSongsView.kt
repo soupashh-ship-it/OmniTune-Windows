@@ -78,6 +78,7 @@ import com.omnitune.app.window.BorderLow
 import com.omnitune.app.window.IrisSoft
 import com.omnitune.app.window.LocalHomeReferenceMetrics
 import com.omnitune.app.window.OmniGradients
+import com.omnitune.app.window.OmniResponsiveLayout
 import com.omnitune.app.window.OmniReferenceColors
 import com.omnitune.app.window.Surface3
 import com.omnitune.app.window.TextMuted
@@ -217,7 +218,7 @@ private fun LikedSongsContent(
     val uniqueArtists = remember(records) { records.flatMap { it.song.artists }.map { it.name.lowercase() }.toSet().size }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val showRail = maxWidth > 1040.dp
+        val showRail = OmniResponsiveLayout.shouldShowRightRail(maxWidth.value)
         Row(
             Modifier.fillMaxSize().padding(start = metrics.px(18f), top = metrics.px(14f), end = metrics.px(18f)),
             horizontalArrangement = Arrangement.spacedBy(metrics.px(20f)),

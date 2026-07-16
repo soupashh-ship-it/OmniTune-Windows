@@ -2,11 +2,15 @@ package com.omnitune.app.platform
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
+import java.io.File
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.time.Duration
 
 sealed class UpdateCheckResult {
@@ -15,15 +19,23 @@ sealed class UpdateCheckResult {
         val currentVersion: String,
         val latestVersion: String,
         val releaseUrl: String,
+        val installerAsset: ReleaseAsset?,
     ) : UpdateCheckResult()
 
     data class Failed(val message: String) : UpdateCheckResult()
 }
 
+data class ReleaseAsset(
+    val name: String,
+    val downloadUrl: String,
+    val sizeBytes: Long,
+)
+
 data class ReleaseMetadata(
     val version: String,
     val htmlUrl: String,
     val prerelease: Boolean,
+    val assets: List<ReleaseAsset> = emptyList(),
 )
 
 class ReleaseUpdateChecker(
@@ -46,21 +58,70 @@ class ReleaseUpdateChecker(
             if (response.statusCode() !in 200..299) {
                 return@runCatching UpdateCheckResult.Failed("GitHub returned HTTP ${response.statusCode()}")
             }
-            val latest = parseGitHubRelease(response.body())
+            val latest = parseGitHubReleaseResponse(response.body())
             evaluate(currentVersion, latest)
         }.getOrElse {
             UpdateCheckResult.Failed(it.message ?: it::class.simpleName ?: "Unknown update-check failure")
         }
     }
 
+    suspend fun downloadInstaller(update: UpdateCheckResult.UpdateAvailable, updatesDir: File): File =
+        withContext(Dispatchers.IO) {
+            val asset = update.installerAsset ?: error("No Windows installer asset was found for ${update.latestVersion}.")
+            updatesDir.mkdirs()
+            val target = File(updatesDir, sanitizeUpdateFileName(asset.name))
+            val temp = File(updatesDir, "${target.name}.part")
+
+            val request = HttpRequest.newBuilder(URI(asset.downloadUrl))
+                .timeout(Duration.ofMinutes(10))
+                .header("Accept", "application/octet-stream")
+                .header("User-Agent", "OmniTune-Windows/${currentVersion.ifBlank { "development" }}")
+                .GET()
+                .build()
+            val response = client.send(request, HttpResponse.BodyHandlers.ofInputStream())
+            if (response.statusCode() !in 200..299) {
+                error("GitHub asset download returned HTTP ${response.statusCode()}.")
+            }
+            response.body().use { input ->
+                Files.copy(input, temp.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            }
+            if (asset.sizeBytes > 0L && temp.length() != asset.sizeBytes) {
+                temp.delete()
+                error("Downloaded installer size mismatch.")
+            }
+            Files.move(temp.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            target
+        }
+
+    internal fun parseGitHubReleaseResponse(json: String): ReleaseMetadata {
+        val trimmed = json.trim()
+        return if (trimmed.startsWith("[")) {
+            parseGitHubReleases(JSONArray(trimmed)).maxWithOrNull { left, right ->
+                compareVersions(left.version, right.version)
+            } ?: error("No releases returned by GitHub.")
+        } else {
+            parseGitHubRelease(trimmed)
+        }
+    }
+
+    internal fun parseGitHubReleases(array: JSONArray): List<ReleaseMetadata> {
+        return (0 until array.length()).mapNotNull { index ->
+            array.optJSONObject(index)?.let { parseGitHubRelease(it) }
+        }.filter { it.version.isNotBlank() && !it.version.equals("development", ignoreCase = true) }
+    }
+
     internal fun parseGitHubRelease(json: String): ReleaseMetadata {
-        val obj = JSONObject(json)
+        return parseGitHubRelease(JSONObject(json))
+    }
+
+    private fun parseGitHubRelease(obj: JSONObject): ReleaseMetadata {
         val tag = obj.optString("tag_name", "")
         val htmlUrl = obj.optString("html_url", AppInfo.releasesUrl)
         return ReleaseMetadata(
             version = normalizeVersion(tag),
             htmlUrl = htmlUrl.ifBlank { AppInfo.releasesUrl },
             prerelease = obj.optBoolean("prerelease", false),
+            assets = parseAssets(obj.optJSONArray("assets")),
         )
     }
 
@@ -74,6 +135,7 @@ class ReleaseUpdateChecker(
                 currentVersion = normalizedCurrent,
                 latestVersion = latest.version,
                 releaseUrl = latest.htmlUrl,
+                installerAsset = latest.preferredWindowsInstallerAsset(),
             )
         } else {
             UpdateCheckResult.Current(
@@ -82,6 +144,38 @@ class ReleaseUpdateChecker(
             )
         }
     }
+
+    private fun parseAssets(array: JSONArray?): List<ReleaseAsset> {
+        if (array == null) return emptyList()
+        return (0 until array.length()).mapNotNull { index ->
+            val obj = array.optJSONObject(index) ?: return@mapNotNull null
+            val name = obj.optString("name", "")
+            val url = obj.optString("browser_download_url", "")
+            if (name.isBlank() || url.isBlank()) return@mapNotNull null
+            ReleaseAsset(
+                name = name,
+                downloadUrl = url,
+                sizeBytes = obj.optLong("size", 0L),
+            )
+        }
+    }
+}
+
+internal fun ReleaseMetadata.preferredWindowsInstallerAsset(): ReleaseAsset? {
+    val candidates = assets.filter { asset ->
+        val lower = asset.name.lowercase()
+        lower.endsWith(".exe") || lower.endsWith(".msi")
+    }
+    return candidates.firstOrNull { it.name.contains("custom", ignoreCase = true) && it.name.endsWith(".exe", ignoreCase = true) }
+        ?: candidates.firstOrNull { it.name.contains("Setup", ignoreCase = true) && it.name.endsWith(".exe", ignoreCase = true) }
+        ?: candidates.firstOrNull { it.name.endsWith(".exe", ignoreCase = true) }
+        ?: candidates.firstOrNull { it.name.endsWith(".msi", ignoreCase = true) }
+}
+
+internal fun sanitizeUpdateFileName(name: String): String {
+    return name.replace(Regex("[^A-Za-z0-9._-]"), "_")
+        .take(160)
+        .ifBlank { "OmniTune-update-installer.exe" }
 }
 
 internal fun normalizeVersion(value: String): String {

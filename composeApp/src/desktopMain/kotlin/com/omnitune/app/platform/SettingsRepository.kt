@@ -48,6 +48,7 @@ class SettingsRepository(
 
     private val jsonStore = JsonFileStore(prefs, platformContext)
     private val settingsPreferences = SettingsPreferences(prefs)
+    private val libraryPreferences = LibraryPreferences(prefs)
     private val likedSongsPersistence = LikedSongsPersistence(prefs, jsonStore)
     private val playbackHistoryPersistence = PlaybackHistoryPersistence(jsonStore)
     private val playlistCoverStore = PlaylistCoverStore(platformContext)
@@ -101,12 +102,12 @@ class SettingsRepository(
     }
 
     var followedArtistIds: Set<String>
-        get() = settingsPreferences.followedArtistIds
-        set(value) { settingsPreferences.followedArtistIds = value }
+        get() = libraryPreferences.followedArtistIds
+        set(value) { libraryPreferences.followedArtistIds = value }
 
     var pinnedLibraryCollectionIds: Set<String>
-        get() = settingsPreferences.pinnedLibraryCollectionIds
-        set(value) { settingsPreferences.pinnedLibraryCollectionIds = value }
+        get() = libraryPreferences.pinnedLibraryCollectionIds
+        set(value) { libraryPreferences.pinnedLibraryCollectionIds = value }
 
     var shuffleEnabled: Boolean
         get() = settingsPreferences.shuffleEnabled

@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
@@ -238,7 +239,7 @@ class VlcjAudioEngine(
 
     fun releaseBlocking(timeoutMs: Long = 3_000L): Boolean {
         if (releaseCoordinator.releaseCompleted) return true
-        if (releaseCoordinator.releaseRequested) return false
+        if (releaseCoordinator.releaseRequested) return releaseCoordinator.waitForCompletion(timeoutMs)
         val future = try {
             vlcExecutor.submit<Boolean> {
                 releaseSync()
@@ -263,6 +264,7 @@ class VlcjAudioEngine(
 
 internal class ReleaseCoordinator {
     private val lock = Any()
+    private val completedLatch = CountDownLatch(1)
 
     @Volatile
     var releaseRequested: Boolean = false
@@ -285,6 +287,13 @@ internal class ReleaseCoordinator {
         synchronized(lock) {
             releaseRequested = true
             releaseCompleted = true
+            completedLatch.countDown()
         }
+    }
+
+    fun waitForCompletion(timeoutMs: Long): Boolean {
+        if (releaseCompleted) return true
+        completedLatch.await(timeoutMs.coerceAtLeast(1L), TimeUnit.MILLISECONDS)
+        return releaseCompleted
     }
 }

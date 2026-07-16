@@ -27,5 +27,5 @@ object AppInfo {
 
     val latestReleaseApiUrl: String
         get() = properties.getProperty("latestReleaseApiUrl")?.takeIf { it.isNotBlank() }
-            ?: "https://api.github.com/repos/soupashh-ship-it/OmniTune-Windows/releases/latest"
+            ?: "https://api.github.com/repos/soupashh-ship-it/OmniTune-Windows/releases"
 }

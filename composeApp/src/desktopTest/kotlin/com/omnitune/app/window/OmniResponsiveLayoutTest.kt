@@ -27,4 +27,18 @@ class OmniResponsiveLayoutTest {
         assertEquals(1120f, OmniResponsiveLayout.settingsMaxContentWidth(3))
         assertEquals(1120f, OmniResponsiveLayout.settingsMaxContentWidth(99))
     }
+
+    @Test
+    fun safeContentWidthSubtractsShellAndPaddingInDp() {
+        assertEquals(831f, OmniResponsiveLayout.safeContentWidth(1187f))
+        assertEquals(1550f, OmniResponsiveLayout.safeContentWidth(1906f))
+        assertEquals(0f, OmniResponsiveLayout.safeContentWidth(300f))
+    }
+
+    @Test
+    fun rightRailOnlyAppearsWhenContentWidthIsExpanded() {
+        assertEquals(false, OmniResponsiveLayout.shouldShowRightRail(980f))
+        assertEquals(true, OmniResponsiveLayout.shouldShowRightRail(1040f))
+        assertEquals(true, OmniResponsiveLayout.shouldShowRightRail(1320f))
+    }
 }

@@ -3,8 +3,6 @@ package com.omnitune.app.player
 import com.omnitune.app.platform.SettingsRepository
 import com.omnitune.app.platform.VlcjAudioEngine
 import com.omnitune.app.platform.PlaybackState
-import com.omnitune.app.platform.PlaybackSession
-import com.omnitune.app.platform.LikedSongRecord
 import com.omnitune.app.platform.DownloadQualityMode
 import com.omnitune.app.platform.OmniDownloadManager
 import com.omnitune.app.platform.completedLocalFileFor
@@ -73,22 +71,6 @@ class PlayerViewModel(
     private val downloadManager: OmniDownloadManager,
 ) : CoroutineScope {
 
-    private data class ActiveListen(
-        val song: SongItem,
-        val startedAt: Long,
-        val durationMs: Long,
-        val accumulatedPlayedMs: Long = 0L,
-        val lastResumeAt: Long? = null,
-    ) {
-        fun accumulateUntil(now: Long): ActiveListen {
-            val resumedAt = lastResumeAt ?: return this
-            return copy(
-                accumulatedPlayedMs = accumulatedPlayedMs + (now - resumedAt).coerceAtLeast(0L),
-                lastResumeAt = null,
-            )
-        }
-    }
-
     override val coroutineContext: CoroutineContext = SupervisorJob() + Dispatchers.IO
 
     private var consecutiveErrors = 0
@@ -153,17 +135,11 @@ class PlayerViewModel(
         startPlayback = { startPlaybackFromController(it) },
     )
 
-    private val _liked = MutableStateFlow(settings.likedSongIds)
-    val likedSongs: StateFlow<Set<String>> = _liked.asStateFlow()
-
-    private val _likedSongRecords = MutableStateFlow(settings.likedSongRecords)
-    val likedSongRecords: StateFlow<List<LikedSongRecord>> = _likedSongRecords.asStateFlow()
-
-    private val _followedArtists = MutableStateFlow(settings.followedArtistIds)
-    val followedArtists: StateFlow<Set<String>> = _followedArtists.asStateFlow()
-
-    private val _pinnedLibraryCollections = MutableStateFlow(settings.pinnedLibraryCollectionIds)
-    val pinnedLibraryCollections: StateFlow<Set<String>> = _pinnedLibraryCollections.asStateFlow()
+    private val libraryState = PlayerLibraryStateController(settings, ::findKnownSong)
+    val likedSongs: StateFlow<Set<String>> = libraryState.likedSongs
+    val likedSongRecords = libraryState.likedSongRecords
+    val followedArtists: StateFlow<Set<String>> = libraryState.followedArtists
+    val pinnedLibraryCollections: StateFlow<Set<String>> = libraryState.pinnedLibraryCollections
 
     private val _recentSearches = MutableStateFlow(settings.recentSearches)
     val recentSearches: StateFlow<List<String>> = _recentSearches.asStateFlow()
@@ -192,11 +168,20 @@ class PlayerViewModel(
 
     private val playbackRequestGate = PlaybackRequestGate()
 
-    private val _playbackHistory = MutableStateFlow(settings.playbackHistory)
-    val playbackHistory = _playbackHistory.asStateFlow()
-    private val _playbackSessions = MutableStateFlow(settings.playbackSessions)
-    val playbackSessions = _playbackSessions.asStateFlow()
-    private var activeListen: ActiveListen? = null
+    private val listenTracker = PlayerListenTracker(
+        scope = this,
+        settings = settings,
+        playbackState = playbackState,
+        onPlaybackRecovered = { consecutiveErrors = 0 },
+        onPlaybackError = {
+            consecutiveErrors++
+            if (consecutiveErrors < 3) {
+                nextTrack()
+            }
+        },
+    )
+    val playbackHistory = listenTracker.playbackHistory
+    val playbackSessions = listenTracker.playbackSessions
 
     fun clearRecentSearches() {
         settings.clearRecentSearches()
@@ -206,61 +191,18 @@ class PlayerViewModel(
 
     init {
         audioEngine.onTrackFinished = { onTrackFinished() }
-        observePlaybackLifecycle()
         loadDiscoveryData()
     }
 
-    private fun observePlaybackLifecycle() {
-        launch {
-            playbackState.collect { state ->
-                val listen = activeListen ?: return@collect
-                val now = System.currentTimeMillis()
-                when (state) {
-                    PlaybackState.PLAYING -> {
-                        consecutiveErrors = 0
-                        activeListen = if (listen.lastResumeAt == null) listen.copy(lastResumeAt = now) else listen
-                    }
-                    PlaybackState.PAUSED, PlaybackState.BUFFERING, PlaybackState.STOPPED -> {
-                        activeListen = listen.accumulateUntil(now)
-                    }
-                    PlaybackState.ERROR, PlaybackState.IDLE -> {
-                        activeListen = listen.accumulateUntil(now)
-                        finalizeActiveListen(completed = false)
-                        if (state == PlaybackState.ERROR) {
-                            consecutiveErrors++
-                            if (consecutiveErrors < 3) {
-                                nextTrack()
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     private fun startListenTracking(item: SongItem) {
-        finalizeActiveListen(completed = false)
-        activeListen = ActiveListen(
+        listenTracker.start(
             song = item,
-            startedAt = System.currentTimeMillis(),
-            durationMs = (item.duration?.times(1000L) ?: position.value.lengthMs).coerceAtLeast(0L),
+            durationMs = item.duration?.times(1000L) ?: position.value.lengthMs,
         )
     }
 
     private fun finalizeActiveListen(completed: Boolean) {
-        val listen = activeListen?.accumulateUntil(System.currentTimeMillis()) ?: return
-        activeListen = null
-        val persisted = settings.recordMeaningfulPlayback(
-            song = listen.song,
-            startedAt = listen.startedAt,
-            accumulatedPlayedMs = listen.accumulatedPlayedMs,
-            trackDurationMs = listen.durationMs,
-            completed = completed,
-        )
-        if (persisted != null) {
-            _playbackHistory.value = settings.playbackHistory
-            _playbackSessions.value = settings.playbackSessions
-        }
+        listenTracker.finalize(completed)
     }
 
     private fun nextPlaybackRequestToken(): Long = playbackRequestGate.nextToken()
@@ -300,40 +242,18 @@ class PlayerViewModel(
         queueController.cycleRepeat()
     }
 
-    fun isLiked(id: String): Boolean = _liked.value.contains(id)
+    fun isLiked(id: String): Boolean = libraryState.isLiked(id)
 
     fun toggleLike(id: String) {
-        if (_liked.value.contains(id)) {
-            settings.unlikeSong(id)
-        } else {
-            val knownSong = findKnownSong(id)
-            if (knownSong != null) {
-                settings.likeSong(knownSong)
-            } else {
-                settings.likedSongIds = settings.likedSongIds + id
-            }
-        }
-        _likedSongRecords.value = settings.likedSongRecords
-        _liked.value = settings.likedSongIds
-        settings.flush()
+        libraryState.toggleLike(id)
     }
 
     fun toggleLikeSong(song: SongItem) {
-        if (_liked.value.contains(song.id)) {
-            settings.unlikeSong(song.id)
-        } else {
-            settings.likeSong(song)
-        }
-        _likedSongRecords.value = settings.likedSongRecords
-        _liked.value = settings.likedSongIds
-        settings.flush()
+        libraryState.toggleLikeSong(song)
     }
 
     fun unlikeSongs(ids: Set<String>) {
-        ids.forEach(settings::unlikeSong)
-        _likedSongRecords.value = settings.likedSongRecords
-        _liked.value = settings.likedSongIds
-        settings.flush()
+        libraryState.unlikeSongs(ids)
     }
 
     private fun findKnownSong(id: String): SongItem? {
@@ -349,26 +269,11 @@ class PlayerViewModel(
     }
 
     fun toggleFollowArtist(id: String) {
-        val set = _followedArtists.value.toMutableSet()
-        if (set.contains(id)) set.remove(id) else set.add(id)
-        _followedArtists.value = set
-        settings.followedArtistIds = set
-        settings.flush()
+        libraryState.toggleFollowArtist(id)
     }
 
     fun togglePinnedLibraryCollection(id: String) {
-        val allowed = setOf("favorites", "queue", "albums", "artists", "playlists", "downloads")
-        if (id !in allowed) return
-        val current = _pinnedLibraryCollections.value.toMutableSet()
-        if (current.contains(id)) {
-            if (current.size <= 1) return
-            current.remove(id)
-        } else {
-            current.add(id)
-        }
-        _pinnedLibraryCollections.value = current
-        settings.pinnedLibraryCollectionIds = current
-        settings.flush()
+        libraryState.togglePinnedLibraryCollection(id)
     }
 
     private val _currentArtistId = MutableStateFlow<String?>(null)

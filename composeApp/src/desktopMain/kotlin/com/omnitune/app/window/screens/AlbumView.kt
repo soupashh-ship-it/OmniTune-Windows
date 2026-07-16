@@ -56,6 +56,7 @@ import com.omnitune.app.service.YouTubeService
 import com.omnitune.app.window.BorderLow
 import com.omnitune.app.window.IrisSoft
 import com.omnitune.app.window.LocalHomeReferenceMetrics
+import com.omnitune.app.window.OmniResponsiveLayout
 import com.omnitune.app.window.OmniGradients
 import com.omnitune.app.window.OmniReferenceColors
 import com.omnitune.app.window.Surface1
@@ -130,7 +131,7 @@ private fun AlbumReferenceContent(
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val compact = maxWidth < 760.dp
-        val showRail = maxWidth >= 920.dp
+        val showRail = OmniResponsiveLayout.shouldShowRightRail(maxWidth.value)
         val artworkSize = when {
             compact -> metrics.px(168f)
             maxWidth < 920.dp -> metrics.px(198f)
