@@ -70,7 +70,6 @@ import com.omnitune.innertube.utils.PoTokenGenerator
 import io.ktor.client.call.body
 import io.ktor.client.statement.bodyAsText
 
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
@@ -78,11 +77,14 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import java.net.Proxy
 import java.util.Locale
+import java.util.logging.Level
+import java.util.logging.Logger
 import kotlin.random.Random
 
 
 object YouTube {
-    private val innerTube = InnerTube()
+    private val logger: Logger = Logger.getLogger(YouTube::class.java.name)
+    internal val innerTube = InnerTube()
 
     var locale: YouTubeLocale
         get() = innerTube.locale
@@ -969,7 +971,7 @@ object YouTube {
                 else -> null
             }
         } catch (e: Exception) {
-            println("Error converting chart item: ${e.message}\n${Json.encodeToString(renderer)}")
+            logger.log(Level.FINE, "Failed to convert chart item from provider response.", e)
             null
         }
     }
@@ -1015,7 +1017,7 @@ object YouTube {
                 else -> null
             }
         } catch (e: Exception) {
-            println("Error converting two row item: ${e.message}\n${Json.encodeToString(renderer)}")
+            logger.log(Level.FINE, "Failed to convert two-row item from provider response.", e)
             null
         }
     }

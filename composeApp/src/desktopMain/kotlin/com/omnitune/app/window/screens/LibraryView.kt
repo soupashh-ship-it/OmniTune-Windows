@@ -13,10 +13,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -226,201 +228,162 @@ private fun LibraryReferenceContent(
 ) {
     val metrics = LocalHomeReferenceMetrics.current
     val scroll = rememberScrollState()
-    val left = metrics.px(22f)
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scroll)
+            .padding(metrics.px(22f)),
+        verticalArrangement = Arrangement.spacedBy(metrics.px(14f)),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(metrics.px(560f))
-        ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 "Library",
                 color = TextPrimary,
                 fontSize = 21.sp,
                 lineHeight = 25.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.offset(x = left, y = metrics.px(16f)),
+                modifier = Modifier.weight(1f),
             )
-
-            LibraryTabs(
-                activeTab = activeTab,
-                onTab = onTab,
-                modifier = Modifier
-                    .offset(x = left, y = metrics.px(50f))
-                    .width(metrics.px(398f))
-                    .height(metrics.px(30f)),
-            )
-
             LibrarySortControl(
                 sort = sort,
                 onClick = onSort,
-                modifier = Modifier
-                    .offset(x = metrics.px(725f), y = metrics.px(50f))
-                    .width(metrics.px(129f))
-                    .height(metrics.px(30f)),
+                modifier = Modifier.width(metrics.px(129f)).height(metrics.px(30f)),
             )
-
+            Spacer(Modifier.width(metrics.px(10f)))
             Row(
-                modifier = Modifier
-                    .offset(x = metrics.px(866f), y = metrics.px(50f))
-                    .width(metrics.px(64f))
-                    .height(metrics.px(30f)),
+                modifier = Modifier.width(metrics.px(64f)).height(metrics.px(30f)),
                 horizontalArrangement = Arrangement.spacedBy(metrics.px(4f)),
             ) {
                 ToggleIcon(Icons.AutoMirrored.Filled.ViewList, !gridView, Modifier.weight(1f)) { onGridView(false) }
                 ToggleIcon(Icons.Default.GridView, gridView, Modifier.weight(1f)) { onGridView(true) }
             }
+        }
 
-            SectionRowHeader(
-                title = "Pinned Collections",
-                action = if (editingPins) "Done" else "Edit Pins",
-                onAction = onEditPins,
-                modifier = Modifier.offset(x = left, y = metrics.px(98f)).width(metrics.px(909f)),
+        LibraryTabs(
+            activeTab = activeTab,
+            onTab = onTab,
+            modifier = Modifier.widthIn(max = metrics.px(520f)).fillMaxWidth().height(metrics.px(30f)),
+        )
+
+        SectionRowHeader(
+            title = "Pinned Collections",
+            action = if (editingPins) "Done" else "Edit Pins",
+            onAction = onEditPins,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(metrics.px(15f)),
+        ) {
+            val availablePinned = listOf(
+                PinnedCollection("favorites", "Favorites", "$likedCount songs", Icons.Default.Favorite, librarySongs.firstOrNull()?.thumbnail) { onTab(LibraryTab.Favorites) },
+                PinnedCollection("queue", "Queue", "${librarySongs.size} songs", Icons.AutoMirrored.Filled.QueueMusic, librarySongs.getOrNull(1)?.thumbnail) { onNavigateToQueue() },
+                PinnedCollection("albums", "Albums", "${albums.size} saved", Icons.Default.Album, albums.firstOrNull()?.thumbnail) { onTab(LibraryTab.Albums) },
+                PinnedCollection("artists", "Artists", "${artists.size} artists", Icons.Default.Person, artists.firstOrNull()?.artwork) { onTab(LibraryTab.Artists) },
+                PinnedCollection("playlists", "Playlists", "${playlists.size} saved", Icons.Default.GraphicEq, playlists.firstOrNull()?.thumbnail) { onTab(LibraryTab.Playlists) },
+                PinnedCollection("downloads", "Downloaded", "Open downloads", Icons.Default.Download, null) { onNavigateToDownloads() },
             )
+            val pinned = if (editingPins) availablePinned else availablePinned.filter { it.id in pinnedCollectionIds }
+            pinned.forEach { pinnedItem ->
+                PinnedCollectionCard(
+                    item = pinnedItem,
+                    pinned = pinnedItem.id in pinnedCollectionIds,
+                    editing = editingPins,
+                    modifier = Modifier.width(metrics.px(141f)).heightIn(min = metrics.px(102f)),
+                ) {
+                    if (editingPins) onTogglePin(pinnedItem.id) else pinnedItem.onClick()
+                }
+            }
+        }
 
-            Row(
-                modifier = Modifier
-                    .offset(x = left, y = metrics.px(122f))
-                    .width(metrics.px(915f))
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(metrics.px(15f)),
-            ) {
-                val availablePinned = listOf(
-                    PinnedCollection("favorites", "Favorites", "$likedCount songs", Icons.Default.Favorite, librarySongs.firstOrNull()?.thumbnail) { onTab(LibraryTab.Favorites) },
-                    PinnedCollection("queue", "Queue", "${librarySongs.size} songs", Icons.AutoMirrored.Filled.QueueMusic, librarySongs.getOrNull(1)?.thumbnail) { onNavigateToQueue() },
-                    PinnedCollection("albums", "Albums", "${albums.size} saved", Icons.Default.Album, albums.firstOrNull()?.thumbnail) { onTab(LibraryTab.Albums) },
-                    PinnedCollection("artists", "Artists", "${artists.size} artists", Icons.Default.Person, artists.firstOrNull()?.artwork) { onTab(LibraryTab.Artists) },
-                    PinnedCollection("playlists", "Playlists", "${playlists.size} saved", Icons.Default.GraphicEq, playlists.firstOrNull()?.thumbnail) { onTab(LibraryTab.Playlists) },
-                    PinnedCollection("downloads", "Downloaded", "Open downloads", Icons.Default.Download, null) { onNavigateToDownloads() },
+        SectionRowHeader(
+            title = "Recent Additions",
+            action = "See all",
+            onAction = onSeeAllRecent,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(metrics.px(14f)),
+        ) {
+            recentItems.take(12).forEach { item ->
+                RecentAdditionCard(
+                    item = item,
+                    onClick = { onPlayItem(item) },
+                    modifier = Modifier.width(metrics.px(101f)).heightIn(min = metrics.px(103f)),
                 )
-                val pinned = if (editingPins) availablePinned else availablePinned.filter { it.id in pinnedCollectionIds }
-                pinned.forEach { pinnedItem ->
-                    PinnedCollectionCard(
-                        item = pinnedItem,
-                        pinned = pinnedItem.id in pinnedCollectionIds,
-                        editing = editingPins,
-                        modifier = Modifier.width(metrics.px(141f)).height(metrics.px(102f)),
-                    ) {
-                        if (editingPins) onTogglePin(pinnedItem.id) else pinnedItem.onClick()
-                    }
-                }
             }
+        }
 
-            SectionRowHeader(
-                title = "Recent Additions",
-                action = "See all",
-                onAction = onSeeAllRecent,
-                modifier = Modifier.offset(x = left, y = metrics.px(238f)).width(metrics.px(909f)),
-            )
+        Text("All ${activeTab.label}", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
 
-            Row(
-                modifier = Modifier
-                    .offset(x = left, y = metrics.px(268f))
-                    .width(metrics.px(913f))
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(metrics.px(14f)),
-            ) {
-                recentItems.take(12).forEach { item ->
-                    RecentAdditionCard(
-                        item = item,
-                        onClick = { onPlayItem(item) },
-                        modifier = Modifier.width(metrics.px(101f)).height(metrics.px(103f)),
-                    )
-                }
-            }
+        LibraryTableHeader(modifier = Modifier.fillMaxWidth().height(metrics.px(20f)))
 
-            Text(
-                "All ${activeTab.label}",
-                color = TextPrimary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.offset(x = left, y = metrics.px(380f)),
-            )
-
-            LibraryTableHeader(
-                modifier = Modifier
-                    .offset(x = left, y = metrics.px(412f))
-                    .width(metrics.px(909f))
-                    .height(metrics.px(20f)),
-            )
-
-            Column(
-                modifier = Modifier
-                    .offset(x = left, y = metrics.px(438f))
-                    .width(metrics.px(909f)),
-                verticalArrangement = Arrangement.spacedBy(metrics.px(3f)),
-            ) {
-                when (activeTab) {
-                    LibraryTab.Playlists -> {
-                        if (playlists.isEmpty()) {
-                            TruthfulEmptyLibraryRow(activeTab)
-                        } else {
-                            playlists.take(8).forEachIndexed { index, playlist ->
-                                LibraryPlaylistTableRow(
-                                    playlist = playlist,
-                                    index = index,
-                                    onOpen = { onPlayItem(playlist) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(metrics.px(42f)),
-                                )
-                            }
-                        }
-                    }
-                    LibraryTab.Albums -> {
-                        if (albums.isEmpty()) TruthfulEmptyLibraryRow(activeTab)
-                        else albums.take(8).forEachIndexed { index, album ->
-                            LibraryMediaTableRow(
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(metrics.px(3f))) {
+            when (activeTab) {
+                LibraryTab.Playlists -> {
+                    if (playlists.isEmpty()) {
+                        TruthfulEmptyLibraryRow(activeTab)
+                    } else {
+                        playlists.forEachIndexed { index, playlist ->
+                            LibraryPlaylistTableRow(
+                                playlist = playlist,
                                 index = index,
-                                title = album.title,
-                                subtitle = album.artists?.joinToString(", ") { it.name ?: "" }.orEmpty().ifBlank { "Album" },
-                                meta = "Album",
-                                artwork = album.thumbnail,
-                                onOpen = { onPlayItem(album) },
+                                onOpen = { onPlayItem(playlist) },
                                 modifier = Modifier.fillMaxWidth().height(metrics.px(42f)),
                             )
                         }
                     }
-                    LibraryTab.Artists -> {
-                        if (artists.isEmpty()) TruthfulEmptyLibraryRow(activeTab)
-                        else artists.take(8).forEachIndexed { index, artist ->
-                            LibraryMediaTableRow(
-                                index = index,
-                                title = artist.name,
-                                subtitle = "Artist",
-                                meta = "From your library",
-                                artwork = artist.artwork,
-                                onOpen = null,
-                                modifier = Modifier.fillMaxWidth().height(metrics.px(42f)),
-                            )
-                        }
+                }
+                LibraryTab.Albums -> {
+                    if (albums.isEmpty()) TruthfulEmptyLibraryRow(activeTab)
+                    else albums.forEachIndexed { index, album ->
+                        LibraryMediaTableRow(
+                            index = index,
+                            title = album.title,
+                            subtitle = album.artists?.joinToString(", ") { it.name ?: "" }.orEmpty().ifBlank { "Album" },
+                            meta = "Album",
+                            artwork = album.thumbnail,
+                            onOpen = { onPlayItem(album) },
+                            modifier = Modifier.fillMaxWidth().height(metrics.px(42f)),
+                        )
                     }
-                    else -> {
-                        if (librarySongs.isEmpty()) {
-                            TruthfulEmptyLibraryRow(activeTab)
-                        } else {
-                            librarySongs.take(8).forEachIndexed { index, song ->
-                                val isActive = song.id == currentSong?.id
-                                LibrarySongTableRow(
-                                    song = song,
-                                    index = index,
-                                    isActive = isActive,
-                                    isPlaying = isActive && playbackState == PlaybackState.PLAYING,
-                                    liked = song.id in likedIds,
-                                    onPlay = { onPlaySong(song, index) },
-                                    onAdd = { onAdd(song) },
-                                    onLike = { onLike(song) },
-                                    onMorePlayNext = { onPlayNext(song) },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(metrics.px(38f)),
-                                )
-                            }
+                }
+                LibraryTab.Artists -> {
+                    if (artists.isEmpty()) TruthfulEmptyLibraryRow(activeTab)
+                    else artists.forEachIndexed { index, artist ->
+                        LibraryMediaTableRow(
+                            index = index,
+                            title = artist.name,
+                            subtitle = "Artist",
+                            meta = "From your library",
+                            artwork = artist.artwork,
+                            onOpen = null,
+                            modifier = Modifier.fillMaxWidth().height(metrics.px(42f)),
+                        )
+                    }
+                }
+                else -> {
+                    if (librarySongs.isEmpty()) {
+                        TruthfulEmptyLibraryRow(activeTab)
+                    } else {
+                        librarySongs.forEachIndexed { index, song ->
+                            val isActive = song.id == currentSong?.id
+                            LibrarySongTableRow(
+                                song = song,
+                                index = index,
+                                isActive = isActive,
+                                isPlaying = isActive && playbackState == PlaybackState.PLAYING,
+                                liked = song.id in likedIds,
+                                onPlay = { onPlaySong(song, index) },
+                                onAdd = { onAdd(song) },
+                                onLike = { onLike(song) },
+                                onMorePlayNext = { onPlayNext(song) },
+                                modifier = Modifier.fillMaxWidth().height(metrics.px(38f)),
+                            )
                         }
                     }
                 }

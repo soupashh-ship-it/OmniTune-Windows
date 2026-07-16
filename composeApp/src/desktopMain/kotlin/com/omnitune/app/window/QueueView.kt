@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -14,10 +15,12 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -290,111 +293,179 @@ private fun QueueReferenceContent(
     val remaining = if (queueIndex >= 0) queue.drop(queueIndex + 1) else queue
     val totalSeconds = queue.mapNotNull { it.duration }.sum()
 
-    Box(Modifier.fillMaxSize().verticalScroll(scroll)) {
-        Box(Modifier.fillMaxWidth().height(metrics.px(560f))) {
-            Text("Queue & Session", color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(22f)))
-            Text("Manage the active playback queue and real loaded recommendations.", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(50f)))
-            message?.let {
-                Text(it, color = IrisSoft, fontSize = 8.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.offset(x = metrics.px(430f), y = metrics.px(31f)).width(metrics.px(250f)))
-            }
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val wide = maxWidth >= 980.dp
+        val medium = maxWidth >= 720.dp
 
-            ReferencePanel(
-                title = "Up Next",
-                subtitle = "${remaining.size} remaining · ${formatDuration(totalSeconds)} total",
-                modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(65f)).width(metrics.px(474f)).height(metrics.px(346f)),
-                header = {
-                    QueueHeaderAction(Icons.Default.Delete, "Clear", onClear)
-                    QueueHeaderAction(Icons.AutoMirrored.Filled.PlaylistAdd, "Save as Playlist", onSave, saveActionModifier)
-                    QueueHeaderAction(Icons.Default.Shuffle, "Shuffle", onShuffle)
-                    QueueHeaderAction(Icons.Default.Repeat, "Repeat", onRepeat)
-                },
-            ) {
-                if (queue.isEmpty()) {
-                    QueueEmpty("Queue is empty", "Play or add a track to populate this session.")
-                } else {
-                    queue.take(8).forEachIndexed { index, item ->
-                        QueueSongRow(
-                            item = item,
-                            index = index,
-                            isCurrent = index == queueIndex,
-                            isPlaying = index == queueIndex && playbackState == PlaybackState.PLAYING,
-                            onPlay = { onPlayQueueIndex(index) },
-                            onRemove = { onRemove(index) },
-                        )
-                    }
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(scroll)
+                .padding(metrics.px(24f)),
+            verticalArrangement = Arrangement.spacedBy(metrics.px(14f)),
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Queue & Session", color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text("Manage the active playback queue and real loaded recommendations.", color = TextSecondary, fontSize = 10.sp)
+                }
+                message?.let {
+                    Text(it, color = IrisSoft, fontSize = 8.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 320.dp))
                 }
             }
 
-            ReferencePanel(
-                title = "Queue Controls",
-                subtitle = null,
-                modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(418f)).width(metrics.px(474f)).height(metrics.px(79f)),
-            ) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.px(8f))) {
-                    QueueControl(Icons.Default.GraphicEq, "Crossfade", "Not exposed", IrisSoft, Modifier.weight(1f))
-                    QueueControl(Icons.Default.AutoAwesome, "Autoplay", "Discovery", CoolBlue, Modifier.weight(1f))
-                    QueueControl(Icons.Default.Tune, "Mix Mood", "Queue-based", SuccessGreen, Modifier.weight(1f))
-                    QueueControl(Icons.Default.AllInclusive, "Repeat", repeatModeLabel, Iris, Modifier.weight(1f))
+            if (wide) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.px(12f))) {
+                    QueueMainColumn(queue, queueIndex, playbackState, repeatModeLabel, totalSeconds, remaining.size, onClear, onSave, onShuffle, onRepeat, onPlayQueueIndex, onRemove, saveActionModifier, Modifier.weight(1.55f))
+                    QueueHistoryColumn(sessions, history, onSeeAllHistory, onPlayHistoryItem, Modifier.weight(0.72f))
+                    QueueRecommendationPanel(recommendations, onAddRecommendation, onAddAllRecommendations, onRefreshRecommendations, Modifier.weight(0.76f).heightIn(min = metrics.px(438f)))
                 }
+            } else if (medium) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.px(12f))) {
+                    QueueMainColumn(queue, queueIndex, playbackState, repeatModeLabel, totalSeconds, remaining.size, onClear, onSave, onShuffle, onRepeat, onPlayQueueIndex, onRemove, saveActionModifier, Modifier.weight(1.2f))
+                    QueueHistoryColumn(sessions, history, onSeeAllHistory, onPlayHistoryItem, Modifier.weight(0.8f))
+                }
+                QueueRecommendationPanel(recommendations, onAddRecommendation, onAddAllRecommendations, onRefreshRecommendations, Modifier.fillMaxWidth())
+            } else {
+                QueueMainColumn(queue, queueIndex, playbackState, repeatModeLabel, totalSeconds, remaining.size, onClear, onSave, onShuffle, onRepeat, onPlayQueueIndex, onRemove, saveActionModifier, Modifier.fillMaxWidth())
+                QueueHistoryColumn(sessions, history, onSeeAllHistory, onPlayHistoryItem, Modifier.fillMaxWidth())
+                QueueRecommendationPanel(recommendations, onAddRecommendation, onAddAllRecommendations, onRefreshRecommendations, Modifier.fillMaxWidth())
             }
+        }
+    }
+}
 
-            ReferencePanel(
-                title = "Session History",
-                subtitle = if (sessions.isEmpty()) "No persisted sessions" else "${sessions.size} persisted sessions",
-                modifier = Modifier.offset(x = metrics.px(506f), y = metrics.px(65f)).width(metrics.px(213f)).height(metrics.px(257f)),
-                seeAll = {
-                    Text("See all", color = IrisSoft, fontSize = 8.5.sp, modifier = Modifier.clickable(onClick = onSeeAllHistory))
-                },
-            ) {
-                sessions.take(4).forEach { session ->
-                    SessionCard(session)
-                }
-                if (sessions.isEmpty()) {
-                    QueueEmpty("No session history", "Play a track for at least one session to build persisted history.")
+@Composable
+private fun QueueMainColumn(
+    queue: List<SongItem>,
+    queueIndex: Int,
+    playbackState: PlaybackState,
+    repeatModeLabel: String,
+    totalSeconds: Int,
+    remainingCount: Int,
+    onClear: () -> Unit,
+    onSave: () -> Unit,
+    onShuffle: () -> Unit,
+    onRepeat: () -> Unit,
+    onPlayQueueIndex: (Int) -> Unit,
+    onRemove: (Int) -> Unit,
+    saveActionModifier: Modifier,
+    modifier: Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(metrics.px(12f))) {
+        ReferencePanel(
+            title = "Up Next",
+            subtitle = "$remainingCount remaining · ${formatDuration(totalSeconds)} total",
+            modifier = Modifier.fillMaxWidth().heightIn(min = metrics.px(346f)),
+            header = {
+                QueueHeaderAction(Icons.Default.Delete, "Clear", onClear)
+                QueueHeaderAction(Icons.AutoMirrored.Filled.PlaylistAdd, "Save as Playlist", onSave, saveActionModifier)
+                QueueHeaderAction(Icons.Default.Shuffle, "Shuffle", onShuffle)
+                QueueHeaderAction(Icons.Default.Repeat, "Repeat", onRepeat)
+            },
+        ) {
+            if (queue.isEmpty()) {
+                QueueEmpty("Queue is empty", "Play or add a track to populate this session.")
+            } else {
+                queue.forEachIndexed { index, item ->
+                    QueueSongRow(
+                        item = item,
+                        index = index,
+                        isCurrent = index == queueIndex,
+                        isPlaying = index == queueIndex && playbackState == PlaybackState.PLAYING,
+                        onPlay = { onPlayQueueIndex(index) },
+                        onRemove = { onRemove(index) },
+                    )
                 }
             }
+        }
 
-            ReferencePanel(
-                title = "Recently Played",
-                subtitle = "Derived from current queue",
-                modifier = Modifier.offset(x = metrics.px(506f), y = metrics.px(329f)).width(metrics.px(213f)).height(metrics.px(172f)),
-            ) {
-                history.drop(1).take(3).forEach {
-                    CompactSongCard(it, "From persisted playback history", onClick = { onPlayHistoryItem(it) })
-                }
-                if (history.drop(1).isEmpty()) {
-                    QueueEmpty("No recent tracks", "Recent tracks persist after playback.")
-                }
+        ReferencePanel(
+            title = "Queue Controls",
+            subtitle = null,
+            modifier = Modifier.fillMaxWidth().heightIn(min = metrics.px(90f)),
+        ) {
+            Row(Modifier.fillMaxWidth().height(metrics.px(45f)), horizontalArrangement = Arrangement.spacedBy(metrics.px(8f))) {
+                QueueControl(Icons.Default.GraphicEq, "Crossfade", "Not exposed", IrisSoft, Modifier.weight(1f))
+                QueueControl(Icons.Default.AutoAwesome, "Autoplay", "Discovery", CoolBlue, Modifier.weight(1f))
+                QueueControl(Icons.Default.Tune, "Mix Mood", "Queue-based", SuccessGreen, Modifier.weight(1f))
+                QueueControl(Icons.Default.AllInclusive, "Repeat", repeatModeLabel, Iris, Modifier.weight(1f))
             }
+        }
+    }
+}
 
-            ReferencePanel(
-                title = "After This Queue Ends",
-                subtitle = "Real discovery recommendations",
-                modifier = Modifier.offset(x = metrics.px(728f), y = metrics.px(65f)).width(metrics.px(217f)).height(metrics.px(438f)),
-                trailingIcon = Icons.Default.AutoAwesome,
-            ) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(metrics.px(7f))) {
-                    if (recommendations.isEmpty()) {
-                        QueueEmpty("No recommendations loaded", "Open Home/Search once discovery finishes loading.")
-                    } else {
-                        recommendations.take(7).forEach { item ->
-                            RecommendationRow(item, onAdd = { onAddRecommendation(item) })
-                        }
-                    }
-                }
-                Spacer(Modifier.height(metrics.px(10f)))
-                QueuePrimaryButton("Add All to Queue", enabled = recommendations.isNotEmpty(), onClick = onAddAllRecommendations)
-                Spacer(Modifier.height(metrics.px(8f)))
-                Row(
-                    Modifier.fillMaxWidth().height(metrics.px(25f)).clip(RoundedCornerShape(metrics.px(7f))).clickable(onClick = onRefreshRecommendations),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Default.Refresh, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(11f)))
-                    Spacer(Modifier.width(metrics.px(6f)))
-                    Text("Refresh Recommendations", color = TextSecondary, fontSize = 8.5.sp)
+@Composable
+private fun QueueHistoryColumn(
+    sessions: List<PlaybackSession>,
+    history: List<SongItem>,
+    onSeeAllHistory: () -> Unit,
+    onPlayHistoryItem: (SongItem) -> Unit,
+    modifier: Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(metrics.px(12f))) {
+        ReferencePanel(
+            title = "Session History",
+            subtitle = if (sessions.isEmpty()) "No persisted sessions" else "${sessions.size} persisted sessions",
+            modifier = Modifier.fillMaxWidth().heightIn(min = metrics.px(257f)),
+            seeAll = {
+                Text("See all", color = IrisSoft, fontSize = 8.5.sp, modifier = Modifier.clickable(onClick = onSeeAllHistory))
+            },
+        ) {
+            sessions.take(4).forEach { session -> SessionCard(session) }
+            if (sessions.isEmpty()) QueueEmpty("No session history", "Play a track for at least one session to build persisted history.")
+        }
+
+        ReferencePanel(
+            title = "Recently Played",
+            subtitle = "Derived from current queue",
+            modifier = Modifier.fillMaxWidth().heightIn(min = metrics.px(172f)),
+        ) {
+            history.drop(1).take(3).forEach {
+                CompactSongCard(it, "From persisted playback history", onClick = { onPlayHistoryItem(it) })
+            }
+            if (history.drop(1).isEmpty()) QueueEmpty("No recent tracks", "Recent tracks persist after playback.")
+        }
+    }
+}
+
+@Composable
+private fun QueueRecommendationPanel(
+    recommendations: List<SongItem>,
+    onAddRecommendation: (SongItem) -> Unit,
+    onAddAllRecommendations: () -> Unit,
+    onRefreshRecommendations: () -> Unit,
+    modifier: Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    ReferencePanel(
+        title = "After This Queue Ends",
+        subtitle = "Real discovery recommendations",
+        modifier = modifier.heightIn(min = metrics.px(260f)),
+        trailingIcon = Icons.Default.AutoAwesome,
+    ) {
+        Column(Modifier.weight(1f, fill = false), verticalArrangement = Arrangement.spacedBy(metrics.px(7f))) {
+            if (recommendations.isEmpty()) {
+                QueueEmpty("No recommendations loaded", "Open Home/Search once discovery finishes loading.")
+            } else {
+                recommendations.take(7).forEach { item ->
+                    RecommendationRow(item, onAdd = { onAddRecommendation(item) })
                 }
             }
+        }
+        Spacer(Modifier.height(metrics.px(10f)))
+        QueuePrimaryButton("Add All to Queue", enabled = recommendations.isNotEmpty(), onClick = onAddAllRecommendations)
+        Spacer(Modifier.height(metrics.px(8f)))
+        Row(
+            Modifier.fillMaxWidth().height(metrics.px(25f)).clip(RoundedCornerShape(metrics.px(7f))).clickable(onClick = onRefreshRecommendations),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Default.Refresh, null, tint = TextSecondary, modifier = Modifier.size(metrics.px(11f)))
+            Spacer(Modifier.width(metrics.px(6f)))
+            Text("Refresh Recommendations", color = TextSecondary, fontSize = 8.5.sp)
         }
     }
 }

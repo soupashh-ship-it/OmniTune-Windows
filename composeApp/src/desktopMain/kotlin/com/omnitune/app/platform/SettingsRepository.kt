@@ -51,67 +51,8 @@ class SettingsRepository(
     private val prefs: Preferences = Preferences.userNodeForPackage(SettingsRepository::class.java),
     private val platformContext: PlatformContext? = null,
 ) {
-    private fun writeJsonFile(name: String, content: String) {
-        platformContext?.appDataDir?.let { dir ->
-            runCatching { AtomicFileStore.writeText(java.io.File(dir, name), content) }
-                .onFailure { OmniLogger.error("Settings", "Failed to persist $name.", it) }
-                .getOrThrow()
-        }
-    }
 
-    private fun writeJsonStore(name: String, fallbackPreferenceKey: String, content: String) {
-        writeJsonFile(name, content)
-        if (platformContext == null) {
-            prefs.put(fallbackPreferenceKey, content)
-        }
-    }
-    
-    private fun readJsonFile(name: String): String? {
-        return platformContext?.appDataDir?.let { dir ->
-            val file = java.io.File(dir, name)
-            if (file.exists()) runCatching { file.readText() }.getOrNull() else null
-        }
-    }
-
-    private fun readJsonBackupFile(name: String): String? {
-        return platformContext?.appDataDir?.let { dir ->
-            val file = java.io.File(dir, "$name.bak")
-            if (file.exists()) runCatching { file.readText() }.getOrNull() else null
-        }
-    }
-
-    private fun preserveCorruptJsonFile(name: String) {
-        platformContext?.appDataDir?.let { dir ->
-            val file = java.io.File(dir, name)
-            if (!file.exists()) return
-            runCatching {
-                file.copyTo(
-                    java.io.File(dir, "$name.corrupt-${System.currentTimeMillis()}.bak"),
-                    overwrite = false,
-                )
-            }
-        }
-    }
-
-    private fun <T> readRecoverableJsonList(
-        fileName: String,
-        fallbackPreferenceKey: String,
-        parser: (String) -> List<T>,
-    ): List<T> {
-        val fileContent = readJsonFile(fileName)
-        if (fileContent != null) {
-            runCatching { return parser(fileContent) }
-                .onFailure { preserveCorruptJsonFile(fileName) }
-        }
-
-        readJsonBackupFile(fileName)?.let { backupContent ->
-            runCatching { return parser(backupContent) }
-                .onFailure { OmniLogger.error("Settings", "Backup JSON for $fileName is also unreadable.", it) }
-        }
-
-        return runCatching { parser(prefs.get(fallbackPreferenceKey, "[]")) }
-            .getOrDefault(emptyList())
-    }
+    private val jsonStore = JsonFileStore(prefs, platformContext)
 
     private val _miniPlayerAlwaysOnTopFlow = MutableStateFlow(prefs.getBoolean("miniPlayerAlwaysOnTop", true))
     val miniPlayerAlwaysOnTopFlow: StateFlow<Boolean> = _miniPlayerAlwaysOnTopFlow.asStateFlow()
@@ -180,7 +121,7 @@ class SettingsRepository(
                         .put("song", record.song.toJson())
                 )
             }
-            writeJsonStore("likedSongs.json", "likedSongs.v1", array.toString())
+            jsonStore.writeJsonStore("likedSongs.json", "likedSongs.v1", array.toString())
             likedSongIds = distinct.map { it.song.id }.toSet()
         }
 
@@ -331,7 +272,7 @@ class SettingsRepository(
                 )
             }
             val json = array.toString()
-            writeJsonStore("savedQueuePlaylists.json", "savedQueuePlaylists.v1", json)
+            jsonStore.writeJsonStore("savedQueuePlaylists.json", "savedQueuePlaylists.v1", json)
         }
 
     fun saveQueueAsPlaylist(name: String, songs: List<SongItem>): SavedQueuePlaylist {
@@ -339,8 +280,7 @@ class SettingsRepository(
     }
 
     fun saveSongsAsPlaylist(name: String, songs: List<SongItem>): SavedQueuePlaylist {
-        val trimmed = name.trim()
-        require(trimmed.isNotBlank()) { "Playlist name cannot be empty." }
+        val trimmed = PlaylistPersistenceRules.requirePlaylistName(name)
         require(songs.isNotEmpty()) { "Playlist has no loaded songs." }
 
         val now = System.currentTimeMillis()
@@ -348,16 +288,15 @@ class SettingsRepository(
             id = "local-queue-$now",
             name = trimmed,
             createdAt = now,
-            songs = songs.distinctBy { it.id },
+            songs = PlaylistPersistenceRules.distinctSongs(songs),
         )
-        savedQueuePlaylists = listOf(playlist) + savedQueuePlaylists.filterNot { it.name.equals(trimmed, ignoreCase = true) }
+        savedQueuePlaylists = PlaylistPersistenceRules.prependReplacingName(playlist, savedQueuePlaylists)
         flush()
         return playlist
     }
 
     fun createPlaylist(name: String, description: String = "", tags: List<String> = emptyList()): SavedQueuePlaylist {
-        val trimmed = name.trim()
-        require(trimmed.isNotBlank()) { "Playlist name cannot be empty." }
+        val trimmed = PlaylistPersistenceRules.requirePlaylistName(name)
         val now = System.currentTimeMillis()
         val playlist = SavedQueuePlaylist(
             id = "local-playlist-$now",
@@ -365,9 +304,9 @@ class SettingsRepository(
             createdAt = now,
             songs = emptyList(),
             description = description.trim(),
-            tags = sanitizePlaylistTags(tags),
+            tags = PlaylistPersistenceRules.sanitizeTags(tags),
         )
-        savedQueuePlaylists = listOf(playlist) + savedQueuePlaylists.filterNot { it.name.equals(trimmed, ignoreCase = true) }
+        savedQueuePlaylists = PlaylistPersistenceRules.prependReplacingName(playlist, savedQueuePlaylists)
         flush()
         return playlist
     }
@@ -379,17 +318,16 @@ class SettingsRepository(
         tags: List<String>,
         coverPath: String?,
     ): SavedQueuePlaylist {
-        val trimmed = name.trim()
-        require(trimmed.isNotBlank()) { "Playlist name cannot be empty." }
+        val trimmed = PlaylistPersistenceRules.requirePlaylistName(name)
         val playlists = savedQueuePlaylists
         val existing = playlists.firstOrNull { it.id == id } ?: error("Playlist not found.")
         val updated = existing.copy(
             name = trimmed,
             description = description.trim().take(300),
-            tags = sanitizePlaylistTags(tags),
+            tags = PlaylistPersistenceRules.sanitizeTags(tags),
             coverPath = coverPath?.trim()?.takeIf { it.isNotBlank() },
         )
-        savedQueuePlaylists = listOf(updated) + playlists.filterNot { it.id == id }
+        savedQueuePlaylists = PlaylistPersistenceRules.prependReplacingId(updated, playlists)
         flush()
         return updated
     }
@@ -397,18 +335,12 @@ class SettingsRepository(
     fun addSongToPlaylists(song: SongItem, playlistIds: Set<String>): List<SavedQueuePlaylist> {
         if (playlistIds.isEmpty()) return emptyList()
         val selectedIds = playlistIds.filter { it.isNotBlank() }.toSet()
-        val updatedPlaylists = mutableListOf<SavedQueuePlaylist>()
-        savedQueuePlaylists = savedQueuePlaylists.map { playlist ->
-            if (playlist.id !in selectedIds) {
-                playlist
-            } else if (playlist.songs.any { it.id == song.id }) {
-                playlist
-            } else {
-                val updated = playlist.copy(songs = playlist.songs + song)
-                updatedPlaylists += updated
-                updated
-            }
-        }
+        val (playlists, updatedPlaylists) = PlaylistPersistenceRules.addSongToSelectedPlaylists(
+            playlists = savedQueuePlaylists,
+            song = song,
+            selectedIds = selectedIds,
+        )
+        savedQueuePlaylists = playlists
         flush()
         return updatedPlaylists
     }
@@ -417,7 +349,7 @@ class SettingsRepository(
         val playlists = savedQueuePlaylists
         val existing = playlists.firstOrNull { it.id == playlistId } ?: error("Playlist not found.")
         val updated = existing.copy(songs = existing.songs.filterNot { it.id == songId })
-        savedQueuePlaylists = listOf(updated) + playlists.filterNot { it.id == playlistId }
+        savedQueuePlaylists = PlaylistPersistenceRules.prependReplacingId(updated, playlists)
         flush()
         return updated
     }
@@ -425,12 +357,8 @@ class SettingsRepository(
     fun movePlaylistSong(playlistId: String, from: Int, to: Int): SavedQueuePlaylist {
         val playlists = savedQueuePlaylists
         val existing = playlists.firstOrNull { it.id == playlistId } ?: error("Playlist not found.")
-        require(from in existing.songs.indices && to in existing.songs.indices) { "Invalid playlist order index." }
-        val mutable = existing.songs.toMutableList()
-        val song = mutable.removeAt(from)
-        mutable.add(to, song)
-        val updated = existing.copy(songs = mutable)
-        savedQueuePlaylists = listOf(updated) + playlists.filterNot { it.id == playlistId }
+        val updated = PlaylistPersistenceRules.moveSong(existing, from, to)
+        savedQueuePlaylists = PlaylistPersistenceRules.prependReplacingId(updated, playlists)
         flush()
         return updated
     }
@@ -439,12 +367,6 @@ class SettingsRepository(
         savedQueuePlaylists = savedQueuePlaylists.filterNot { it.id == playlistId }
         flush()
     }
-
-    private fun sanitizePlaylistTags(tags: List<String>): List<String> =
-        tags.map { it.trim() }
-            .filter { it.isNotBlank() }
-            .distinctBy { it.lowercase() }
-            .take(8)
 
     var playbackHistory: List<PlaybackHistoryEntry>
         get() = readPlaybackHistory()
@@ -468,7 +390,7 @@ class SettingsRepository(
                     )
             }
             val json = array.toString()
-            writeJsonStore("playbackHistory.json", "playbackHistory.v1", json)
+            jsonStore.writeJsonStore("playbackHistory.json", "playbackHistory.v1", json)
         }
 
     var playbackSessions: List<PlaybackSession>
@@ -491,7 +413,7 @@ class SettingsRepository(
                     )
             }
             val json = array.toString()
-            writeJsonStore("playbackSessions.json", "playbackSessions.v1", json)
+            jsonStore.writeJsonStore("playbackSessions.json", "playbackSessions.v1", json)
         }
 
     fun isMeaningfulListen(accumulatedPlayedMs: Long, durationMs: Long): Boolean {
@@ -574,7 +496,7 @@ class SettingsRepository(
         playbackSessions = listOf(updated) + playbackSessions.filterNot { it.id == session.id }
     }
 
-    private fun readPlaylistList(): List<SavedQueuePlaylist> = readRecoverableJsonList(
+    private fun readPlaylistList(): List<SavedQueuePlaylist> = jsonStore.readRecoverableJsonList(
         fileName = "savedQueuePlaylists.json",
         fallbackPreferenceKey = "savedQueuePlaylists.v1",
     ) { stored ->
@@ -597,7 +519,7 @@ class SettingsRepository(
     }
 
     private fun readLikedSongRecords(): List<LikedSongRecord> {
-        val records = readRecoverableJsonList(
+        val records = jsonStore.readRecoverableJsonList(
             fileName = "likedSongs.json",
             fallbackPreferenceKey = "likedSongs.v1",
         ) { stored ->
@@ -615,7 +537,7 @@ class SettingsRepository(
         return emptyList()
     }
 
-    private fun readPlaybackHistory(): List<PlaybackHistoryEntry> = readRecoverableJsonList(
+    private fun readPlaybackHistory(): List<PlaybackHistoryEntry> = jsonStore.readRecoverableJsonList(
         fileName = "playbackHistory.json",
         fallbackPreferenceKey = "playbackHistory.v1",
     ) { stored ->
@@ -637,7 +559,7 @@ class SettingsRepository(
         }.distinctBy { it.id }
     }
 
-    private fun readPlaybackSessions(): List<PlaybackSession> = readRecoverableJsonList(
+    private fun readPlaybackSessions(): List<PlaybackSession> = jsonStore.readRecoverableJsonList(
         fileName = "playbackSessions.json",
         fallbackPreferenceKey = "playbackSessions.v1",
     ) { stored ->

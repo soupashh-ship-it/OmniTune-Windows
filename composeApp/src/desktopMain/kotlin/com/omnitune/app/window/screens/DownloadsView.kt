@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -13,10 +14,13 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -153,19 +157,31 @@ private fun DownloadsReferenceContent(
     val scroll = rememberScrollState()
     val usedBytes = (totalBytes - freeBytes).coerceAtLeast(0)
 
-    Box(Modifier.fillMaxSize().verticalScroll(scroll)) {
-        Box(Modifier.fillMaxWidth().height(metrics.px(620f))) {
-            Text("Downloads & Offline", color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.offset(x = metrics.px(21f), y = metrics.px(11f)))
-            Text("Manage persistent download tasks and verified local playback files.", color = TextSecondary, fontSize = 10.sp, modifier = Modifier.offset(x = metrics.px(21f), y = metrics.px(39f)))
-
-            ActionButton("Quality Settings", Icons.Default.Settings, Modifier.offset(x = metrics.px(527f), y = metrics.px(31f)).width(metrics.px(104f)).height(metrics.px(28f))) {
-                val options = listOf(DownloadQualityMode.PROVIDER_DEFAULT, DownloadQualityMode.SMALLER_FILE, DownloadQualityMode.PREFER_HIGH)
-                onQuality(options[(options.indexOf(quality).coerceAtLeast(0) + 1) % options.size])
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val showRail = maxWidth >= 920.dp
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(scroll)
+                .padding(metrics.px(24f)),
+            verticalArrangement = Arrangement.spacedBy(metrics.px(14f)),
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Downloads & Offline", color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Text("Manage persistent download tasks and verified local playback files.", color = TextSecondary, fontSize = 10.sp)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(10f))) {
+                    ActionButton("Quality Settings", Icons.Default.Settings, Modifier.width(metrics.px(112f)).height(metrics.px(28f))) {
+                        val options = listOf(DownloadQualityMode.PROVIDER_DEFAULT, DownloadQualityMode.SMALLER_FILE, DownloadQualityMode.PREFER_HIGH)
+                        onQuality(options[(options.indexOf(quality).coerceAtLeast(0) + 1) % options.size])
+                    }
+                    ActionButton(if (downloadsPaused) "Resume All" else "Pause All", Icons.Default.Pause, Modifier.width(metrics.px(90f)).height(metrics.px(28f)), onPauseToggle)
+                }
             }
-            ActionButton(if (downloadsPaused) "Resume All" else "Pause All", Icons.Default.Pause, Modifier.offset(x = metrics.px(642f), y = metrics.px(31f)).width(metrics.px(84f)).height(metrics.px(28f)), onPauseToggle)
 
             Row(
-                modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(70f)).width(metrics.px(350f)).height(metrics.px(26f)),
+                modifier = Modifier.fillMaxWidth().height(metrics.px(26f)).horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(metrics.px(8f)),
             ) {
                 listOf(
@@ -179,83 +195,125 @@ private fun DownloadsReferenceContent(
             }
 
             Row(
-                modifier = Modifier.offset(x = metrics.px(24f), y = metrics.px(97f)).width(metrics.px(700f)).height(metrics.px(64f)),
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(metrics.px(10f)),
             ) {
-                StatCard("Downloaded", "$completedCount", "Verified files", Icons.Default.Download, IrisSoft, Modifier.weight(1f))
-                StatCard("Offline Mixes", "0", "Removed", Icons.Default.GraphicEq, CoolBlue, Modifier.weight(1f))
-                StatCard("Downloading", "$activeCount", "In progress", Icons.Default.Download, CoolBlue, Modifier.weight(1f))
-                StatCard("Failed", "$failedCount", if (failedCount == 0) "No failures" else "Retry available", Icons.Default.ErrorOutline, ErrorRed, Modifier.weight(1f))
-                StatCard("Saved", formatBytes(downloadedBytes), "This device", Icons.Default.Storage, SuccessGreen, Modifier.weight(1f))
+                StatCard("Downloaded", "$completedCount", "Verified files", Icons.Default.Download, IrisSoft, Modifier.width(metrics.px(132f)).height(metrics.px(64f)))
+                StatCard("Offline Mixes", "0", "Removed", Icons.Default.GraphicEq, CoolBlue, Modifier.width(metrics.px(132f)).height(metrics.px(64f)))
+                StatCard("Downloading", "$activeCount", "In progress", Icons.Default.Download, CoolBlue, Modifier.width(metrics.px(132f)).height(metrics.px(64f)))
+                StatCard("Failed", "$failedCount", if (failedCount == 0) "No failures" else "Retry available", Icons.Default.ErrorOutline, ErrorRed, Modifier.width(metrics.px(132f)).height(metrics.px(64f)))
+                StatCard("Saved", formatBytes(downloadedBytes), "This device", Icons.Default.Storage, SuccessGreen, Modifier.width(metrics.px(132f)).height(metrics.px(64f)))
             }
 
-            DownloadsPanel("Downloaded Songs", Modifier.offset(x = metrics.px(24f), y = metrics.px(161f)).width(metrics.px(700f)).height(metrics.px(136f))) {
-                if (visibleTasks.isEmpty()) {
-                    EmptyDownloadText(
-                        when (activeFilter) {
-                            DownloadFilter.All -> "No download tasks yet. Use album or playlist download actions to create real offline files."
-                            DownloadFilter.Completed -> "No completed downloads yet."
-                            DownloadFilter.Active -> "No active or paused downloads."
-                            DownloadFilter.Failed -> "No failed downloads."
-                        }
+            if (showRail) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.px(14f))) {
+                    DownloadsMainContent(visibleTasks, activeFilter, completedTasks, onPlay, onPause, onResume, onRetry, onDelete, Modifier.weight(1f))
+                    DownloadsRail(totalBytes, freeBytes, usedBytes, downloadedBytes, diskFileCount, downloadsDir, quality, onQuality, Modifier.widthIn(min = 240.dp, max = 290.dp))
+                }
+            } else {
+                DownloadsMainContent(visibleTasks, activeFilter, completedTasks, onPlay, onPause, onResume, onRetry, onDelete, Modifier.fillMaxWidth())
+                DownloadsRail(totalBytes, freeBytes, usedBytes, downloadedBytes, diskFileCount, downloadsDir, quality, onQuality, Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun DownloadsMainContent(
+    visibleTasks: List<DownloadTask>,
+    activeFilter: DownloadFilter,
+    completedTasks: List<DownloadTask>,
+    onPlay: (String) -> Unit,
+    onPause: (String) -> Unit,
+    onResume: (String) -> Unit,
+    onRetry: (String) -> Unit,
+    onDelete: (String) -> Unit,
+    modifier: Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(metrics.px(14f))) {
+        DownloadsPanel("Downloaded Songs", Modifier.fillMaxWidth().heightIn(min = metrics.px(136f))) {
+            if (visibleTasks.isEmpty()) {
+                EmptyDownloadText(
+                    when (activeFilter) {
+                        DownloadFilter.All -> "No download tasks yet. Use album or playlist download actions to create real offline files."
+                        DownloadFilter.Completed -> "No completed downloads yet."
+                        DownloadFilter.Active -> "No active or paused downloads."
+                        DownloadFilter.Failed -> "No failed downloads."
+                    }
+                )
+            } else {
+                visibleTasks.forEach { task ->
+                    DownloadTaskRow(
+                        task = task,
+                        onPlay = { onPlay(task.id) },
+                        onPause = { onPause(task.id) },
+                        onResume = { onResume(task.id) },
+                        onRetry = { onRetry(task.id) },
+                        onDelete = { onDelete(task.id) },
                     )
-                } else {
-                    visibleTasks.take(4).forEach { task ->
-                        DownloadTaskRow(
-                            task = task,
-                            onPlay = { onPlay(task.id) },
-                            onPause = { onPause(task.id) },
-                            onResume = { onResume(task.id) },
-                            onRetry = { onRetry(task.id) },
-                            onDelete = { onDelete(task.id) },
-                        )
-                    }
                 }
             }
+        }
 
-            DownloadsPanel("Downloaded Albums", Modifier.offset(x = metrics.px(24f), y = metrics.px(321f)).width(metrics.px(700f)).height(metrics.px(78f))) {
-                val albums = completedTasks
-                    .filter { !it.album.isNullOrBlank() }
-                    .groupBy { it.album.orEmpty() }
-                    .entries
-                    .sortedByDescending { it.value.size }
-                if (albums.isEmpty()) {
-                    EmptyDownloadText("Album grouping appears after completed downloads contain reliable album metadata.")
-                } else {
-                    albums.take(2).forEach { (album, albumTasks) ->
-                        AlbumDownloadLine(album, albumTasks.size, albumTasks.sumOf { it.bytesDownloaded })
-                    }
+        DownloadsPanel("Downloaded Albums", Modifier.fillMaxWidth().heightIn(min = metrics.px(92f))) {
+            val albums = completedTasks
+                .filter { !it.album.isNullOrBlank() }
+                .groupBy { it.album.orEmpty() }
+                .entries
+                .sortedByDescending { it.value.size }
+            if (albums.isEmpty()) {
+                EmptyDownloadText("Album grouping appears after completed downloads contain reliable album metadata.")
+            } else {
+                albums.take(4).forEach { (album, albumTasks) ->
+                    AlbumDownloadLine(album, albumTasks.size, albumTasks.sumOf { it.bytesDownloaded })
                 }
             }
+        }
 
-            DownloadsPanel("Smart Offline Mixes", Modifier.offset(x = metrics.px(24f), y = metrics.px(418f)).width(metrics.px(700f)).height(metrics.px(78f))) {
-                EmptyDownloadText("Smart offline mixes were removed as unsupported until a real smart-mix engine exists.")
-            }
+        DownloadsPanel("Smart Offline Mixes", Modifier.fillMaxWidth().heightIn(min = metrics.px(78f))) {
+            EmptyDownloadText("Smart offline mixes were removed as unsupported until a real smart-mix engine exists.")
+        }
+    }
+}
 
-            SidePanel("Device Storage", Modifier.offset(x = metrics.px(733f), y = metrics.px(33f)).width(metrics.px(214f)).height(metrics.px(183f))) {
-                SettingsLine("This PC", "${formatBytes(totalBytes)} total")
-                StorageBar(used = usedBytes, total = totalBytes)
-                SettingsLine(formatBytes(usedBytes) + " used", formatBytes(freeBytes) + " free")
-                SettingsLine("Verified downloads", formatBytes(downloadedBytes))
-                SettingsLine("Files on disk", "$diskFileCount")
-                SettingsLine("Folder", downloadsDir.absolutePath)
-            }
+@Composable
+private fun DownloadsRail(
+    totalBytes: Long,
+    freeBytes: Long,
+    usedBytes: Long,
+    downloadedBytes: Long,
+    diskFileCount: Int,
+    downloadsDir: File,
+    quality: DownloadQualityMode,
+    onQuality: (DownloadQualityMode) -> Unit,
+    modifier: Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(metrics.px(12f))) {
+        SidePanel("Device Storage", Modifier.fillMaxWidth().heightIn(min = metrics.px(183f))) {
+            SettingsLine("This PC", "${formatBytes(totalBytes)} total")
+            StorageBar(used = usedBytes, total = totalBytes)
+            SettingsLine(formatBytes(usedBytes) + " used", formatBytes(freeBytes) + " free")
+            SettingsLine("Verified downloads", formatBytes(downloadedBytes))
+            SettingsLine("Files on disk", "$diskFileCount")
+            SettingsLine("Folder", downloadsDir.absolutePath)
+        }
 
-            SidePanel("Download Quality", Modifier.offset(x = metrics.px(735f), y = metrics.px(221f)).width(metrics.px(205f)).height(metrics.px(130f))) {
-                QualityRadioLine("Provider default", DownloadQualityMode.PROVIDER_DEFAULT, quality, onQuality)
-                QualityRadioLine("Smaller cache files", DownloadQualityMode.SMALLER_FILE, quality, onQuality)
-                QualityRadioLine("Prefer high bitrate when available", DownloadQualityMode.PREFER_HIGH, quality, onQuality)
-            }
+        SidePanel("Download Quality", Modifier.fillMaxWidth().heightIn(min = metrics.px(130f))) {
+            QualityRadioLine("Provider default", DownloadQualityMode.PROVIDER_DEFAULT, quality, onQuality)
+            QualityRadioLine("Smaller cache files", DownloadQualityMode.SMALLER_FILE, quality, onQuality)
+            QualityRadioLine("Prefer high bitrate when available", DownloadQualityMode.PREFER_HIGH, quality, onQuality)
+        }
 
-            SidePanel("Download Over", Modifier.offset(x = metrics.px(735f), y = metrics.px(358f)).width(metrics.px(205f)).height(metrics.px(85f))) {
-                SettingsLine("Policy", "Any network")
-                SettingsLine("Metering", "Desktop detection unavailable")
-            }
+        SidePanel("Download Over", Modifier.fillMaxWidth().heightIn(min = metrics.px(85f))) {
+            SettingsLine("Policy", "Any network")
+            SettingsLine("Metering", "Desktop detection unavailable")
+        }
 
-            SidePanel("Auto-Download", Modifier.offset(x = metrics.px(735f), y = metrics.px(443f)).width(metrics.px(205f)).height(metrics.px(68f))) {
-                Text("Smart Downloads", color = TextPrimary, fontSize = 9.sp)
-                Text("Not interactive: no real smart-mix engine is available.", color = TextSecondary, fontSize = 7.7.sp, lineHeight = 10.sp)
-            }
+        SidePanel("Auto-Download", Modifier.fillMaxWidth().heightIn(min = metrics.px(68f))) {
+            Text("Smart Downloads", color = TextPrimary, fontSize = 9.sp)
+            Text("Not interactive: no real smart-mix engine is available.", color = TextSecondary, fontSize = 7.7.sp, lineHeight = 10.sp)
         }
     }
 }

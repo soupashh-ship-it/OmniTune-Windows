@@ -13,7 +13,7 @@ gradle.properties
 Current field:
 
 ```properties
-omnitune.version=0.1.3
+omnitune.version=0.2.0
 ```
 
 ## 2. Verify Source
@@ -104,3 +104,7 @@ Attach:
 - known limitations
 
 Do not attach secrets, signing certificates, keystores, local logs, or generated cache directories.
+
+## 8. Install/Upgrade Sanity Check
+
+Before announcing a build, verify the installed app itself reports the same version shown in `gradle.properties` under Settings > About. Also verify Start menu and desktop shortcuts launch the new install path, not an older per-user or machine-wide OmniTune/OmniTuneWindows install.

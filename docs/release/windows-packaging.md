@@ -31,7 +31,7 @@ OmniTune-<version>-windows-x64.msi
 The canonical app/package version is:
 
 ```properties
-omnitune.version=0.1.3
+omnitune.version=0.2.0
 ```
 
 in `gradle.properties`. `composeApp/build.gradle.kts` reads this value for the native installer version.
@@ -72,7 +72,7 @@ This includes settings, search/history/playlist persistence, download metadata, 
 Startup/native-runtime diagnostics are written to:
 
 ```text
-%LOCALAPPDATA%\OmniTune\logs\startup.log
+%LOCALAPPDATA%\OmniTuneData\logs\startup.log
 ```
 
 ## Signing
@@ -127,3 +127,15 @@ Required manual QA before public release:
 8. Save queue as playlist and verify persistence.
 9. Switch theme and verify persistence.
 10. Uninstall and verify binaries/shortcuts are removed.
+
+## Upgrade confusion guard
+
+Older development builds used different visible names and may coexist on a developer machine. When validating a public package, check Windows Apps & Features, Start menu shortcuts, and the Settings > About version inside the launched app. Users should see the current `omnitune.version`; otherwise they are still launching an older install.
+
+The helper below inventories installed OmniTune entries and shortcuts:
+
+```powershell
+.\scripts\release\diagnose-installed-omnitune.ps1
+```
+
+Use `-Json` for machine-readable output during QA.

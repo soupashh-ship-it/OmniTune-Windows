@@ -18,4 +18,6 @@ dependencies {
     implementation(libs.re2j)
     implementation(libs.rhino)
     testImplementation(libs.junit)
+    testImplementation("io.ktor:ktor-client-mock:3.1.0")
+    testImplementation(kotlin("test"))
 }

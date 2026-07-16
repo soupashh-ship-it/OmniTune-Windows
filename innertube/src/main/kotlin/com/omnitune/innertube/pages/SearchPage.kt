@@ -33,35 +33,28 @@ object SearchPage {
     fun parseSearchResult(response: SearchResponse): SearchResult? {
         val contents = response.contents ?: return null
         
-        // V1: tabbedSearchResultsRenderer
-        contents.tabbedSearchResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer?.let { sectionList ->
-            val shelf = sectionList.contents?.lastOrNull()?.musicShelfRenderer
-            if (shelf != null) {
-                return SearchResult(
-                    items = shelf.contents?.getItems()?.mapNotNull { toYTItem(it) }.orEmpty(),
-                    continuation = shelf.continuations?.getContinuation()
-                )
-            }
+        val sectionList = contents.tabbedSearchResultsRenderer?.tabs?.firstOrNull()?.tabRenderer?.content?.sectionListRenderer
+            ?: contents.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer
+            ?: contents.sectionListRenderer
+            ?: return null
+
+        val shelf = sectionList.contents?.lastOrNull()?.musicShelfRenderer
+        if (shelf != null) {
+            return SearchResult(
+                items = shelf.contents?.getItems()?.mapNotNull { toYTItem(it) }.orEmpty(),
+                continuation = shelf.continuations?.getContinuation()
+            )
         }
 
-        // V2: twoColumnSearchResultsRenderer
-        contents.twoColumnSearchResultsRenderer?.primaryContents?.sectionListRenderer?.let { sectionList ->
-            val shelf = sectionList.contents?.lastOrNull()?.musicShelfRenderer
-            if (shelf != null) {
-                return SearchResult(
-                    items = shelf.contents?.getItems()?.mapNotNull { toYTItem(it) }.orEmpty(),
-                    continuation = shelf.continuations?.getContinuation()
-                )
-            }
-        }
+        val itemSections = sectionList.contents?.mapNotNull { it.itemSectionRenderer }
+        if (!itemSections.isNullOrEmpty()) {
+            val renderers = itemSections.flatMap { it.contents ?: emptyList() }
+                .mapNotNull { it.musicResponsiveListItemRenderer }
 
-        // Legacy/Direct: sectionListRenderer
-        contents.sectionListRenderer?.let { sectionList ->
-            val shelf = sectionList.contents?.lastOrNull()?.musicShelfRenderer
-            if (shelf != null) {
+            if (renderers.isNotEmpty()) {
                 return SearchResult(
-                    items = shelf.contents?.getItems()?.mapNotNull { toYTItem(it) }.orEmpty(),
-                    continuation = shelf.continuations?.getContinuation()
+                    items = renderers.mapNotNull { toYTItem(it) },
+                    continuation = sectionList.continuations?.getContinuation()
                 )
             }
         }

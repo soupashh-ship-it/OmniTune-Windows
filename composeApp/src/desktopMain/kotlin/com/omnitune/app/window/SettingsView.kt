@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.sp
 import com.omnitune.app.player.NavScreen
 import com.omnitune.app.player.PlayerViewModel
+import com.omnitune.app.platform.AppInfo
 import com.omnitune.app.platform.DownloadQualityMode
 import com.omnitune.app.platform.PlatformContext
 import com.omnitune.app.platform.SettingsRepository
@@ -164,8 +165,8 @@ fun SettingsView() {
                 settings.clearRecentSearches()
                 statusMessage = "Recent searches cleared"
             }
-            SettingsChevronLine("Connected apps", "Open project releases") {
-                statusMessage = if (openUri("https://github.com/soupashh-ship-it/OmniTune-Windows/releases")) "Opened releases page" else "Could not open browser"
+            SettingsChevronLine("Release channel", "Open OmniTune ${AppInfo.releaseTag} release") {
+                statusMessage = if (openUri(AppInfo.releaseUrl)) "Opened ${AppInfo.releaseTag} release page" else "Could not open browser"
             }
         }
     }
@@ -369,11 +370,11 @@ fun SettingsView() {
                 Spacer(Modifier.width(metrics.px(14f)))
                 Column(Modifier.weight(1f)) {
                     Text("OmniTune for Windows", color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Desktop Compose build", color = TextSecondary, fontSize = 8.5.sp)
+                    Text("Version ${AppInfo.version} • Desktop Compose build", color = TextSecondary, fontSize = 8.5.sp)
                     Text(platform.appDataDir.absolutePath, color = IrisSoft, fontSize = 8.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 ReferenceButton("Check for Updates", Modifier.width(metrics.px(118f)).height(metrics.px(28f))) {
-                    statusMessage = if (openUri("https://github.com/soupashh-ship-it/OmniTune-Windows/releases")) {
+                    statusMessage = if (openUri(AppInfo.releasesUrl)) {
                         "Opened GitHub releases"
                     } else {
                         "Could not open browser"
@@ -392,16 +393,8 @@ fun SettingsView() {
         val gap = metrics.px(12f)
         val horizontalPadding = metrics.px(24f)
         val safeContentWidth = maxWidth - (horizontalPadding * 2)
-        val columns = when {
-            safeContentWidth >= 1040.dp -> 3
-            safeContentWidth >= 660.dp -> 2
-            else -> 1
-        }
-        val boundedContentWidth = when (columns) {
-            3 -> 1120.dp
-            2 -> 820.dp
-            else -> 520.dp
-        }
+        val columns = OmniResponsiveLayout.settingsColumnCount(safeContentWidth.value)
+        val boundedContentWidth = OmniResponsiveLayout.settingsMaxContentWidth(columns).dp
 
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             Column(

@@ -99,8 +99,8 @@ class PlayerViewModel(
     override val coroutineContext: CoroutineContext = SupervisorJob() + Dispatchers.IO
 
     private var consecutiveErrors = 0
-    private val _navScreen = MutableStateFlow(NavScreen.Home)
-    val navScreen: StateFlow<NavScreen> = _navScreen.asStateFlow()
+    private val navigation = PlayerNavigationController()
+    val navScreen: StateFlow<NavScreen> = navigation.navScreen
 
     private val _searchResults = MutableStateFlow<List<YTItem>>(emptyList())
     val searchResults: StateFlow<List<YTItem>> = _searchResults.asStateFlow()
@@ -191,6 +191,13 @@ class PlayerViewModel(
 
     private val _savedQueuePlaylists = MutableStateFlow(settings.savedQueuePlaylists)
     val savedQueuePlaylists = _savedQueuePlaylists.asStateFlow()
+    private val playlistController = PlayerPlaylistController(
+        settings = settings,
+        savedQueuePlaylists = _savedQueuePlaylists,
+        currentPlaylistId = _currentPlaylistId,
+        clearCurrentPlaylist = { _currentPlaylistId.value = null },
+        navigateTo = { screen -> navigateTo(screen) },
+    )
 
     private val _discoveryRelated = MutableStateFlow<List<com.omnitune.innertube.models.YTItem>>(emptyList())
     val discoveryRelated: StateFlow<List<com.omnitune.innertube.models.YTItem>> = _discoveryRelated.asStateFlow()
@@ -458,45 +465,19 @@ class PlayerViewModel(
         }
     }
 
-    private val history = mutableListOf<NavScreen>()
-    private var historyIndex = -1
-    private val _canGoBack = MutableStateFlow(false)
-    val canGoBack: StateFlow<Boolean> = _canGoBack.asStateFlow()
-    private val _canGoForward = MutableStateFlow(false)
-    val canGoForward: StateFlow<Boolean> = _canGoForward.asStateFlow()
+    val canGoBack: StateFlow<Boolean> = navigation.canGoBack
+    val canGoForward: StateFlow<Boolean> = navigation.canGoForward
 
     fun navigateTo(screen: NavScreen) {
-        if (screen == NavScreen.NowPlaying && _currentSong.value == null) return
-        if (historyIndex >= 0 && historyIndex < history.size - 1) {
-            history.subList(historyIndex + 1, history.size).clear()
-        }
-        if (historyIndex < 0 || history[historyIndex] != screen) {
-            history.add(screen)
-            historyIndex = history.lastIndex
-        }
-        _navScreen.value = screen
-        updateNavFlags()
+        navigation.navigateTo(screen, canOpenNowPlaying = _currentSong.value != null)
     }
 
     fun back() {
-        if (historyIndex > 0) {
-            historyIndex--
-            _navScreen.value = history[historyIndex]
-            updateNavFlags()
-        }
+        navigation.back()
     }
 
     fun forward() {
-        if (historyIndex < history.size - 1) {
-            historyIndex++
-            _navScreen.value = history[historyIndex]
-            updateNavFlags()
-        }
-    }
-
-    private fun updateNavFlags() {
-        _canGoBack.value = historyIndex > 0
-        _canGoForward.value = historyIndex < history.size - 1
+        navigation.forward()
     }
 
     fun search(query: String) {
@@ -827,23 +808,14 @@ class PlayerViewModel(
         _queue.value = _queue.value + item
     }
 
-    fun saveQueueAsPlaylist(name: String): Result<String> = runCatching {
-        val saved = settings.saveQueueAsPlaylist(name, _queue.value)
-        _savedQueuePlaylists.value = settings.savedQueuePlaylists
-        saved.name
-    }
+    fun saveQueueAsPlaylist(name: String): Result<String> =
+        playlistController.saveQueueAsPlaylist(name, _queue.value)
 
-    fun saveSongsAsPlaylist(name: String, songs: List<SongItem>): Result<String> = runCatching {
-        val saved = settings.saveSongsAsPlaylist(name, songs)
-        _savedQueuePlaylists.value = settings.savedQueuePlaylists
-        saved.name
-    }
+    fun saveSongsAsPlaylist(name: String, songs: List<SongItem>): Result<String> =
+        playlistController.saveSongsAsPlaylist(name, songs)
 
-    fun createPlaylist(name: String, description: String = "", tags: List<String> = emptyList()): Result<String> = runCatching {
-        val saved = settings.createPlaylist(name, description, tags)
-        _savedQueuePlaylists.value = settings.savedQueuePlaylists
-        saved.id
-    }
+    fun createPlaylist(name: String, description: String = "", tags: List<String> = emptyList()): Result<String> =
+        playlistController.createPlaylist(name, description, tags)
 
     fun updateSavedPlaylistMetadata(
         id: String,
@@ -851,38 +823,20 @@ class PlayerViewModel(
         description: String,
         tags: List<String>,
         coverPath: String?,
-    ): Result<String> = runCatching {
-        val updated = settings.updatePlaylistMetadata(id, name, description, tags, coverPath)
-        _savedQueuePlaylists.value = settings.savedQueuePlaylists
-        updated.name
-    }
+    ): Result<String> =
+        playlistController.updateSavedPlaylistMetadata(id, name, description, tags, coverPath)
 
-    fun addSongToSavedPlaylists(song: SongItem, playlistIds: Set<String>): Result<Int> = runCatching {
-        val updated = settings.addSongToPlaylists(song, playlistIds)
-        _savedQueuePlaylists.value = settings.savedQueuePlaylists
-        updated.size
-    }
+    fun addSongToSavedPlaylists(song: SongItem, playlistIds: Set<String>): Result<Int> =
+        playlistController.addSongToSavedPlaylists(song, playlistIds)
 
-    fun removeSongFromSavedPlaylist(playlistId: String, songId: String): Result<String> = runCatching {
-        val updated = settings.removeSongFromPlaylist(playlistId, songId)
-        _savedQueuePlaylists.value = settings.savedQueuePlaylists
-        updated.name
-    }
+    fun removeSongFromSavedPlaylist(playlistId: String, songId: String): Result<String> =
+        playlistController.removeSongFromSavedPlaylist(playlistId, songId)
 
-    fun moveSavedPlaylistSong(playlistId: String, from: Int, to: Int): Result<String> = runCatching {
-        val updated = settings.movePlaylistSong(playlistId, from, to)
-        _savedQueuePlaylists.value = settings.savedQueuePlaylists
-        updated.name
-    }
+    fun moveSavedPlaylistSong(playlistId: String, from: Int, to: Int): Result<String> =
+        playlistController.moveSavedPlaylistSong(playlistId, from, to)
 
-    fun deleteSavedPlaylist(playlistId: String): Result<Unit> = runCatching {
-        settings.deletePlaylist(playlistId)
-        _savedQueuePlaylists.value = settings.savedQueuePlaylists
-        if (_currentPlaylistId.value == playlistId) {
-            _currentPlaylistId.value = null
-            navigateTo(NavScreen.Playlists)
-        }
-    }
+    fun deleteSavedPlaylist(playlistId: String): Result<Unit> =
+        playlistController.deleteSavedPlaylist(playlistId)
 
     fun setDownloadQuality(quality: DownloadQualityMode) {
         _downloadQuality.value = quality

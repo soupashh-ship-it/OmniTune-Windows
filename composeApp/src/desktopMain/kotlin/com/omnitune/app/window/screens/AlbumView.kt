@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -13,10 +14,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -125,79 +128,127 @@ private fun AlbumReferenceContent(
         albumArtists.none { it.id == artist.id && it.id != null }
     }.distinctBy { it.id ?: it.name }.take(4)
 
-    Box(Modifier.fillMaxSize().verticalScroll(scroll)) {
-        Box(Modifier.fillMaxWidth().height(metrics.px(560f))) {
-            AsyncImage(
-                model = album.thumbnail.toHighResThumbnail(),
-                contentDescription = album.title,
-                modifier = Modifier
-                    .offset(x = metrics.px(24f), y = metrics.px(27f))
-                    .size(metrics.px(238f))
-                    .clip(RoundedCornerShape(metrics.px(10f)))
-                    .background(Surface1)
-                    .border(1.dp, BorderLow.copy(alpha = 0.65f), RoundedCornerShape(metrics.px(10f))),
-                contentScale = ContentScale.Crop,
-            )
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val compact = maxWidth < 760.dp
+        val showRail = maxWidth >= 920.dp
+        val artworkSize = when {
+            compact -> metrics.px(168f)
+            maxWidth < 920.dp -> metrics.px(198f)
+            else -> metrics.px(238f)
+        }
 
-            Column(Modifier.offset(x = metrics.px(281f), y = metrics.px(26f)).width(metrics.px(360f))) {
-                Text("ALBUM", color = TextSecondary, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(metrics.px(10f)))
-                Text(album.title, color = TextPrimary, fontSize = 31.sp, lineHeight = 35.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(metrics.px(10f)))
-                Text(albumArtists.joinToString(", ") { it.name ?: "" }.ifBlank { "Unknown artist" }, color = TextPrimary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(metrics.px(10f)))
-                Text("${album.year ?: "Year unavailable"} · ${songs.size} songs${if (duration > 0) " · ${duration / 60} min ${duration % 60} sec" else ""}", color = TextSecondary, fontSize = 10.sp)
-                Spacer(Modifier.height(metrics.px(21f)))
-                Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(10f)), verticalAlignment = Alignment.CenterVertically) {
-                    AlbumPrimaryButton(onPlayAlbum)
-                    AlbumRound(Icons.Default.Download, onDownloadAlbum)
-                }
-                Spacer(Modifier.height(metrics.px(22f)))
-                Text("Album metadata is provided by the active music provider. Detailed credits are shown only when available.", color = TextSecondary, fontSize = 9.2.sp, lineHeight = 13.sp)
-            }
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(scroll)
+                .padding(metrics.px(24f)),
+            verticalArrangement = Arrangement.spacedBy(metrics.px(18f)),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(metrics.px(19f)),
+                verticalAlignment = Alignment.Top,
+            ) {
+                AsyncImage(
+                    model = album.thumbnail.toHighResThumbnail(),
+                    contentDescription = album.title,
+                    modifier = Modifier
+                        .size(artworkSize)
+                        .clip(RoundedCornerShape(metrics.px(10f)))
+                        .background(Surface1)
+                        .border(1.dp, BorderLow.copy(alpha = 0.65f), RoundedCornerShape(metrics.px(10f))),
+                    contentScale = ContentScale.Crop,
+                )
 
-            Column(Modifier.offset(x = metrics.px(24f), y = metrics.px(282f)).width(metrics.px(590f))) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Tracks", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.weight(1f))
-                    Text("${songs.size} Songs", color = TextSecondary, fontSize = 8.5.sp)
-                }
-                Spacer(Modifier.height(metrics.px(10f)))
-                songs.take(7).forEachIndexed { index, song ->
-                    val active = song.id == currentSong?.id
-                    AlbumTrackRow(
-                        song = song,
-                        index = index,
-                        active = active,
-                        playing = active && playbackState == PlaybackState.PLAYING,
-                        onPlay = { onSong(song, index) },
-                        onAdd = { onAdd(song) },
-                        onLike = { onLike(song) },
-                    )
-                }
-            }
-
-            Column(Modifier.offset(x = metrics.px(641f), y = metrics.px(19f)).width(metrics.px(285f))) {
-                AlbumSidePanel("Credits", metrics.px(188f)) {
-                    albumArtists.take(4).forEach { artist -> CreditArtistRow(artist, album.thumbnail, onOpenArtist) }
-                    if (albumArtists.isEmpty()) Text("Credits unavailable from provider.", color = TextSecondary, fontSize = 9.sp)
-                }
-                Spacer(Modifier.height(metrics.px(8f)))
-                AlbumSidePanel("Featured Artists", metrics.px(74f)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(10f)), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                        featuredArtists.forEach { artist -> FeaturedArtistPill(artist, onOpenArtist) }
+                Column(Modifier.weight(1f).widthIn(min = 0.dp, max = 560.dp)) {
+                    Text("ALBUM", color = TextSecondary, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(metrics.px(10f)))
+                    Text(album.title, color = TextPrimary, fontSize = if (compact) 25.sp else 31.sp, lineHeight = if (compact) 29.sp else 35.sp, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(metrics.px(10f)))
+                    Text(albumArtists.joinToString(", ") { it.name ?: "" }.ifBlank { "Unknown artist" }, color = TextPrimary, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Spacer(Modifier.height(metrics.px(10f)))
+                    Text("${album.year ?: "Year unavailable"} · ${songs.size} songs${if (duration > 0) " · ${duration / 60} min ${duration % 60} sec" else ""}", color = TextSecondary, fontSize = 10.sp)
+                    Spacer(Modifier.height(metrics.px(18f)))
+                    Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(10f)), verticalAlignment = Alignment.CenterVertically) {
+                        AlbumPrimaryButton(onPlayAlbum)
+                        AlbumRound(Icons.Default.Download, onDownloadAlbum)
                     }
-                    if (featuredArtists.isEmpty()) Text("No additional featured artists in this album metadata.", color = TextSecondary, fontSize = 8.5.sp)
-                }
-                Spacer(Modifier.height(metrics.px(10f)))
-                AlbumSidePanel("More by this artist", metrics.px(125f)) {
-                    Text("Discography navigation opens from the artist page when provider data is available.", color = TextSecondary, fontSize = 8.7.sp, lineHeight = 12.sp)
-                }
-                Spacer(Modifier.height(metrics.px(10f)))
-                AlbumSidePanel("Fans also like", metrics.px(85f)) {
-                    Text("Related artist recommendations are not included in this album response.", color = TextSecondary, fontSize = 8.7.sp, lineHeight = 12.sp)
+                    Spacer(Modifier.height(metrics.px(16f)))
+                    Text("Album metadata is provided by the active music provider. Detailed credits are shown only when available.", color = TextSecondary, fontSize = 9.2.sp, lineHeight = 13.sp)
                 }
             }
+
+            if (showRail) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.px(20f))) {
+                    AlbumTracksSection(songs, currentSong, playbackState, onSong, onAdd, onLike, Modifier.weight(1f))
+                    AlbumRail(albumArtists, featuredArtists, album.thumbnail, onOpenArtist, Modifier.widthIn(min = 260.dp, max = 320.dp))
+                }
+            } else {
+                AlbumTracksSection(songs, currentSong, playbackState, onSong, onAdd, onLike, Modifier.fillMaxWidth())
+                AlbumRail(albumArtists, featuredArtists, album.thumbnail, onOpenArtist, Modifier.fillMaxWidth())
+            }
+        }
+    }
+}
+
+@Composable
+private fun AlbumTracksSection(
+    songs: List<SongItem>,
+    currentSong: SongItem?,
+    playbackState: PlaybackState,
+    onSong: (SongItem, Int) -> Unit,
+    onAdd: (SongItem) -> Unit,
+    onLike: (SongItem) -> Unit,
+    modifier: Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Tracks", color = TextPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.weight(1f))
+            Text("${songs.size} Songs", color = TextSecondary, fontSize = 8.5.sp)
+        }
+        Spacer(Modifier.height(metrics.px(10f)))
+        songs.forEachIndexed { index, song ->
+            val active = song.id == currentSong?.id
+            AlbumTrackRow(
+                song = song,
+                index = index,
+                active = active,
+                playing = active && playbackState == PlaybackState.PLAYING,
+                onPlay = { onSong(song, index) },
+                onAdd = { onAdd(song) },
+                onLike = { onLike(song) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun AlbumRail(
+    albumArtists: List<Artist>,
+    featuredArtists: List<Artist>,
+    thumbnail: String?,
+    onOpenArtist: (String?) -> Unit,
+    modifier: Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(metrics.px(10f))) {
+        AlbumSidePanel("Credits", metrics.px(188f)) {
+            albumArtists.take(4).forEach { artist -> CreditArtistRow(artist, thumbnail, onOpenArtist) }
+            if (albumArtists.isEmpty()) Text("Credits unavailable from provider.", color = TextSecondary, fontSize = 9.sp)
+        }
+        AlbumSidePanel("Featured Artists", metrics.px(82f)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(10f)), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                featuredArtists.forEach { artist -> FeaturedArtistPill(artist, onOpenArtist) }
+            }
+            if (featuredArtists.isEmpty()) Text("No additional featured artists in this album metadata.", color = TextSecondary, fontSize = 8.5.sp)
+        }
+        AlbumSidePanel("More by this artist", metrics.px(125f)) {
+            Text("Discography navigation opens from the artist page when provider data is available.", color = TextSecondary, fontSize = 8.7.sp, lineHeight = 12.sp)
+        }
+        AlbumSidePanel("Fans also like", metrics.px(92f)) {
+            Text("Related artist recommendations are not included in this album response.", color = TextSecondary, fontSize = 8.7.sp, lineHeight = 12.sp)
         }
     }
 }
@@ -232,7 +283,7 @@ private fun AlbumSidePanel(title: String, height: androidx.compose.ui.unit.Dp, c
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(height)
+            .heightIn(min = height)
             .clip(RoundedCornerShape(metrics.px(8f)))
             .background(OmniReferenceColors.SurfaceBase.copy(alpha = 0.78f))
             .border(1.dp, BorderLow.copy(alpha = 0.65f), RoundedCornerShape(metrics.px(8f)))

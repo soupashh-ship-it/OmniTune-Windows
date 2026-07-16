@@ -34,6 +34,8 @@ import java.net.Proxy
 import java.io.IOException
 import kotlinx.coroutines.delay
 import java.util.*
+import java.util.logging.Level
+import java.util.logging.Logger
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
@@ -43,7 +45,8 @@ import kotlin.io.encoding.ExperimentalEncodingApi
  */
 @OptIn(ExperimentalEncodingApi::class)
 class InnerTube {
-    private var httpClient = createClient()
+    private val logger: Logger = Logger.getLogger(InnerTube::class.java.name)
+    internal var httpClient = createClient()
 
     var locale = YouTubeLocale(
         gl = Locale.getDefault().country,
@@ -569,7 +572,7 @@ class InnerTube {
         playlistId: String,
     ) = withRetry {
         httpClient.post("playlist/delete") {
-            println("deleting $playlistId")
+            logger.log(Level.FINE, "Deleting provider playlist {0}.", playlistId)
             ytClient(client, setLogin = true)
             setBody(
                 PlaylistDeleteBody(

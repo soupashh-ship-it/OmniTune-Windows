@@ -50,6 +50,14 @@ val prepareWindowsAppResources by tasks.registering(Copy::class) {
 
     doLast {
         val outputDir = windowsAppResourcesDir.get().asFile
+        outputDir.resolve("omnitune-version.properties").writeText(
+            """
+            version=$omniTuneVersion
+            releaseTag=v$omniTuneVersion
+            releaseUrl=https://github.com/soupashh-ship-it/OmniTune-Windows/releases/tag/v$omniTuneVersion
+            releasesUrl=https://github.com/soupashh-ship-it/OmniTune-Windows/releases
+            """.trimIndent() + "\n"
+        )
         val nativeRoot = outputDir.resolve("native/vlc")
         val manifest = outputDir.resolve("native/vlc-manifest.txt")
         val entries = nativeRoot

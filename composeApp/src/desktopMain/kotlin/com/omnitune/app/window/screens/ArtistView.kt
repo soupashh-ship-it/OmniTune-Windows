@@ -6,16 +6,20 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -151,13 +155,22 @@ private fun ArtistReferenceContent(
     var expandedSection by remember(artist.id) { mutableStateOf<String?>(null) }
     var artistMenuOpen by remember { mutableStateOf(false) }
 
-    Box(Modifier.fillMaxSize().verticalScroll(scroll)) {
-        Box(Modifier.fillMaxWidth().height(metrics.px(620f))) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val compact = maxWidth < 760.dp
+        val showThreeColumns = maxWidth >= 980.dp
+        val heroHeight = if (compact) metrics.px(260f) else metrics.px(224f)
+
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(scroll)
+                .padding(bottom = metrics.px(20f)),
+            verticalArrangement = Arrangement.spacedBy(metrics.px(16f)),
+        ) {
             Box(
                 Modifier
-                    .offset(x = 0.dp, y = 0.dp)
                     .fillMaxWidth()
-                    .height(metrics.px(203f))
+                    .height(heroHeight)
                     .background(OmniReferenceColors.SurfaceBase)
             ) {
                 AsyncImage(
@@ -169,7 +182,12 @@ private fun ArtistReferenceContent(
                 )
                 Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(0f to Color(0xF0030917), 0.40f to Color(0xA8030917), 0.72f to Color(0x55150B2D), 1f to Color(0xAA030917))))
                 Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.78f to Color(0x66030917), 1f to Color(0xF0030917))))
-                Column(Modifier.offset(x = metrics.px(48f), y = metrics.px(42f)).width(metrics.px(420f))) {
+                Column(
+                    Modifier
+                        .align(Alignment.CenterStart)
+                        .padding(start = metrics.px(42f), end = metrics.px(24f))
+                        .widthIn(max = if (compact) 640.dp else 620.dp)
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(metrics.px(13f)).clip(CircleShape).background(IrisSoft), contentAlignment = Alignment.Center) {
                             Text("✓", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold)
@@ -178,7 +196,7 @@ private fun ArtistReferenceContent(
                         Text("Verified Artist", color = TextPrimary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Spacer(Modifier.height(metrics.px(12f)))
-                    Text(artist.title.uppercase(), color = TextPrimary, fontSize = 58.sp, lineHeight = 64.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, letterSpacing = 3.sp)
+                    Text(artist.title.uppercase(), color = TextPrimary, fontSize = if (compact) 40.sp else 58.sp, lineHeight = if (compact) 46.sp else 64.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis, letterSpacing = if (compact) 1.5.sp else 3.sp)
                     Spacer(Modifier.height(metrics.px(10f)))
                     Text("Pop • R&B • Soul", color = TextSecondary, fontSize = 15.sp)
                     Spacer(Modifier.height(metrics.px(4f)))
@@ -211,76 +229,120 @@ private fun ArtistReferenceContent(
                         }
                     }
                 }
-                ProviderStatsCard(
-                    sectionCount = page.sections.size,
-                    songs = songs.size,
-                    albums = albums.size,
-                    modifier = Modifier.offset(x = metrics.px(730f), y = metrics.px(60f)).width(metrics.px(190f)).height(metrics.px(136f)),
-                )
-            }
-
-            ArtistTabs(Modifier.offset(x = metrics.px(33f), y = metrics.px(213f)).width(metrics.px(380f)).height(metrics.px(42f)))
-
-            Column(
-                modifier = Modifier.offset(x = metrics.px(18f), y = metrics.px(250f)).width(metrics.px(382f)),
-            ) {
-                SectionTitle(
-                    "Popular",
-                    if (expandedSection == "popular") "Show less" else "See all",
-                    enabled = songs.size > 5,
-                    onAction = { expandedSection = if (expandedSection == "popular") null else "popular" },
-                )
-                Spacer(Modifier.height(metrics.px(8f)))
-                songs.take(if (expandedSection == "popular") 12 else 5).forEachIndexed { index, song ->
-                    val active = song.id == currentSong?.id
-                    ArtistPopularRow(
-                        song = song,
-                        index = index,
-                        active = active,
-                        playing = active && playbackState == PlaybackState.PLAYING,
-                        onPlay = { onSong(song, index) },
-                        onAdd = { onAdd(song) },
-                        onLike = { onLike(song) },
+                if (!compact) {
+                    ProviderStatsCard(
+                        sectionCount = page.sections.size,
+                        songs = songs.size,
+                        albums = albums.size,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = metrics.px(28f))
+                            .width(metrics.px(190f))
+                            .heightIn(min = metrics.px(136f)),
                     )
                 }
             }
 
-            Column(Modifier.offset(x = metrics.px(415f), y = metrics.px(250f)).width(metrics.px(283f))) {
-                SectionTitle("Latest Release", "Open", enabled = latest != null, onAction = { latest?.let(onOpenItem) })
-                Spacer(Modifier.height(metrics.px(8f)))
-                if (latest != null) {
-                    LatestReleasePanel(latest, onOpenItem)
-                }
-                Spacer(Modifier.height(metrics.px(14f)))
-                SectionTitle(
-                    "Top Singles",
-                    if (expandedSection == "singles") "Show less" else "See all",
-                    enabled = singles.size > 4,
-                    onAction = { expandedSection = if (expandedSection == "singles") null else "singles" },
-                )
-                Spacer(Modifier.height(metrics.px(8f)))
-                Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(10f)), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    singles.take(if (expandedSection == "singles") singles.size else 4).forEach { item -> SmallMediaCard(item, onOpenItem) }
-                }
-                Spacer(Modifier.height(metrics.px(14f)))
-                SectionTitle(
-                    "Fans Also Like",
-                    if (expandedSection == "related") "Show less" else "See all",
-                    enabled = related.size > 5,
-                    onAction = { expandedSection = if (expandedSection == "related") null else "related" },
-                )
-                Spacer(Modifier.height(metrics.px(8f)))
-                Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(12f)), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    related.take(if (expandedSection == "related") related.size else 5).forEach { item -> RelatedArtistBubble(item, onOpenItem) }
-                }
-            }
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = metrics.px(24f)),
+                verticalArrangement = Arrangement.spacedBy(metrics.px(16f)),
+            ) {
+                ArtistTabs(Modifier.fillMaxWidth().height(metrics.px(42f)))
 
-            Column(Modifier.offset(x = metrics.px(712f), y = metrics.px(250f)).width(metrics.px(215f))) {
-                InfoPanel("About ${artist.title}", page.description ?: "No biography is available from the provider for this artist.", metrics.px(170f))
-                Spacer(Modifier.height(metrics.px(12f)))
-                InfoPanel("On Tour", "No verified upcoming tour data is available in OmniTune.", metrics.px(76f))
+                if (compact) {
+                    ProviderStatsCard(
+                        sectionCount = page.sections.size,
+                        songs = songs.size,
+                        albums = albums.size,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = metrics.px(120f)),
+                    )
+                }
+
+                if (showThreeColumns) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(metrics.px(18f))) {
+                        ArtistPopularSection(songs, currentSong, playbackState, expandedSection == "popular", { expandedSection = if (expandedSection == "popular") null else "popular" }, onSong, onAdd, onLike, Modifier.weight(1.25f))
+                        ArtistReleaseSection(latest, singles, related, expandedSection, { section -> expandedSection = if (expandedSection == section) null else section }, onOpenItem, Modifier.weight(0.95f))
+                        ArtistInfoSection(artist.title, page.description, Modifier.weight(0.72f))
+                    }
+                } else {
+                    ArtistPopularSection(songs, currentSong, playbackState, expandedSection == "popular", { expandedSection = if (expandedSection == "popular") null else "popular" }, onSong, onAdd, onLike, Modifier.fillMaxWidth())
+                    ArtistReleaseSection(latest, singles, related, expandedSection, { section -> expandedSection = if (expandedSection == section) null else section }, onOpenItem, Modifier.fillMaxWidth())
+                    ArtistInfoSection(artist.title, page.description, Modifier.fillMaxWidth())
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun ArtistPopularSection(
+    songs: List<SongItem>,
+    currentSong: SongItem?,
+    playbackState: PlaybackState,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    onSong: (SongItem, Int) -> Unit,
+    onAdd: (SongItem) -> Unit,
+    onLike: (SongItem) -> Unit,
+    modifier: Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(modifier) {
+        SectionTitle("Popular", if (expanded) "Show less" else "See all", enabled = songs.size > 5, onAction = onToggleExpanded)
+        Spacer(Modifier.height(metrics.px(8f)))
+        songs.take(if (expanded) 12 else 5).forEachIndexed { index, song ->
+            val active = song.id == currentSong?.id
+            ArtistPopularRow(
+                song = song,
+                index = index,
+                active = active,
+                playing = active && playbackState == PlaybackState.PLAYING,
+                onPlay = { onSong(song, index) },
+                onAdd = { onAdd(song) },
+                onLike = { onLike(song) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ArtistReleaseSection(
+    latest: YTItem?,
+    singles: List<YTItem>,
+    related: List<YTItem>,
+    expandedSection: String?,
+    onToggleSection: (String) -> Unit,
+    onOpenItem: (YTItem) -> Unit,
+    modifier: Modifier,
+) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(modifier) {
+        SectionTitle("Latest Release", "Open", enabled = latest != null, onAction = { latest?.let(onOpenItem) })
+        Spacer(Modifier.height(metrics.px(8f)))
+        if (latest != null) LatestReleasePanel(latest, onOpenItem)
+        Spacer(Modifier.height(metrics.px(14f)))
+        SectionTitle("Top Singles", if (expandedSection == "singles") "Show less" else "See all", enabled = singles.size > 4, onAction = { onToggleSection("singles") })
+        Spacer(Modifier.height(metrics.px(8f)))
+        Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(10f)), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+            singles.take(if (expandedSection == "singles") singles.size else 4).forEach { item -> SmallMediaCard(item, onOpenItem) }
+        }
+        Spacer(Modifier.height(metrics.px(14f)))
+        SectionTitle("Fans Also Like", if (expandedSection == "related") "Show less" else "See all", enabled = related.size > 5, onAction = { onToggleSection("related") })
+        Spacer(Modifier.height(metrics.px(8f)))
+        Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(12f)), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+            related.take(if (expandedSection == "related") related.size else 5).forEach { item -> RelatedArtistBubble(item, onOpenItem) }
+        }
+    }
+}
+
+@Composable
+private fun ArtistInfoSection(title: String, description: String?, modifier: Modifier) {
+    val metrics = LocalHomeReferenceMetrics.current
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(metrics.px(12f))) {
+        InfoPanel("About $title", description ?: "No biography is available from the provider for this artist.", metrics.px(170f))
+        InfoPanel("On Tour", "No verified upcoming tour data is available in OmniTune.", metrics.px(76f))
     }
 }
 
@@ -413,7 +475,7 @@ private fun InfoPanel(title: String, body: String, height: androidx.compose.ui.u
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .height(height)
+            .heightIn(min = height)
             .clip(RoundedCornerShape(metrics.px(8f)))
             .background(OmniReferenceColors.SurfaceBase.copy(alpha = 0.76f))
             .border(1.dp, BorderLow.copy(alpha = 0.65f), RoundedCornerShape(metrics.px(8f)))
