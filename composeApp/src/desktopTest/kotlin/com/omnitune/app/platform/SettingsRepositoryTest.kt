@@ -49,6 +49,7 @@ class SettingsRepositoryTest {
         repo.appearanceTheme = "aurora"
         repo.reduceMotionEnabled = true
         repo.miniPlayerAlwaysOnTop = false
+        repo.volume = 37
         repo.downloadQualityMode = DownloadQualityMode.PREFER_HIGH
         repo.pinnedLibraryCollectionIds = setOf("favorites", "downloads")
         repo.flush()
@@ -58,6 +59,7 @@ class SettingsRepositoryTest {
         assertEquals("aurora", restored.appearanceTheme)
         assertTrue(restored.reduceMotionEnabled)
         assertFalse(restored.miniPlayerAlwaysOnTop)
+        assertEquals(37, restored.volume)
         assertEquals(DownloadQualityMode.PREFER_HIGH, restored.downloadQualityMode)
         assertEquals(setOf("favorites", "downloads"), restored.pinnedLibraryCollectionIds)
     }

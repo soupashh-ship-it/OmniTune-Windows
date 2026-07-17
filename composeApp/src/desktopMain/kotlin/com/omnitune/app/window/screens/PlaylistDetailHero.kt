@@ -119,10 +119,13 @@ internal fun PlaylistHero(
 ) {
     val metrics = LocalHomeReferenceMetrics.current
     var moreOpen by remember { mutableStateOf(false) }
+    val expandedHero = coverSize >= metrics.px(280f)
+    val titleSize = if (expandedHero) 40.sp else if (coverSize >= metrics.px(220f)) 34.sp else 28.sp
+    val titleLineHeight = if (expandedHero) 48.sp else if (coverSize >= metrics.px(220f)) 42.sp else 34.sp
     Column {
         Text("Playlists  ›  ${playlist.title}", color = TextSecondary, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Spacer(Modifier.height(metrics.px(10f)))
-        Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(22f))) {
+        Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(if (expandedHero) 28f else 22f))) {
             AsyncImage(
                 model = localPlaylist?.coverPath ?: playlist.thumbnail?.toHighResThumbnail(),
                 contentDescription = playlist.title,
@@ -136,9 +139,9 @@ internal fun PlaylistHero(
             Column(Modifier.weight(1f).padding(top = metrics.px(8f))) {
                 Text(if (editable) "PLAYLIST" else "PROVIDER PLAYLIST", color = TextSecondary, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(metrics.px(8f)))
-                Text(playlist.title, color = TextPrimary, fontSize = 32.sp, lineHeight = 42.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(playlist.title, color = TextPrimary, fontSize = titleSize, lineHeight = titleLineHeight, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(metrics.px(8f)))
-                Text(description, color = TextSecondary, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(description, color = TextSecondary, fontSize = 12.sp, lineHeight = 17.sp, maxLines = if (expandedHero) 3 else 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(metrics.px(8f)))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Created by ${playlist.author?.name ?: "OmniTune"}", color = TextSecondary, fontSize = 11.sp)
@@ -153,26 +156,34 @@ internal fun PlaylistHero(
                 }
                 Spacer(Modifier.height(metrics.px(18f)))
                 Row(horizontalArrangement = Arrangement.spacedBy(metrics.px(10f)), verticalAlignment = Alignment.CenterVertically) {
-                    ReferencePrimaryButton("Play", Icons.Default.PlayArrow, onPlay, Modifier.width(metrics.px(86f)).height(metrics.px(32f)))
-                    ReferenceSecondaryButton("Shuffle", Icons.Default.Shuffle, onShuffle, Modifier.width(metrics.px(98f)).height(metrics.px(32f)))
-                    RoundAction(Icons.Default.FavoriteBorder, onSave)
+                    ReferencePrimaryButton("Play", Icons.Default.PlayArrow, onPlay, Modifier.width(metrics.px(92f)).height(metrics.px(35f)))
+                    ReferenceSecondaryButton("Shuffle", Icons.Default.Shuffle, onShuffle, Modifier.width(metrics.px(104f)).height(metrics.px(35f)))
+                    if (!editable) RoundAction(Icons.Default.FavoriteBorder, onSave)
                     RoundAction(Icons.Default.Download, onDownload)
-                    if (editable) RoundAction(Icons.Default.Edit, onEdit)
-                    else {
-                        Box {
-                            RoundAction(Icons.Default.MoreHoriz) { moreOpen = true }
-                            DropdownMenu(
-                                expanded = moreOpen,
-                                onDismissRequest = { moreOpen = false },
-                                modifier = Modifier
-                                    .width(metrics.px(160f))
-                                    .clip(RoundedCornerShape(metrics.px(10f)))
-                                    .border(1.dp, BorderLow.copy(alpha = 0.72f), RoundedCornerShape(metrics.px(10f)))
-                                    .background(Color(0xF20E1221)),
-                                containerColor = Color(0xF20E1221),
-                                tonalElevation = 0.dp,
-                                shadowElevation = 12.dp,
-                            ) {
+                    Box {
+                        RoundAction(Icons.Default.MoreHoriz) { moreOpen = true }
+                        DropdownMenu(
+                            expanded = moreOpen,
+                            onDismissRequest = { moreOpen = false },
+                            modifier = Modifier
+                                .width(metrics.px(178f))
+                                .clip(RoundedCornerShape(metrics.px(10f)))
+                                .border(1.dp, BorderLow.copy(alpha = 0.72f), RoundedCornerShape(metrics.px(10f)))
+                                .background(Color(0xF20E1221)),
+                            containerColor = Color(0xF20E1221),
+                            tonalElevation = 0.dp,
+                            shadowElevation = 12.dp,
+                        ) {
+                            if (editable) {
+                                PlaylistMenuAction(Icons.Default.Edit, "Edit playlist") {
+                                    moreOpen = false
+                                    onEdit()
+                                }
+                                PlaylistMenuAction(Icons.Default.Download, "Download playlist") {
+                                    moreOpen = false
+                                    onDownload()
+                                }
+                            } else {
                                 PlaylistMenuAction(Icons.Default.FavoriteBorder, "Save as playlist") {
                                     moreOpen = false
                                     onSave()
@@ -318,4 +329,3 @@ internal fun RoundAction(icon: androidx.compose.ui.graphics.vector.ImageVector, 
         Icon(icon, contentDescription = "Playlist action", tint = TextSecondary, modifier = Modifier.size(metrics.px(14f)))
     }
 }
-

@@ -1271,13 +1271,33 @@ object YouTube {
     private val VISITOR_DATA_REGEX = Regex("^Cg[t|s]")
 }
 
-fun String.toHighResThumbnail(): String {
-    if (this.contains("=")) {
-        return this.substringBefore("=") + "=w540-h540-l90-rj"
+fun String.toHighResThumbnail(targetSize: Int = 1080): String {
+    val source = trim()
+    if (!source.startsWith("http://") && !source.startsWith("https://")) return this
+
+    val safeTargetSize = targetSize.coerceIn(540, 1600)
+    val sizeParameter = "=w$safeTargetSize-h$safeTargetSize-l95-rj"
+
+    val sizedGoogleImage = Regex("=w\\d+-h\\d+(?:-[^/?&]*)?")
+    if (sizedGoogleImage.containsMatchIn(source)) {
+        return source.replace(sizedGoogleImage, sizeParameter)
     }
-    if (this.contains("hqdefault.jpg")) {
-        return this.replace("hqdefault.jpg", "maxresdefault.jpg")
+    val squareGoogleImage = Regex("=s\\d+(?:-[^/?&]*)?")
+    if (squareGoogleImage.containsMatchIn(source)) {
+        return source.replace(squareGoogleImage, sizeParameter)
     }
 
-    return this
+    val ytDefaultArtworks = listOf(
+        "hq720.jpg",
+        "sddefault.jpg",
+        "hqdefault.jpg",
+        "mqdefault.jpg",
+        "default.jpg",
+    )
+    val upgradedYoutubeArtwork = ytDefaultArtworks.firstOrNull { source.contains(it) }?.let { current ->
+        source.replace(current, "maxresdefault.jpg")
+    }
+    if (upgradedYoutubeArtwork != null) return upgradedYoutubeArtwork
+
+    return source
 }

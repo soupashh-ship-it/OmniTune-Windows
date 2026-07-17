@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.People
@@ -69,8 +70,8 @@ fun OmniSidebar(
     modifier: Modifier = Modifier,
 ) {
     val motionPolicy = LocalOmniMotionPolicy.current
-    val librarySubScreens = setOf(NavScreen.Playlists, NavScreen.Album, NavScreen.Artist, NavScreen.Search, NavScreen.Downloads, NavScreen.NowPlaying, NavScreen.LikedSongs)
-    var libraryExpanded by remember { mutableStateOf(activeScreen in librarySubScreens || activeScreen == NavScreen.Library) }
+    val librarySubScreens = setOf(NavScreen.Playlists, NavScreen.Album, NavScreen.Artist, NavScreen.Songs, NavScreen.Downloads, NavScreen.NowPlaying, NavScreen.LikedSongs)
+    var libraryExpanded by remember { mutableStateOf(true) }
     var createDialogOpen by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
     var createError by remember { mutableStateOf<String?>(null) }
@@ -135,24 +136,22 @@ fun OmniSidebar(
                     .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(vertical = 10.dp, horizontal = 0.dp)
+                    .padding(vertical = 18.dp, horizontal = 0.dp)
             ) {
             // ── Brand ──────────────────────────────────────────────────────────
             Row(
-                modifier = Modifier.padding(start = 16.dp, end = 10.dp, top = 13.dp, bottom = 1.dp).fillMaxWidth(),
+                modifier = Modifier.padding(start = 23.dp, end = 18.dp, top = 2.dp, bottom = 17.dp).fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Image(
                     painter = omniTuneIconPainter(),
                     contentDescription = "OmniTune",
-                    modifier = Modifier.size(28.dp).clip(CircleShape),
+                    modifier = Modifier.size(30.dp).clip(CircleShape),
                     contentScale = ContentScale.Crop,
                 )
                 Spacer(Modifier.width(12.dp))
-                Text("OmniTune", style = MaterialTheme.typography.titleLarge, color = Color(0xFFD7DBEE), fontWeight = FontWeight.Medium, fontSize = 18.sp)
+                Text("OmniTune", style = MaterialTheme.typography.titleLarge, color = Color(0xFFF7F4EE), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             }
-
-            Spacer(Modifier.height(4.dp))
 
             // ── Primary Nav: Home, Browse, Radio ──────────────────────────────
             NavItem(
@@ -162,15 +161,15 @@ fun OmniSidebar(
                 onClick = { onNavigate(NavScreen.Home) },
                 modifier = Modifier.testTag("omni.sidebar.home"),
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(3.dp))
             NavItem(
-                icon = Icons.Default.Search,
+                icon = Icons.Default.GridView,
                 label = "Browse",
                 isActive = activeScreen == NavScreen.Browse,
                 onClick = { onNavigate(NavScreen.Browse) },
                 modifier = Modifier.testTag("omni.sidebar.browse"),
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(3.dp))
             NavItem(
                 icon = Icons.Default.Radio,
                 label = "Radio",
@@ -178,7 +177,7 @@ fun OmniSidebar(
                 onClick = { onNavigate(NavScreen.Radio) },
                 modifier = Modifier.testTag("omni.sidebar.radio"),
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(3.dp))
 
             // ── Library (collapsible) ─────────────────────────────────────────
             LibraryHeader(
@@ -217,11 +216,11 @@ fun OmniSidebar(
                 Row(
                     modifier = Modifier
                         .height(androidx.compose.foundation.layout.IntrinsicSize.Min)
-                        .padding(top = 4.dp)
+                        .padding(top = 7.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .width(36.dp)
+                            .width(41.dp)
                             .fillMaxHeight(),
                         contentAlignment = Alignment.TopCenter
                     ) {
@@ -230,44 +229,53 @@ fun OmniSidebar(
                                 .width(1.dp)
                                 .fillMaxHeight()
                                 .background(
-                                    Color(0xFF465276).copy(alpha = 0.55f)
+                                    Color(0xFF415072).copy(alpha = 0.42f)
                                 )
                         )
                     }
 
                     Column(
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
                     ) {
                         LibrarySubItem(label = "Playlists", isActive = activeScreen == NavScreen.Playlists, modifier = Modifier.testTag("omni.sidebar.library.playlists")) { onNavigate(NavScreen.Playlists) }
                         LibrarySubItem(label = "Albums", isActive = activeScreen == NavScreen.Album, modifier = Modifier.testTag("omni.sidebar.library.albums")) { onNavigate(NavScreen.Album) }
                         LibrarySubItem(label = "Artists", isActive = activeScreen == NavScreen.Artist, modifier = Modifier.testTag("omni.sidebar.library.artists")) { onNavigate(NavScreen.Artist) }
-                        LibrarySubItem(label = "Songs", isActive = activeScreen == NavScreen.Search, modifier = Modifier.testTag("omni.sidebar.library.songs")) { onNavigate(NavScreen.Search) }
+                        LibrarySubItem(label = "Songs", isActive = activeScreen == NavScreen.Songs, modifier = Modifier.testTag("omni.sidebar.library.songs")) { onNavigate(NavScreen.Songs) }
                         LibrarySubItem(label = "Downloads", isActive = activeScreen == NavScreen.Downloads, modifier = Modifier.testTag("omni.sidebar.library.downloads")) { onNavigate(NavScreen.Downloads) }
                     }
                 }
             }
 
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(15.dp))
+
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 25.dp, end = 29.dp),
+                color = Color(0xFF56617E).copy(alpha = 0.28f),
+                thickness = 1.dp,
+            )
+
+            Spacer(Modifier.height(12.dp))
 
             // ── Your Playlists ────────────────────────────────────────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 4.dp),
+                    .padding(start = 25.dp, end = 29.dp, top = 0.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
                     "Your Playlists",
                     style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted,
+                    color = Color(0xFFB7B9C9),
                     fontWeight = FontWeight.Medium,
-                    letterSpacing = 0.5.sp,
+                    fontSize = 13.sp,
+                    letterSpacing = 0.sp,
                 )
                 Box(
                     modifier = Modifier
-                        .size(20.dp)
+                        .size(22.dp)
                         .clip(CircleShape)
                         .clickable {
                             createError = null
@@ -276,11 +284,9 @@ fun OmniSidebar(
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add Playlist", tint = TextMuted, modifier = Modifier.size(14.dp))
+                    Icon(Icons.Default.Add, contentDescription = "Add Playlist", tint = Color(0xFFB7B9C9), modifier = Modifier.size(18.dp))
                 }
             }
-
-            Spacer(Modifier.height(4.dp))
 
             savedPlaylists.take(4).forEachIndexed { index, playlist ->
                 PlaylistItem(
@@ -296,6 +302,7 @@ fun OmniSidebar(
                 label = "Liked Songs",
                 icon = Icons.Default.Favorite,
                 isActive = activeScreen == NavScreen.LikedSongs,
+                likedSongs = true,
                 onClick = { onNavigate(NavScreen.LikedSongs) }
             )
 

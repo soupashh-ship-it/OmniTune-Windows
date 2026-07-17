@@ -30,8 +30,8 @@ class OmniResponsiveLayoutTest {
 
     @Test
     fun safeContentWidthSubtractsShellAndPaddingInDp() {
-        assertEquals(831f, OmniResponsiveLayout.safeContentWidth(1187f))
-        assertEquals(1550f, OmniResponsiveLayout.safeContentWidth(1906f))
+        assertEquals(828f, OmniResponsiveLayout.safeContentWidth(1187f))
+        assertEquals(1547f, OmniResponsiveLayout.safeContentWidth(1906f))
         assertEquals(0f, OmniResponsiveLayout.safeContentWidth(300f))
     }
 

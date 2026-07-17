@@ -119,6 +119,7 @@ fun SettingsView() {
         settings.downloadQualityMode = downloadQuality
         settings.globalShortcutsEnabled = globalShortcuts
         settings.productUpdateNotifications = productUpdates
+        player.setVolume(volume)
         settings.flush()
         statusMessage = "Defaults restored"
     }
@@ -192,8 +193,7 @@ fun SettingsView() {
                     value = volume.toFloat(),
                     onValueChange = {
                         volume = it.toInt()
-                        settings.volume = volume
-                        settings.flush()
+                        player.setVolume(volume)
                     },
                     valueRange = 0f..200f,
                     modifier = Modifier.weight(1f).padding(horizontal = metrics.px(6f)).height(metrics.px(24f)),

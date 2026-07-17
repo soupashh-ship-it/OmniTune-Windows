@@ -91,11 +91,13 @@ fun WindowScope.OmniWindow(
             "browse" -> player.navigateTo(NavScreen.Browse).also { qaRouteApplied = true }
             "radio" -> player.navigateTo(NavScreen.Radio).also { qaRouteApplied = true }
             "library" -> player.navigateTo(NavScreen.Library).also { qaRouteApplied = true }
+            "songs" -> player.navigateTo(NavScreen.Songs).also { qaRouteApplied = true }
             "liked", "likedsongs" -> player.navigateTo(NavScreen.LikedSongs).also { qaRouteApplied = true }
             "search" -> player.navigateTo(NavScreen.Search).also { qaRouteApplied = true }
             "queue" -> player.navigateTo(NavScreen.Queue).also { qaRouteApplied = true }
             "settings" -> player.navigateTo(NavScreen.Settings).also { qaRouteApplied = true }
             "downloads" -> player.navigateTo(NavScreen.Downloads).also { qaRouteApplied = true }
+            "playlists" -> player.navigateTo(NavScreen.Playlists).also { qaRouteApplied = true }
             "playlist" -> {
                 val qaPlaylistState = QaRuntime.playlistState
                 val savedForState = if (qaPlaylistState in setOf("expanded", "menu", "add", "edit")) {
@@ -246,7 +248,7 @@ fun WindowScope.OmniWindow(
             val metrics = rememberHomeReferenceMetrics(maxWidth)
             CompositionLocalProvider(LocalHomeReferenceMetrics provides metrics) {
                 val motionPolicy = LocalOmniMotionPolicy.current
-                val sidebarWidth = metrics.px(HomeReferenceSpec.SidebarWidth)
+                val sidebarWidth = OmniResponsiveLayout.DefaultSidebarWidthDp.dp
                 val topBarHeight = metrics.px(HomeReferenceSpec.TopBarHeight)
                 val playerHeight = metrics.px(HomeReferenceSpec.PlayerHeight)
                 val playerBottomInset = metrics.px(HomeReferenceSpec.PlayerBottomMargin)
@@ -350,6 +352,7 @@ fun WindowScope.OmniWindow(
                                 NavScreen.Browse -> BrowseView(player)
                                 NavScreen.Radio -> RadioView(player)
                                 NavScreen.Library -> LibraryView(player)
+                                NavScreen.Songs -> LibraryView(player)
                                 NavScreen.LikedSongs -> LikedSongsView(player)
                                 NavScreen.Search -> SearchView(
                                     player,

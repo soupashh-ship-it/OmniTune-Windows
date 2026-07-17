@@ -51,6 +51,10 @@ class VlcjAudioEngine(
     var onTrackFinished: (() -> Unit)? = null
 
     private var pollJob: Job? = null
+    private var volumeJob: Job? = null
+    private var seekJob: Job? = null
+    @Volatile
+    private var desiredVolume: Int = 100
     private val releaseCoordinator = ReleaseCoordinator()
     @Volatile
     private var isReleased = false
@@ -78,6 +82,8 @@ class VlcjAudioEngine(
         isReleased = true
         try {
             pollJob?.cancel()
+            volumeJob?.cancel()
+            seekJob?.cancel()
             onTrackFinished = null
             runCatching { player.controls().stop() }
             player.release()
@@ -166,6 +172,9 @@ class VlcjAudioEngine(
             if (releaseCoordinator.releaseRequested) return@launch
             isErrorState = false
             _error.value = null
+            seekJob?.cancel()
+            seekJob = null
+            player.audio().setVolume(desiredVolume.coerceIn(0, 200))
             player.media().play(url)
         }
     }
@@ -197,7 +206,8 @@ class VlcjAudioEngine(
 
     fun seek(timeMs: Long) {
         if (releaseCoordinator.releaseRequested) return
-        scope.launch(vlcDispatcher) {
+        seekJob?.cancel()
+        seekJob = scope.launch(vlcDispatcher) {
             if (releaseCoordinator.releaseRequested) return@launch
             player.controls().setTime(clampSeekTarget(timeMs, player.status().length()))
         }
@@ -216,9 +226,11 @@ class VlcjAudioEngine(
 
     fun setVolume(vol: Int) {
         if (releaseCoordinator.releaseRequested) return
-        scope.launch(vlcDispatcher) {
+        desiredVolume = vol.coerceIn(0, 200)
+        volumeJob?.cancel()
+        volumeJob = scope.launch(vlcDispatcher) {
             if (releaseCoordinator.releaseRequested) return@launch
-            player.audio().setVolume(vol.coerceIn(0, 200))
+            player.audio().setVolume(desiredVolume)
         }
     }
 

@@ -1,15 +1,16 @@
 package com.omnitune.app.window
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.animation.animateColorAsState
@@ -21,14 +22,14 @@ import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 import com.omnitune.app.window.components.OmniIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
@@ -145,10 +146,10 @@ fun OmniTopBar(
                 Spacer(Modifier.width(8.dp))
                 Icon(Icons.Default.ExpandMore, contentDescription = "More", tint = TextSecondary, modifier = Modifier.size(20.dp))
             }
-            Spacer(Modifier.width(24.dp))
-            WindowControlButton("—", onMinimize)
-            WindowControlButton("□", onMaximize)
-            WindowControlButton("✕", onClose)
+            Spacer(Modifier.width(20.dp))
+            WindowControlButton(WindowControlGlyph.Minimize, onMinimize)
+            WindowControlButton(WindowControlGlyph.Maximize, onMaximize)
+            WindowControlButton(WindowControlGlyph.Close, onClose, close = true)
         }
     }
 }
@@ -205,21 +206,84 @@ private fun TargetHeaderNavigationButton(
 }
 
 
+private enum class WindowControlGlyph { Minimize, Maximize, Close }
+
 @Composable
-private fun WindowControlButton(text: String, onClick: () -> Unit) {
+private fun WindowControlButton(glyph: WindowControlGlyph, onClick: () -> Unit, close: Boolean = false) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
+    val background by animateColorAsState(
+        targetValue = when {
+            close && isHovered -> Color(0x22D65A62)
+            isHovered -> Color.White.copy(alpha = 0.045f)
+            else -> Color.Transparent
+        },
+        animationSpec = tween(durationMillis = 110),
+        label = "windowControlBackground",
+    )
+    val strokeColor by animateColorAsState(
+        targetValue = when {
+            close && isHovered -> Color(0xFFE3B3AD)
+            isHovered -> Color(0xFFD7D0C2)
+            else -> Color(0xFFB3AA9A)
+        },
+        animationSpec = tween(durationMillis = 110),
+        label = "windowControlStroke",
+    )
     Box(
         modifier = Modifier
-            .size(32.dp)
-            .clip(CircleShape)
-            .background(if (isHovered) Surface3 else Color.Transparent)
+            .width(40.dp)
+            .height(34.dp)
+            .clip(RoundedCornerShape(2.dp))
+            .background(background)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(text, color = TextSecondary, style = MaterialTheme.typography.labelMedium)
+        Canvas(Modifier.size(16.dp)) {
+            val strokeWidth = 1.35.dp.toPx()
+            val cx = size.width / 2f
+            val cy = size.height / 2f
+            when (glyph) {
+                WindowControlGlyph.Minimize -> {
+                    drawLine(
+                        color = strokeColor,
+                        start = androidx.compose.ui.geometry.Offset(cx - 5.3.dp.toPx(), cy + 0.25.dp.toPx()),
+                        end = androidx.compose.ui.geometry.Offset(cx + 5.3.dp.toPx(), cy + 0.25.dp.toPx()),
+                        strokeWidth = strokeWidth,
+                        cap = StrokeCap.Round,
+                    )
+                }
+                WindowControlGlyph.Maximize -> {
+                    val side = 10.5.dp.toPx()
+                    drawRoundRect(
+                        color = strokeColor,
+                        topLeft = androidx.compose.ui.geometry.Offset(cx - side / 2f, cy - side / 2f),
+                        size = Size(side, side),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(1.8.dp.toPx(), 1.8.dp.toPx()),
+                        style = Stroke(width = strokeWidth),
+                    )
+                }
+                WindowControlGlyph.Close -> {
+                    val d = 5.0.dp.toPx()
+                    drawLine(
+                        color = strokeColor,
+                        start = androidx.compose.ui.geometry.Offset(cx - d, cy - d),
+                        end = androidx.compose.ui.geometry.Offset(cx + d, cy + d),
+                        strokeWidth = strokeWidth,
+                        cap = StrokeCap.Round,
+                    )
+                    drawLine(
+                        color = strokeColor,
+                        start = androidx.compose.ui.geometry.Offset(cx + d, cy - d),
+                        end = androidx.compose.ui.geometry.Offset(cx - d, cy + d),
+                        strokeWidth = strokeWidth,
+                        cap = StrokeCap.Round,
+                    )
+                }
+            }
+        }
     }
-    }
+}
 
 @Composable
 private fun HeaderNavigationButton(

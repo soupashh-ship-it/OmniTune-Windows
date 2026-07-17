@@ -165,7 +165,9 @@ internal fun PlaylistTrackRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(metrics.px(34f)), contentAlignment = Alignment.CenterStart) {
-            if (editable) {
+            if (playing) Icon(Icons.Default.GraphicEq, null, tint = IrisSoft, modifier = Modifier.size(metrics.px(13f)))
+            else if (active) Icon(Icons.Default.PlayArrow, null, tint = IrisSoft, modifier = Modifier.size(metrics.px(13f)))
+            else if (editable) {
                 Icon(
                     Icons.Default.DragIndicator,
                     contentDescription = "Drag to reorder",
@@ -190,9 +192,7 @@ internal fun PlaylistTrackRow(
                             }
                         },
                 )
-            } else if (playing) Icon(Icons.Default.GraphicEq, null, tint = IrisSoft, modifier = Modifier.size(metrics.px(13f)))
-            else if (active) Icon(Icons.Default.PlayArrow, null, tint = IrisSoft, modifier = Modifier.size(metrics.px(13f)))
-            else Text("${index + 1}", color = TextSecondary, fontSize = 9.sp)
+            } else Text("${index + 1}", color = TextSecondary, fontSize = 9.sp)
         }
         AsyncImage(song.thumbnail.toHighResThumbnail(), song.title, Modifier.size(metrics.px(25f)).clip(RoundedCornerShape(metrics.px(4f))).clickable(onClick = onPlay), contentScale = ContentScale.Crop)
         Spacer(Modifier.width(metrics.px(8f)))
@@ -372,4 +372,3 @@ internal fun ExpandedPlaylistTrack(
         }
     }
 }
-

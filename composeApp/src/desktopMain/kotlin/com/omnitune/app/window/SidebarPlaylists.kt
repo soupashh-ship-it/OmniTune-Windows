@@ -33,29 +33,41 @@ internal fun PlaylistItem(
     isActive: Boolean,
     icon: ImageVector? = null,
     thumbnail: String? = null,
+    likedSongs: Boolean = false,
     onClick: () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isHovered by interactionSource.collectIsHoveredAsState()
 
-    val bgHover = Color.White.copy(alpha = 0.04f)
+    val bgHover = Color.White.copy(alpha = 0.045f)
+    val rowShape = RoundedCornerShape(7.dp)
+    val activeBackground = androidx.compose.ui.graphics.Brush.horizontalGradient(
+        listOf(Color(0xFF321770), Color(0xFF4B22C8), Color(0xFF321A9A))
+    )
 
     Row(
         modifier = Modifier
+            .padding(start = 15.dp, end = 20.dp, bottom = if (likedSongs) 0.dp else 8.dp)
             .fillMaxWidth()
-            .height(30.dp)
-            .clip(RoundedCornerShape(6.dp))
-            .background(if (isActive || isHovered) bgHover else Color.Transparent)
+            .height(if (likedSongs) 41.dp else 32.dp)
+            .clip(rowShape)
+            .then(
+                when {
+                    likedSongs -> Modifier.background(activeBackground)
+                    isActive || isHovered -> Modifier.background(bgHover)
+                    else -> Modifier
+                }
+            )
             .hoverable(interactionSource)
             .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
-            .padding(horizontal = 8.dp),
+            .padding(start = if (likedSongs) 10.dp else 0.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Thumbnail placeholder (gradient box)
         Box(
             modifier = Modifier
-                .size(22.dp)
-                .clip(RoundedCornerShape(6.dp))
+                .size(if (likedSongs) 31.dp else 25.dp)
+                .clip(RoundedCornerShape(if (likedSongs) 7.dp else 5.dp))
                 .background(androidx.compose.ui.graphics.Brush.linearGradient(gradientColors)),
             contentAlignment = Alignment.Center,
         ) {
@@ -67,15 +79,15 @@ internal fun PlaylistItem(
                     contentScale = ContentScale.Crop,
                 )
             } else if (icon != null) {
-                Icon(icon, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(16.dp))
+                Icon(icon, null, tint = Color.White.copy(alpha = 0.94f), modifier = Modifier.size(if (likedSongs) 18.dp else 16.dp))
             }
         }
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(14.dp))
         Text(
             label,
-            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.5.sp),
-            color = if (isActive) Color(0xFFF4F3FA) else Color(0xFFA9AEC2),
-            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
+            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 15.sp),
+            color = if (isActive || likedSongs) Color(0xFFF4F0E8) else Color(0xFFE8E3DA).copy(alpha = 0.92f),
+            fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
         )

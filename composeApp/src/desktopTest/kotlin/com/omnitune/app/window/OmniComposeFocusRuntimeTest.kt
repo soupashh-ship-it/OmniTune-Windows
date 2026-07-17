@@ -320,7 +320,7 @@ class OmniComposeFocusRuntimeTest {
     }
 
     @Test
-    fun productionSidebarLibrarySubmenuAppearsOnlyWhenExpanded() {
+    fun productionSidebarLibrarySubmenuIsExpandedByDefault() {
         rule.setContent {
             OmniTuneTheme {
                 OmniSidebar(
@@ -339,8 +339,7 @@ class OmniComposeFocusRuntimeTest {
             }
         }
 
-        rule.onAllNodesWithTag("omni.sidebar.library.playlists").assertCountEquals(0)
-        rule.onNodeWithTag("omni.sidebar.library").performClick()
+        rule.onAllNodesWithTag("omni.sidebar.library.playlists").assertCountEquals(1)
         rule.onNodeWithTag("omni.sidebar.library.playlists").performClick()
     }
 

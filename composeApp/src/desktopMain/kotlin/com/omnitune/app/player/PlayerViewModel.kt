@@ -23,12 +23,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.coroutines.CoroutineContext
 
 enum class NavScreen {
-    Home, Browse, Radio, Library, LikedSongs, Search, NowPlaying, Queue, Playlists, Settings,
+    Home, Browse, Radio, Library, Songs, LikedSongs, Search, NowPlaying, Queue, Playlists, Settings,
     Artist, Album, Downloads, PlaylistDetail
 }
 
@@ -82,6 +83,7 @@ class PlayerViewModel(
 
     private val _currentSong = MutableStateFlow<SongItem?>(null)
     val currentSong: StateFlow<SongItem?> = _currentSong.asStateFlow()
+    private var volumePersistenceJob: Job? = null
 
     private val _streamUrl = MutableStateFlow<String?>(null)
     val streamUrl: StateFlow<String?> = _streamUrl.asStateFlow()
@@ -191,6 +193,7 @@ class PlayerViewModel(
 
     init {
         audioEngine.onTrackFinished = { onTrackFinished() }
+        audioEngine.setVolume(_volume.value)
         loadDiscoveryData()
     }
 
@@ -677,7 +680,11 @@ class PlayerViewModel(
     fun setVolume(vol: Int) {
         _volume.value = vol.coerceIn(0, 200)
         settings.volume = _volume.value
-        settings.flush()
+        volumePersistenceJob?.cancel()
+        volumePersistenceJob = launch {
+            delay(250)
+            runCatching { settings.flush() }
+        }
         audioEngine.setVolume(_volume.value)
     }
 }

@@ -103,7 +103,7 @@ private fun CompactSongCard(item: SongItem, player: PlayerViewModel, currentSong
 // ---------------------------------------------------------------------------
 
 @Composable
-fun BrowseView(player: PlayerViewModel) {
+private fun LegacyBrowseView(player: PlayerViewModel) {
     val service = koinInject<YouTubeService>()
     var explorePage by remember { mutableStateOf<ExplorePage?>(null) }
     var chartsPage by remember { mutableStateOf<ChartsPage?>(null) }

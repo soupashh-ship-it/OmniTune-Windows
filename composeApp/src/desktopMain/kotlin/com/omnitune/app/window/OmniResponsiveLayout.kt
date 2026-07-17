@@ -8,7 +8,7 @@ enum class OmniDesktopSizeClass {
 }
 
 object OmniResponsiveLayout {
-    const val DefaultSidebarWidthDp: Float = 260f
+    const val DefaultSidebarWidthDp: Float = 263f
     const val DefaultPageHorizontalPaddingDp: Float = 48f
 
     fun safeContentWidth(

@@ -24,7 +24,7 @@ data class HomeReferenceMetrics(
 fun rememberHomeReferenceMetrics(availableWidth: Dp): HomeReferenceMetrics {
     val density = LocalDensity.current
     val availableWidthPx = with(density) { availableWidth.toPx() }
-    val scale = availableWidthPx / HOME_REFERENCE_WIDTH_PX
+    val scale = (availableWidthPx / HOME_REFERENCE_WIDTH_PX).coerceIn(0.88f, 1f)
 
     return remember(availableWidthPx, density) {
         HomeReferenceMetrics(scale = scale, density = density)
@@ -39,7 +39,7 @@ internal object HomeReferenceSpec {
     const val CanvasWidth = 1142f
     const val CanvasHeight = 654f
 
-    const val SidebarWidth = 180f
+    const val SidebarWidth = 263f
 
     const val TopBarX = 181f
     const val TopBarHeight = 49f

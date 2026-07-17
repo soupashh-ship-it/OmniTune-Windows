@@ -84,6 +84,7 @@ import com.omnitune.app.service.YouTubeService
 import com.omnitune.app.window.BorderLow
 import com.omnitune.app.window.IrisSoft
 import com.omnitune.app.window.LocalHomeReferenceMetrics
+import com.omnitune.app.window.OmniDesktopSizeClass
 import com.omnitune.app.window.OmniResponsiveLayout
 import com.omnitune.app.window.OmniGradients
 import com.omnitune.app.window.OmniReferenceColors
@@ -241,9 +242,15 @@ private fun PlaylistDetailReferenceContent(
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
+        val sizeClass = OmniResponsiveLayout.sizeClassForContentWidth(maxWidth.value)
         val showRail = OmniResponsiveLayout.shouldShowRightRail(maxWidth.value)
-        val railWidth = if (showRail) metrics.px(235f) else 0.dp
-        val coverSize = if (maxWidth < 1040.dp) metrics.px(150f) else metrics.px(220f)
+        val railWidth = if (showRail) metrics.px(if (sizeClass == OmniDesktopSizeClass.Large) 265f else 235f) else 0.dp
+        val coverSize = when (sizeClass) {
+            OmniDesktopSizeClass.Large -> metrics.px(300f)
+            OmniDesktopSizeClass.Expanded -> metrics.px(232f)
+            OmniDesktopSizeClass.Medium -> metrics.px(180f)
+            OmniDesktopSizeClass.Compact -> metrics.px(150f)
+        }
 
         Row(
             modifier = Modifier.fillMaxSize().padding(start = metrics.px(18f), top = metrics.px(14f), end = metrics.px(18f)),
