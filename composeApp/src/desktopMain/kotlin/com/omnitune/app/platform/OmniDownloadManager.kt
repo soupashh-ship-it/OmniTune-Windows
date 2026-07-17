@@ -138,7 +138,15 @@ class FileBackedOmniDownloadManager(
     private val activeJobs = ConcurrentHashMap<String, Job>()
     private val indexFile = File(platform.appDataDir, "downloads-index.json")
     private val downloadDir = platform.downloadsDir
-    private val localDatabase = OmniLocalDatabase(File(platform.databasePath))
+    private val localDatabase = runCatching { OmniLocalDatabase(File(platform.databasePath)) }
+        .onFailure {
+            OmniLogger.error(
+                "Downloads",
+                "SQLite download persistence is unavailable; falling back to JSON index persistence.",
+                it,
+            )
+        }
+        .getOrNull()
 
     private val _tasks = MutableStateFlow<List<DownloadTask>>(restoreTasks())
     override val tasks: StateFlow<List<DownloadTask>> = _tasks.asStateFlow()
@@ -346,14 +354,15 @@ class FileBackedOmniDownloadManager(
     }
 
     private fun restoreTasks(): List<DownloadTask> {
-        val restored = if (localDatabase.isMigrated(DOWNLOADS_DOMAIN)) {
-            runCatching { localDatabase.readDownloads() }
+        val database = localDatabase
+        val restored = if (database?.isMigrated(DOWNLOADS_DOMAIN) == true) {
+            runCatching { database.readDownloads() }
                 .onFailure { OmniLogger.error("Downloads", "Failed to read downloads from SQLite; falling back to JSON index.", it) }
                 .getOrElse { readTasksFromJsonIndex() }
         } else {
             readTasksFromJsonIndex().also {
-                localDatabase.replaceDownloads(it)
-                localDatabase.markMigrated(DOWNLOADS_DOMAIN)
+                database?.replaceDownloads(it)
+                database?.markMigrated(DOWNLOADS_DOMAIN)
             }
         }
 
@@ -421,8 +430,8 @@ class FileBackedOmniDownloadManager(
         val array = JSONArray()
         tasks.forEach { array.put(it.toJson()) }
         AtomicFileStore.writeText(indexFile, array.toString())
-        localDatabase.replaceDownloads(tasks)
-        localDatabase.markMigrated(DOWNLOADS_DOMAIN)
+        localDatabase?.replaceDownloads(tasks)
+        localDatabase?.markMigrated(DOWNLOADS_DOMAIN)
     }
 
     private fun preserveCorruptIndex() {

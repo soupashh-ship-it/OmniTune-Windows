@@ -185,6 +185,8 @@ compose.desktop {
             packageVersion = omniTuneVersion
             description = "Open-source YouTube music player for Windows"
             vendor = "OmniTune"
+            modules("java.sql")
+            includeAllModules = true
 
             windows {
                 console = false

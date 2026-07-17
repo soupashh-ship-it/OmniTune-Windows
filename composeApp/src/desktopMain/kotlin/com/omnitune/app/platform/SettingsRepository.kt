@@ -47,7 +47,17 @@ class SettingsRepository(
 ) {
 
     private val jsonStore = JsonFileStore(prefs, platformContext)
-    private val localDatabase = platformContext?.let { OmniLocalDatabase(java.io.File(it.databasePath)) }
+    private val localDatabase = platformContext?.let { context ->
+        runCatching { OmniLocalDatabase(java.io.File(context.databasePath)) }
+            .onFailure {
+                OmniLogger.error(
+                    "Settings",
+                    "SQLite persistence is unavailable; falling back to JSON-backed persistence.",
+                    it,
+                )
+            }
+            .getOrNull()
+    }
     private val settingsPreferences = SettingsPreferences(prefs)
     private val libraryPreferences = LibraryPreferences(prefs)
     private val likedSongsPersistence = LikedSongsPersistence(prefs, jsonStore, localDatabase)

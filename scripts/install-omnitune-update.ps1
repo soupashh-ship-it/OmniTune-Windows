@@ -97,7 +97,7 @@ if ($Passive -and $installerFile.Extension -ieq ".msi") {
 
 if ($ExpectedVersion.Trim()) {
     & (Join-Path (Split-Path -Parent $MyInvocation.MyCommand.Path) "verify-installed-omnitune.ps1") -ExpectedVersion $ExpectedVersion -FailOnMismatch
-    if ($LASTEXITCODE -ne 0) {
+    if (-not $?) {
         throw "Installed OmniTune verification failed for expected version $ExpectedVersion."
     }
 }
